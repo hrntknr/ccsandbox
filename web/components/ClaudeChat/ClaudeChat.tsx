@@ -81,7 +81,6 @@ export function ClaudeChat({
   const bottomAreaRef = useRef<HTMLDivElement>(null);
   const historyLoadedRef = useRef(false);
   const isAtBottomRef = useRef(true);
-  const userScrolledRef = useRef(false);
 
   // Handle incoming events
   useEffect(() => {
@@ -267,9 +266,14 @@ export function ClaudeChat({
     return scrollHeight - scrollTop - clientHeight < threshold;
   }, []);
 
-  // Scroll to bottom helper
+  // Scroll to bottom helper - use scrollTo for precise bottom positioning
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
-    messagesEndRef.current?.scrollIntoView({ behavior });
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior,
+    });
   }, []);
 
   // Track scroll position to detect if user is at bottom
@@ -278,36 +282,27 @@ export function ClaudeChat({
     if (!container) return;
 
     const handleScroll = () => {
-      const atBottom = checkIsAtBottom();
-      isAtBottomRef.current = atBottom;
-
-      // If user scrolled up, mark as user-initiated scroll
-      if (!atBottom) {
-        userScrolledRef.current = true;
-      } else {
-        userScrolledRef.current = false;
-      }
+      isAtBottomRef.current = checkIsAtBottom();
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
   }, [checkIsAtBottom]);
 
-  // Auto-scroll on new content only if user was at bottom
+  // Auto-scroll on streaming content only if at bottom
   useEffect(() => {
     if (!isActive) return;
 
-    // Always scroll on streaming content if at bottom
-    if (isAtBottomRef.current || !userScrolledRef.current) {
+    if (isAtBottomRef.current) {
       scrollToBottom('smooth');
     }
   }, [streamingContent, isActive, scrollToBottom]);
 
-  // Auto-scroll on new messages only if user was at bottom
+  // Auto-scroll on new messages only if at bottom
   useEffect(() => {
     if (!isActive) return;
 
-    if (isAtBottomRef.current || !userScrolledRef.current) {
+    if (isAtBottomRef.current) {
       scrollToBottom('smooth');
     }
   }, [messages, isActive, scrollToBottom]);
@@ -321,13 +316,25 @@ export function ClaudeChat({
     }
   }, [todos, isActive, scrollToBottom]);
 
-  // Scroll to bottom when tab becomes active (handles both initial load and tab switch)
+  // Auto-scroll when loading starts (e.g., "Claude is thinking...")
   useEffect(() => {
-    if (isActive && messages.length > 0) {
-      // Use instant scroll for tab activation
+    if (!isActive) return;
+
+    if (isLoading && isAtBottomRef.current) {
+      scrollToBottom('smooth');
+    }
+  }, [isLoading, isActive, scrollToBottom]);
+
+  // Scroll to bottom when tab becomes active (handles tab switch only)
+  const prevIsActiveRef = useRef(isActive);
+  useEffect(() => {
+    // Only scroll when tab becomes active (false -> true), not on every message
+    const wasInactive = !prevIsActiveRef.current;
+    prevIsActiveRef.current = isActive;
+
+    if (isActive && wasInactive && messages.length > 0) {
       scrollToBottom('instant');
       isAtBottomRef.current = true;
-      userScrolledRef.current = false;
     }
   }, [isActive, scrollToBottom, messages.length]);
 
@@ -343,9 +350,8 @@ export function ClaudeChat({
       setMessages((prev) => [...prev, userMessage]);
       sendClaudeMessage(content, permissionMode);
 
-      // When user sends a message, reset scroll state to follow new messages
+      // When user sends a message, snap to bottom and follow new messages
       isAtBottomRef.current = true;
-      userScrolledRef.current = false;
       scrollToBottom('smooth');
     },
     [sendClaudeMessage, scrollToBottom]

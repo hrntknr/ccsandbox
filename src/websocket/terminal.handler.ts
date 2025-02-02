@@ -183,7 +183,7 @@ export function createTerminalHandler(
 
       // Step 2: Create terminal or Claude instance in background
       if (tabType === 'claude') {
-        // Get maxThinkingTokens from persisted config
+        // Get settings from persisted config
         const configStore = getConfigStore(config.configDir);
         configStore.read().then((persistedConfig) => {
           return claudeManager.create({
@@ -194,6 +194,7 @@ export function createTerminalHandler(
             configPath: getSessionConfigPath(session, config.configDir),
             remoteEnv: config.pat ? [`GITHUB_TOKEN=${config.pat}`] : undefined,
             maxThinkingTokens: persistedConfig.maxThinkingTokens,
+            permissionMode: persistedConfig.defaultPermissionMode,
           });
         }).then(() => {
           connectionManager.updateTab(sessionId, tabId, {
