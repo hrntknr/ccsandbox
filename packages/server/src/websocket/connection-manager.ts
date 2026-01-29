@@ -49,10 +49,30 @@ export class ConnectionManager {
     const sessionId = this.tabToSession.get(tabId);
     if (!sessionId) return;
 
+    // Notify clients watching this tab about the exit
     this.broadcastToTab(sessionId, tabId, {
       type: 'exit',
       tabId,
       code,
+    } satisfies TerminalServerMessage);
+
+    // Clear currentTabId for all clients watching this tab
+    const room = this.rooms.get(sessionId);
+    if (room) {
+      for (const client of room.clients.values()) {
+        if (client.currentTabId === tabId) {
+          client.currentTabId = null;
+        }
+      }
+    }
+
+    // Remove the tab from the session
+    this.removeTab(sessionId, tabId);
+
+    // Notify all clients in the session that the tab was removed
+    this.broadcast(sessionId, {
+      type: 'tab-removed',
+      tabId,
     } satisfies TerminalServerMessage);
   };
 
