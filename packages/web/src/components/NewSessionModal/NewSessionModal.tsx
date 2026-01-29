@@ -20,7 +20,6 @@ export function NewSessionModal({
   onSessionCreated,
 }: NewSessionModalProps) {
   const [modalState, setModalState] = useState<ModalState>('form');
-  const [title, setTitle] = useState('');
   const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null);
   const [baseBranch, setBaseBranch] = useState('');
   const [workBranch, setWorkBranch] = useState('');
@@ -51,7 +50,6 @@ export function NewSessionModal({
     if (isOpen) {
       fetchRepositories();
       setModalState('form');
-      setTitle('');
       setSelectedRepo(null);
       setBaseBranch('');
       setWorkBranch('');
@@ -154,13 +152,12 @@ export function NewSessionModal({
 
       // Start creation via WebSocket
       create({
-        title: title || undefined,
         repo: selectedRepo.fullName,
         baseBranch,
         workBranch,
       });
     },
-    [title, selectedRepo, baseBranch, workBranch, create]
+    [selectedRepo, baseBranch, workBranch, create]
   );
 
   const handleClose = useCallback(() => {
@@ -209,17 +206,6 @@ export function NewSessionModal({
                 {reposError}
               </div>
             )}
-
-            <div className="form-field">
-              <label htmlFor="title">Title (optional)</label>
-              <input
-                id="title"
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Session title"
-              />
-            </div>
 
             <div className="form-field">
               <label htmlFor="repository">Repository</label>
