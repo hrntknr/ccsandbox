@@ -24,6 +24,7 @@ export function Terminal({
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const historyReceivedRef = useRef(false);
 
   // Initialize terminal
   useEffect(() => {
@@ -84,13 +85,16 @@ export function Terminal({
     return unsubscribe;
   }, [tabId, onOutput]);
 
-  // Handle history
+  // Handle history (only apply once to prevent duplication on tab switch)
   useEffect(() => {
     const terminal = terminalRef.current;
     if (!terminal) return;
 
     const unsubscribe = onHistory(tabId, (data) => {
-      terminal.write(data);
+      if (!historyReceivedRef.current) {
+        historyReceivedRef.current = true;
+        terminal.write(data);
+      }
     });
 
     return unsubscribe;
