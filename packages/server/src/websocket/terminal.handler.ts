@@ -34,6 +34,18 @@ function isValidTitle(title: string): boolean {
 }
 
 /**
+ * Generate a unique tab title that doesn't conflict with existing tabs
+ */
+function generateUniqueTabTitle(existingTabs: TerminalTab[]): string {
+  const existingTitles = new Set(existingTabs.map((tab) => tab.title));
+  let number = 1;
+  while (existingTitles.has(`Terminal ${number}`)) {
+    number++;
+  }
+  return `Terminal ${number}`;
+}
+
+/**
  * Terminal WebSocket handler for a single connection
  */
 export interface TerminalHandler {
@@ -130,7 +142,7 @@ export function createTerminalHandler(
 
       const tabId = uuidv4();
       const existingTabs = connectionManager.getTabs(currentSessionId);
-      const tabTitle = title ?? `Terminal ${existingTabs.length + 1}`;
+      const tabTitle = title ?? generateUniqueTabTitle(existingTabs);
 
       // Create terminal
       await terminalManager.create({
@@ -154,6 +166,7 @@ export function createTerminalHandler(
       connectionManager.broadcast(currentSessionId, {
         type: 'tab-added',
         tab,
+        requesterId: clientId,
       } satisfies TerminalServerMessage);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to add tab';

@@ -23,6 +23,7 @@ export interface UseTerminalWebSocketReturn {
   onOutput: (tabId: string, callback: OutputCallback) => () => void;
   onHistory: (tabId: string, callback: OutputCallback) => () => void;
   onExit: (tabId: string, callback: (code: number) => void) => () => void;
+  onOwnTabAdded: (callback: (tab: TerminalTab) => void) => () => void;
 }
 
 export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSocketReturn {
@@ -35,6 +36,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
   const outputSubscriptionsRef = useRef<OutputSubscription[]>([]);
   const historySubscriptionsRef = useRef<OutputSubscription[]>([]);
   const exitSubscriptionsRef = useRef<{ tabId: string; callback: (code: number) => void }[]>([]);
+  const ownTabAddedSubscriptionsRef = useRef<((tab: TerminalTab) => void)[]>([]);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sendMessage = useCallback((message: TerminalClientMessage) => {
@@ -58,6 +60,12 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
 
         case 'tab-added':
           setTabs((prev) => [...prev, message.tab]);
+          // Notify if this client requested the tab
+          if (message.requesterId === clientIdRef.current) {
+            for (const callback of ownTabAddedSubscriptionsRef.current) {
+              callback(message.tab);
+            }
+          }
           break;
 
         case 'tab-removed':
@@ -128,6 +136,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     outputSubscriptionsRef.current = [];
     historySubscriptionsRef.current = [];
     exitSubscriptionsRef.current = [];
+    ownTabAddedSubscriptionsRef.current = [];
   }, []);
 
   // Connect to WebSocket and join session
@@ -287,6 +296,19 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     []
   );
 
+  const onOwnTabAdded = useCallback(
+    (callback: (tab: TerminalTab) => void): (() => void) => {
+      ownTabAddedSubscriptionsRef.current.push(callback);
+
+      return () => {
+        ownTabAddedSubscriptionsRef.current = ownTabAddedSubscriptionsRef.current.filter(
+          (c) => c !== callback
+        );
+      };
+    },
+    []
+  );
+
   return {
     isConnected,
     tabs,
@@ -299,5 +321,6 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     onOutput,
     onHistory,
     onExit,
+    onOwnTabAdded,
   };
 }
