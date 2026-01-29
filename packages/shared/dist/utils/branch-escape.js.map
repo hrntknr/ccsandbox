@@ -1,1 +1,0 @@
-{"version":3,"file":"branch-escape.js","sourceRoot":"","sources":["../../src/utils/branch-escape.ts"],"names":[],"mappings":"AAAA;;;;;;;;GAQG;AACH,MAAM,UAAU,gBAAgB,CAAC,UAAkB;IACjD,OAAO,UAAU;SACd,OAAO,CAAC,KAAK,EAAE,GAAG,CAAC;SACnB,OAAO,CAAC,kBAAkB,EAAE,GAAG,CAAC;SAChC,OAAO,CAAC,KAAK,EAAE,GAAG,CAAC;SACnB,OAAO,CAAC,UAAU,EAAE,EAAE,CAAC,CAAC;AAC7B,CAAC"}
