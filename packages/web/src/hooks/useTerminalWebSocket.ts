@@ -140,6 +140,16 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     };
   }, [sessionId, sendMessage, handleMessage]);
 
+  // Reset state when session changes
+  useEffect(() => {
+    setTabs([]);
+    setIsConnected(false);
+    currentTabIdRef.current = null;
+    outputSubscriptionsRef.current = [];
+    historySubscriptionsRef.current = [];
+    exitSubscriptionsRef.current = [];
+  }, [sessionId]);
+
   useEffect(() => {
     if (sessionId) {
       connect();
