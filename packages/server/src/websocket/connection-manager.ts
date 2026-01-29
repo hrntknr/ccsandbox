@@ -191,6 +191,16 @@ export class ConnectionManager {
     }
   }
 
+  updateTab(sessionId: string, tabId: string, updates: Partial<TerminalTab>): void {
+    const room = this.rooms.get(sessionId);
+    if (!room) return;
+
+    const tab = room.tabs.find((t) => t.tabId === tabId);
+    if (tab) {
+      Object.assign(tab, updates);
+    }
+  }
+
   getTabs(sessionId: string): TerminalTab[] {
     const room = this.rooms.get(sessionId);
     return room?.tabs ?? [];

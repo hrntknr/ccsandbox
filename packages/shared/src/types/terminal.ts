@@ -26,6 +26,7 @@ export type TerminalServerMessage =
   | { type: 'tab-added'; tab: TerminalTab; requesterId?: string }
   | { type: 'tab-removed'; tabId: string }
   | { type: 'tab-renamed'; tabId: string; title: string }
+  | { type: 'tab-ready'; tabId: string }
   | { type: 'history'; data: string }
   | { type: 'output'; data: string }
   | { type: 'attached'; tabId: string }
