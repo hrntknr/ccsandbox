@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import http from 'node:http';
 import { WebSocket } from 'ws';
 import { setupWebSocketServer } from './index.js';
+import { setConfig } from '../config.js';
 
 // Mock terminal handler
 vi.mock('./terminal.handler.js', () => ({
@@ -25,6 +26,13 @@ describe('setupWebSocketServer', () => {
   let port: number;
 
   beforeEach(async () => {
+    setConfig({
+      pat: 'test-token',
+      apiBase: 'https://api.github.com',
+      repoDir: '/tmp/test-repos',
+      listen: '127.0.0.1',
+      port: 0,
+    });
     server = http.createServer();
     await new Promise<void>((resolve) => {
       server.listen(0, '127.0.0.1', () => {
