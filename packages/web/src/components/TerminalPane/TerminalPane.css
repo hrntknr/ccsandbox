@@ -130,53 +130,6 @@
   color: #fff;
 }
 
-.terminal-actions {
-  display: flex;
-  gap: 8px;
-  margin-left: 16px;
-}
-
-.terminal-action-button {
-  padding: 4px 12px;
-  border: none;
-  border-radius: 4px;
-  font-size: 12px;
-  cursor: pointer;
-  font-weight: 500;
-}
-
-.terminal-action-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.terminal-action-button.start {
-  background-color: #1b4b1b;
-  color: #4ec94e;
-}
-
-.terminal-action-button.start:hover:not(:disabled) {
-  background-color: #246124;
-}
-
-.terminal-action-button.stop {
-  background-color: #4b3b1b;
-  color: #e9b949;
-}
-
-.terminal-action-button.stop:hover:not(:disabled) {
-  background-color: #5a4a24;
-}
-
-.terminal-action-button.remove {
-  background-color: #4b1b1b;
-  color: #c94e4e;
-}
-
-.terminal-action-button.remove:hover:not(:disabled) {
-  background-color: #5a2424;
-}
-
 .terminal-container {
   flex: 1;
   padding: 8px;
@@ -203,19 +156,6 @@
 
   .terminal-tabs-bar {
     width: 100%;
-    order: 2;
-  }
-
-  .terminal-actions {
-    order: 1;
-    margin-left: 0;
-    width: 100%;
-    justify-content: flex-end;
-  }
-
-  .terminal-action-button {
-    padding: 6px 10px;
-    font-size: 11px;
   }
 
   .terminal-tab {
@@ -237,15 +177,6 @@
 }
 
 @media (max-width: 480px) {
-  .terminal-actions {
-    gap: 4px;
-  }
-
-  .terminal-action-button {
-    padding: 6px 8px;
-    font-size: 10px;
-  }
-
   .terminal-tab {
     min-width: 60px;
     max-width: 100px;

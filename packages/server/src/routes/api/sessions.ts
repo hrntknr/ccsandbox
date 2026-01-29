@@ -13,7 +13,6 @@ import { cloneRepository, GitOperationError } from '../../services/git.service.j
 import {
   hasDevcontainerConfig,
   startDevcontainer,
-  stopContainer,
   removeContainer,
   isContainerRunning,
   DevcontainerConfigNotFoundError,
@@ -268,60 +267,6 @@ router.delete(
 );
 
 /**
- * POST /api/sessions/:id/stop
- * Stop the container for a session.
- */
-router.post(
-  '/:id/stop',
-  asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
-    const { id } = req.params;
-    const store = getSessionStore(getConfig().repoDir);
-
-    try {
-      const session = await store.get(id);
-
-      if (!session.containerId) {
-        const response: ApiResponse<null> = {
-          success: false,
-          error: 'Session has no associated container',
-        };
-        res.status(400).json(response);
-        return;
-      }
-
-      await stopContainer(session.containerId);
-      const updatedSession = await store.update(id, { state: 'READY' });
-
-      const response: ApiResponse<{ session: Session }> = {
-        success: true,
-        data: { session: updatedSession },
-      };
-      res.json(response);
-    } catch (error) {
-      if (error instanceof SessionNotFoundError) {
-        const response: ApiResponse<null> = {
-          success: false,
-          error: `Session not found: ${id}`,
-        };
-        res.status(404).json(response);
-        return;
-      }
-
-      if (error instanceof DockerOperationError) {
-        const response: ApiResponse<null> = {
-          success: false,
-          error: `Failed to stop container: ${error.stderr}`,
-        };
-        res.status(500).json(response);
-        return;
-      }
-
-      throw error;
-    }
-  })
-);
-
-/**
  * POST /api/sessions/:id/start
  * Start the container for a session.
  */
@@ -376,75 +321,6 @@ router.post(
         const response: ApiResponse<null> = {
           success: false,
           error: `Devcontainer CLI failed: ${error.message}`,
-        };
-        res.status(500).json(response);
-        return;
-      }
-
-      throw error;
-    }
-  })
-);
-
-/**
- * POST /api/sessions/:id/remove
- * Remove the container for a session (container only, not the session).
- */
-router.post(
-  '/:id/remove',
-  asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
-    const { id } = req.params;
-    const store = getSessionStore(getConfig().repoDir);
-
-    try {
-      const session = await store.get(id);
-
-      if (!session.containerId) {
-        const response: ApiResponse<null> = {
-          success: false,
-          error: 'Session has no associated container',
-        };
-        res.status(400).json(response);
-        return;
-      }
-
-      await removeContainer(session.containerId, true);
-      const updatedSession = await store.update(id, {
-        state: 'READY',
-        containerId: null,
-        containerName: null,
-      });
-
-      const response: ApiResponse<{ session: Session }> = {
-        success: true,
-        data: { session: updatedSession },
-      };
-      res.json(response);
-    } catch (error) {
-      if (error instanceof SessionNotFoundError) {
-        const response: ApiResponse<null> = {
-          success: false,
-          error: `Session not found: ${id}`,
-        };
-        res.status(404).json(response);
-        return;
-      }
-
-      if (error instanceof DockerOperationError) {
-        // If container doesn't exist, clear the containerId anyway
-        try {
-          await store.update(id, {
-            state: 'READY',
-            containerId: null,
-            containerName: null,
-          });
-        } catch {
-          // Ignore update errors
-        }
-
-        const response: ApiResponse<null> = {
-          success: false,
-          error: `Failed to remove container: ${error.stderr}`,
         };
         res.status(500).json(response);
         return;

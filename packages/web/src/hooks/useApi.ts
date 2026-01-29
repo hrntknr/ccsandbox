@@ -158,34 +158,3 @@ export function useRepositories(): UseApiReturn<Repository[]> {
 
   return { ...state, execute, reset };
 }
-
-type ContainerAction = 'start' | 'stop' | 'remove';
-
-export function useContainerAction(): {
-  execute: (sessionId: string, action: ContainerAction) => Promise<boolean>;
-  loading: boolean;
-  error: string | null;
-} {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const execute = useCallback(async (sessionId: string, action: ContainerAction): Promise<boolean> => {
-    setLoading(true);
-    setError(null);
-
-    const response = await fetchApi<void>(`/sessions/${sessionId}/container/${action}`, {
-      method: 'POST',
-    });
-
-    setLoading(false);
-
-    if (response.success) {
-      return true;
-    } else {
-      setError(response.error || `Failed to ${action} container`);
-      return false;
-    }
-  }, []);
-
-  return { execute, loading, error };
-}
