@@ -50,6 +50,10 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
       switch (message.type) {
         case 'sync-state':
           setTabs(message.tabs);
+          // Auto-create a tab if none exists
+          if (message.tabs.length === 0) {
+            sendMessage({ type: 'add-tab' });
+          }
           break;
 
         case 'tab-added':
@@ -103,7 +107,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     } catch {
       console.error('Failed to parse WebSocket message');
     }
-  }, []);
+  }, [sendMessage]);
 
   // Track current sessionId to prevent reconnecting to old session
   const sessionIdRef = useRef<string | null>(null);
