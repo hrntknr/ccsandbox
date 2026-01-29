@@ -1,4 +1,8 @@
 import { spawn } from 'node:child_process';
+import { writeFile, unlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { randomBytes } from 'node:crypto';
 
 /**
  * Options for cloning a repository.
@@ -78,12 +82,14 @@ function execCommand(
     cwd?: string;
     stdin?: string;
     onLog?: (data: string) => void;
+    env?: Record<string, string>;
   } = {}
 ): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const proc = spawn(command, args, {
       cwd: options.cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
+      env: options.env ? { ...process.env, ...options.env } : undefined,
     });
 
     let stdout = '';
@@ -121,42 +127,35 @@ function execCommand(
 }
 
 /**
- * Sets up the credential helper by registering PAT with git credential approve.
+ * Creates a temporary askpass script that outputs the PAT.
  *
- * This uses stdin to pass credentials, avoiding exposure in process arguments or logs.
+ * This avoids exposing the PAT in process arguments or logs.
+ * The script reads the password from an environment variable.
  *
- * @param apiBase - GitHub API Base URL
- * @param pat - Personal Access Token
+ * @returns Path to the temporary askpass script
  */
-export async function setupCredentialHelper(
-  apiBase: string,
-  pat: string
-): Promise<void> {
-  const host = deriveGitHost(apiBase);
+export async function createAskpassScript(): Promise<string> {
+  const scriptPath = join(tmpdir(), `git-askpass-${randomBytes(8).toString('hex')}.sh`);
 
-  // Format for git credential approve
-  // See: https://git-scm.com/docs/git-credential
-  const credentialInput = [
-    'protocol=https',
-    `host=${host}`,
-    'username=x-access-token',
-    `password=${pat}`,
-    '', // Empty line to terminate
-  ].join('\n');
+  // Script reads password from environment variable (set at spawn time)
+  const scriptContent = `#!/bin/sh
+echo "$GIT_ASKPASS_PASSWORD"
+`;
 
+  await writeFile(scriptPath, scriptContent, { mode: 0o700 });
+  return scriptPath;
+}
+
+/**
+ * Cleans up the askpass script.
+ *
+ * @param scriptPath - Path to the askpass script to remove
+ */
+export async function cleanupAskpassScript(scriptPath: string): Promise<void> {
   try {
-    await execCommand('git', ['credential', 'approve'], {
-      stdin: credentialInput,
-    });
-  } catch (error) {
-    if (error instanceof GitOperationError) {
-      throw new GitOperationError(
-        'credential approve',
-        error.exitCode,
-        error.stderr
-      );
-    }
-    throw error;
+    await unlink(scriptPath);
+  } catch {
+    // Ignore cleanup errors
   }
 }
 
@@ -164,9 +163,10 @@ export async function setupCredentialHelper(
  * Clones a repository and creates a work branch.
  *
  * This function:
- * 1. Sets up credential helper with PAT (via stdin, not in args)
- * 2. Clones the repository
+ * 1. Creates a temporary askpass script for authentication
+ * 2. Clones the repository using GIT_ASKPASS
  * 3. Creates and checks out the work branch from base branch
+ * 4. Cleans up the temporary askpass script
  *
  * @param options - Clone options
  * @throws GitOperationError if any git operation fails
@@ -176,35 +176,47 @@ export async function cloneRepository(
 ): Promise<void> {
   const { apiBase, repo, pat, workspacePath, baseBranch, workBranch, onLog } = options;
 
-  // Step 1: Set up credential helper
+  // Step 1: Create askpass script for authentication
   onLog?.(`Setting up credentials for ${apiBase}\n`);
-  await setupCredentialHelper(apiBase, pat);
-
-  // Step 2: Derive clone URL and execute clone
-  const cloneUrl = deriveCloneUrl(apiBase, repo);
-  onLog?.(`Cloning ${repo} from ${cloneUrl}\n`);
+  const askpassScript = await createAskpassScript();
 
   try {
-    await execCommand('git', ['clone', '--branch', baseBranch, '--progress', cloneUrl, workspacePath], { onLog });
-  } catch (error) {
-    if (error instanceof GitOperationError) {
-      throw new GitOperationError('clone', error.exitCode, error.stderr);
-    }
-    throw error;
-  }
+    // Step 2: Derive clone URL and execute clone with GIT_ASKPASS
+    const cloneUrl = deriveCloneUrl(apiBase, repo);
+    onLog?.(`Cloning ${repo} from ${cloneUrl}\n`);
 
-  // Step 3: Create and checkout work branch
-  onLog?.(`Creating work branch: ${workBranch} from ${baseBranch}\n`);
-  try {
-    await execCommand('git', ['checkout', '-b', workBranch, baseBranch], {
-      cwd: workspacePath,
-      onLog,
-    });
-  } catch (error) {
-    if (error instanceof GitOperationError) {
-      throw new GitOperationError('checkout', error.exitCode, error.stderr);
+    try {
+      await execCommand('git', ['clone', '--branch', baseBranch, '--progress', cloneUrl, workspacePath], {
+        onLog,
+        env: {
+          GIT_ASKPASS: askpassScript,
+          GIT_ASKPASS_PASSWORD: pat,
+          GIT_TERMINAL_PROMPT: '0',
+        },
+      });
+    } catch (error) {
+      if (error instanceof GitOperationError) {
+        throw new GitOperationError('clone', error.exitCode, error.stderr);
+      }
+      throw error;
     }
-    throw error;
+
+    // Step 3: Create and checkout work branch
+    onLog?.(`Creating work branch: ${workBranch} from ${baseBranch}\n`);
+    try {
+      await execCommand('git', ['checkout', '-b', workBranch, baseBranch], {
+        cwd: workspacePath,
+        onLog,
+      });
+    } catch (error) {
+      if (error instanceof GitOperationError) {
+        throw new GitOperationError('checkout', error.exitCode, error.stderr);
+      }
+      throw error;
+    }
+    onLog?.(`Git clone completed successfully\n`);
+  } finally {
+    // Step 4: Clean up askpass script
+    await cleanupAskpassScript(askpassScript);
   }
-  onLog?.(`Git clone completed successfully\n`);
 }
