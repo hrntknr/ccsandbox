@@ -143,12 +143,13 @@
 
 /* Creating state styles */
 .modal-creating {
-  width: 700px;
+  width: 520px;
   max-width: 90%;
-  height: 500px;
-  max-height: 90%;
+  height: 360px;
+  max-height: 80%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .modal-creating-content {
@@ -165,7 +166,7 @@
   border: 1px solid #333;
   border-radius: 4px;
   overflow: hidden;
-  min-height: 300px;
+  min-height: 0;
 }
 
 .session-log-terminal .xterm {
@@ -175,7 +176,8 @@
 
 .modal-creating .modal-actions {
   margin-top: 16px;
-  justify-content: center;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .creating-status {
@@ -241,7 +243,7 @@
   }
 
   .session-log-terminal {
-    min-height: 200px;
+    min-height: 0;
   }
 
   .modal-creating .modal-actions {
@@ -258,9 +260,5 @@
 @media (max-width: 480px) {
   .form-field label {
     font-size: 12px;
-  }
-
-  .session-log-terminal {
-    min-height: 150px;
   }
 }

@@ -131,7 +131,7 @@ export function Terminal({
   return (
     <div
       ref={containerRef}
-      className={`terminal ${isActive ? 'terminal-active' : 'terminal-hidden'}`}
+      className={`terminal-wrapper ${isActive ? 'terminal-active' : 'terminal-hidden'}`}
     />
   );
 }
