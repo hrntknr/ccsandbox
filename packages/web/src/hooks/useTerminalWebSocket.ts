@@ -44,6 +44,11 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
   }, []);
 
   const handleMessage = useCallback((event: MessageEvent) => {
+    // Ignore messages from old/closed connections
+    if (event.target !== wsRef.current) {
+      return;
+    }
+
     try {
       const message: TerminalServerMessage = JSON.parse(event.data);
 
@@ -105,8 +110,43 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     }
   }, []);
 
-  const connect = useCallback(() => {
-    if (!sessionId) return;
+  // Track current sessionId to prevent reconnecting to old session
+  const sessionIdRef = useRef<string | null>(null);
+
+  // Cleanup function to close WebSocket and reset state
+  const cleanup = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    if (wsRef.current) {
+      // Remove event handlers before closing to prevent stale messages
+      wsRef.current.onopen = null;
+      wsRef.current.onmessage = null;
+      wsRef.current.onclose = null;
+      wsRef.current.onerror = null;
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    setTabs([]);
+    setIsConnected(false);
+    currentTabIdRef.current = null;
+    outputSubscriptionsRef.current = [];
+    historySubscriptionsRef.current = [];
+    exitSubscriptionsRef.current = [];
+  }, []);
+
+  // Connect to WebSocket and join session
+  useEffect(() => {
+    // Always cleanup previous connection first
+    cleanup();
+
+    // Update ref to current sessionId
+    sessionIdRef.current = sessionId;
+
+    if (!sessionId) {
+      return;
+    }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/terminal`;
@@ -115,56 +155,52 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     wsRef.current = ws;
 
     ws.onopen = () => {
+      // Check if sessionId hasn't changed during connection
+      if (sessionIdRef.current !== sessionId) {
+        ws.close();
+        return;
+      }
       setIsConnected(true);
-      sendMessage({
+      ws.send(JSON.stringify({
         type: 'join-session',
         sessionId,
         clientId: clientIdRef.current,
-      });
+      }));
     };
 
     ws.onmessage = handleMessage;
 
     ws.onclose = () => {
-      setIsConnected(false);
-      wsRef.current = null;
+      // Only update state if this is still the current connection
+      if (wsRef.current === ws) {
+        setIsConnected(false);
+        wsRef.current = null;
 
-      // Attempt reconnection after delay
-      reconnectTimeoutRef.current = setTimeout(() => {
-        connect();
-      }, 2000);
+        // Only reconnect if sessionId hasn't changed
+        if (sessionIdRef.current === sessionId) {
+          reconnectTimeoutRef.current = setTimeout(() => {
+            // Double-check sessionId before reconnecting
+            if (sessionIdRef.current === sessionId) {
+              // Trigger reconnect by re-running this effect is not possible,
+              // so we need to manually create new connection
+              const newWs = new WebSocket(wsUrl);
+              wsRef.current = newWs;
+              newWs.onopen = ws.onopen;
+              newWs.onmessage = ws.onmessage;
+              newWs.onclose = ws.onclose;
+              newWs.onerror = ws.onerror;
+            }
+          }, 2000);
+        }
+      }
     };
 
     ws.onerror = (error) => {
       console.error('WebSocket error:', error);
     };
-  }, [sessionId, sendMessage, handleMessage]);
 
-  // Reset state when session changes
-  useEffect(() => {
-    setTabs([]);
-    setIsConnected(false);
-    currentTabIdRef.current = null;
-    outputSubscriptionsRef.current = [];
-    historySubscriptionsRef.current = [];
-    exitSubscriptionsRef.current = [];
-  }, [sessionId]);
-
-  useEffect(() => {
-    if (sessionId) {
-      connect();
-    }
-
-    return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-    };
-  }, [sessionId, connect]);
+    return cleanup;
+  }, [sessionId, handleMessage, cleanup]);
 
   const sendInput = useCallback(
     (tabId: string, data: string) => {

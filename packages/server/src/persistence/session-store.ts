@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
-import type { Session, SessionState, TerminalTab } from '@ccsandbox/shared';
+import type { Session, SessionState } from '@ccsandbox/shared';
 import { generateWorkspacePath } from '@ccsandbox/shared';
 
 /**
@@ -32,7 +32,6 @@ export interface UpdateSessionOptions {
   state?: SessionState;
   containerId?: string | null;
   containerName?: string | null;
-  tabs?: TerminalTab[];
 }
 
 /**
@@ -290,9 +289,6 @@ export class SessionStore extends EventEmitter {
         } else {
           session.containerName = options.containerName;
         }
-      }
-      if (options.tabs !== undefined) {
-        session.tabs = options.tabs;
       }
 
       await this.writeSessions(sessions);
