@@ -3,7 +3,12 @@ import type { Request, Response, NextFunction } from 'express';
 import { rm } from 'node:fs/promises';
 import type { CreateSessionRequest, ApiResponse, Session } from '@ccsandbox/shared';
 import { getConfig } from '../../config.js';
-import { SessionStore, SessionNotFoundError, WorkspaceExistsError } from '../../persistence/session-store.js';
+import {
+  getSessionStore,
+  resetSessionStore,
+  SessionNotFoundError,
+  WorkspaceExistsError,
+} from '../../persistence/session-store.js';
 import { cloneRepository, GitOperationError } from '../../services/git.service.js';
 import {
   hasDevcontainerConfig,
@@ -17,18 +22,6 @@ import {
 } from '../../services/devcontainer.service.js';
 
 const router = Router();
-
-// Create a session store instance
-// The repoDir will be set from config when accessed
-let sessionStore: SessionStore | null = null;
-
-function getSessionStore(): SessionStore {
-  if (!sessionStore) {
-    const config = getConfig();
-    sessionStore = new SessionStore(config.repoDir);
-  }
-  return sessionStore;
-}
 
 /**
  * Async handler wrapper to catch errors.
@@ -50,7 +43,7 @@ router.post(
   asyncHandler(async (req: Request, res: Response) => {
     const body = req.body as CreateSessionRequest;
     const config = getConfig();
-    const store = getSessionStore();
+    const store = getSessionStore(getConfig().repoDir);
 
     // Validate request
     if (!body.title || !body.repo || !body.baseBranch || !body.workBranch) {
@@ -168,7 +161,7 @@ router.post(
 router.get(
   '/',
   asyncHandler(async (_req: Request, res: Response) => {
-    const store = getSessionStore();
+    const store = getSessionStore(getConfig().repoDir);
     const sessions = await store.list();
 
     const response: ApiResponse<{ sessions: Session[] }> = {
@@ -187,7 +180,7 @@ router.get(
   '/:id',
   asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
-    const store = getSessionStore();
+    const store = getSessionStore(getConfig().repoDir);
 
     try {
       const session = await store.get(id);
@@ -231,7 +224,7 @@ router.delete(
   '/:id',
   asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
-    const store = getSessionStore();
+    const store = getSessionStore(getConfig().repoDir);
 
     try {
       const session = await store.get(id);
@@ -282,7 +275,7 @@ router.post(
   '/:id/stop',
   asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
-    const store = getSessionStore();
+    const store = getSessionStore(getConfig().repoDir);
 
     try {
       const session = await store.get(id);
@@ -336,7 +329,7 @@ router.post(
   '/:id/start',
   asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
-    const store = getSessionStore();
+    const store = getSessionStore(getConfig().repoDir);
     const config = getConfig();
 
     try {
@@ -401,7 +394,7 @@ router.post(
   '/:id/remove',
   asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
-    const store = getSessionStore();
+    const store = getSessionStore(getConfig().repoDir);
 
     try {
       const session = await store.get(id);
@@ -462,11 +455,7 @@ router.post(
   })
 );
 
-/**
- * Allows resetting the session store (mainly for testing).
- */
-export function resetSessionStore(): void {
-  sessionStore = null;
-}
+// Re-export resetSessionStore for testing
+export { resetSessionStore };
 
 export default router;
