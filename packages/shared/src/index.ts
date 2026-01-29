@@ -2,6 +2,7 @@
 export type {
   Session,
   SessionState,
+  SessionSyncServerMessage,
   TerminalTab,
 } from './types/session.js';
 

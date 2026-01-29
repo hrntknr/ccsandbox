@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events';
 import { mkdir, readFile, writeFile, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -55,9 +56,19 @@ export class SessionNotFoundError extends Error {
 }
 
 /**
- * Session store that persists sessions to a JSON file.
+ * Event types emitted by SessionStore.
  */
-export class SessionStore {
+export interface SessionStoreEvents {
+  created: (session: Session) => void;
+  updated: (session: Session) => void;
+  deleted: (sessionId: string) => void;
+}
+
+/**
+ * Session store that persists sessions to a JSON file.
+ * Extends EventEmitter to notify listeners of session changes.
+ */
+export class SessionStore extends EventEmitter {
   private readonly sessionsFilePath: string;
   private readonly repoDir: string;
   private lockPromise: Promise<void> | null = null;
@@ -68,8 +79,33 @@ export class SessionStore {
    * @param repoDir - Base directory for repositories (default: $HOME/.ccsandbox)
    */
   constructor(repoDir?: string) {
+    super();
     this.repoDir = repoDir ?? join(process.env['HOME'] ?? homedir(), '.ccsandbox');
     this.sessionsFilePath = join(this.repoDir, '.ccsandbox', 'sessions.json');
+  }
+
+  /**
+   * Type-safe event emitter methods.
+   */
+  override emit<K extends keyof SessionStoreEvents>(
+    event: K,
+    ...args: Parameters<SessionStoreEvents[K]>
+  ): boolean {
+    return super.emit(event, ...args);
+  }
+
+  override on<K extends keyof SessionStoreEvents>(
+    event: K,
+    listener: SessionStoreEvents[K]
+  ): this {
+    return super.on(event, listener);
+  }
+
+  override off<K extends keyof SessionStoreEvents>(
+    event: K,
+    listener: SessionStoreEvents[K]
+  ): this {
+    return super.off(event, listener);
   }
 
   /**
@@ -212,6 +248,7 @@ export class SessionStore {
       sessions.push(session);
       await this.writeSessions(sessions);
 
+      this.emit('created', session);
       return session;
     });
   }
@@ -260,6 +297,7 @@ export class SessionStore {
 
       await this.writeSessions(sessions);
 
+      this.emit('updated', session);
       return session;
     });
   }
@@ -279,6 +317,29 @@ export class SessionStore {
 
       sessions.splice(index, 1);
       await this.writeSessions(sessions);
+
+      this.emit('deleted', sessionId);
     });
   }
+}
+
+// Singleton instance for shared state across the application
+let sessionStoreInstance: SessionStore | null = null;
+
+/**
+ * Gets the singleton SessionStore instance.
+ * Creates the instance on first call using config.repoDir.
+ */
+export function getSessionStore(repoDir?: string): SessionStore {
+  if (!sessionStoreInstance) {
+    sessionStoreInstance = new SessionStore(repoDir);
+  }
+  return sessionStoreInstance;
+}
+
+/**
+ * Resets the singleton SessionStore instance (for testing).
+ */
+export function resetSessionStore(): void {
+  sessionStoreInstance = null;
 }

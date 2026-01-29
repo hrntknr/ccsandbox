@@ -5,6 +5,9 @@ import { createTerminalHandler } from './terminal.handler.js';
 import { createSessionCreateHandler } from './session-create.handler.js';
 import { getConnectionManager, resetConnectionManager } from './connection-manager.js';
 import { getTerminalManager } from '../services/terminal.service.js';
+import { getSessionSyncManager, resetSessionSyncManager } from './session-sync-manager.js';
+import { getSessionStore } from '../persistence/session-store.js';
+import { getConfig } from '../config.js';
 
 /**
  * Validate that a message conforms to TerminalClientMessage structure
@@ -72,6 +75,7 @@ function isValidSessionCreateMessage(message: unknown): message is SessionCreate
 export interface WebSocketServerInstance {
   terminalWss: WebSocketServer;
   sessionWss: WebSocketServer;
+  sessionsSyncWss: WebSocketServer;
   close: () => void;
 }
 
@@ -82,6 +86,7 @@ export function setupWebSocketServer(server: http.Server): WebSocketServerInstan
   // Create WebSocket servers in noServer mode
   const terminalWss = new WebSocketServer({ noServer: true });
   const sessionWss = new WebSocketServer({ noServer: true });
+  const sessionsSyncWss = new WebSocketServer({ noServer: true });
 
   // Handle HTTP upgrade requests and route to the appropriate WebSocket server
   server.on('upgrade', (request, socket, head) => {
@@ -94,6 +99,10 @@ export function setupWebSocketServer(server: http.Server): WebSocketServerInstan
     } else if (pathname === '/ws/session') {
       sessionWss.handleUpgrade(request, socket, head, (ws) => {
         sessionWss.emit('connection', ws, request);
+      });
+    } else if (pathname === '/ws/sessions') {
+      sessionsSyncWss.handleUpgrade(request, socket, head, (ws) => {
+        sessionsSyncWss.emit('connection', ws, request);
       });
     } else {
       socket.destroy();
@@ -175,6 +184,45 @@ export function setupWebSocketServer(server: http.Server): WebSocketServerInstan
     });
   });
 
+  // Setup session sync manager and store event listeners
+  const config = getConfig();
+  const sessionStore = getSessionStore(config.repoDir);
+  const sessionSyncManager = getSessionSyncManager();
+
+  // Forward session store events to sync manager
+  sessionStore.on('created', (session) => {
+    sessionSyncManager.broadcastCreated(session);
+  });
+
+  sessionStore.on('updated', (session) => {
+    sessionSyncManager.broadcastUpdated(session);
+  });
+
+  sessionStore.on('deleted', (sessionId) => {
+    sessionSyncManager.broadcastDeleted(sessionId);
+  });
+
+  // Handle session sync connections
+  sessionsSyncWss.on('connection', (ws: WebSocket) => {
+    sessionSyncManager.addClient(ws);
+
+    // Send initial session list
+    sessionStore.list().then((sessions) => {
+      sessionSyncManager.sendInitialSync(ws, sessions);
+    }).catch((error) => {
+      console.error('Failed to send initial session sync:', error);
+    });
+
+    ws.on('close', () => {
+      sessionSyncManager.removeClient(ws);
+    });
+
+    ws.on('error', (error) => {
+      console.error('WebSocket error (sessions sync):', error.message);
+      sessionSyncManager.removeClient(ws);
+    });
+  });
+
   // Handle server errors
   terminalWss.on('error', (error) => {
     console.error('WebSocket server error (terminal):', error.message);
@@ -184,9 +232,14 @@ export function setupWebSocketServer(server: http.Server): WebSocketServerInstan
     console.error('WebSocket server error (session):', error.message);
   });
 
+  sessionsSyncWss.on('error', (error) => {
+    console.error('WebSocket server error (sessions sync):', error.message);
+  });
+
   return {
     terminalWss,
     sessionWss,
+    sessionsSyncWss,
     close: () => {
       // Close all terminal connections
       terminalWss.clients.forEach((client) => {
@@ -200,8 +253,15 @@ export function setupWebSocketServer(server: http.Server): WebSocketServerInstan
       });
       sessionWss.close();
 
-      // Reset connection manager
+      // Close all sessions sync connections
+      sessionsSyncWss.clients.forEach((client) => {
+        client.close();
+      });
+      sessionsSyncWss.close();
+
+      // Reset managers
       resetConnectionManager();
+      resetSessionSyncManager();
     },
   };
 }
