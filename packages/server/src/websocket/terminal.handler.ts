@@ -88,6 +88,12 @@ export function createTerminalHandler(
         return;
       }
 
+      // Leave previous session if switching to a different one
+      if (currentSessionId && currentSessionId !== sessionId && clientId) {
+        connectionManager.leaveSession(currentSessionId, clientId);
+        currentTabId = null;
+      }
+
       clientId = incomingClientId;
       currentSessionId = sessionId;
 
