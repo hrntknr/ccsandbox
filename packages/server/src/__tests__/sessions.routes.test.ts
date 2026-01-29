@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import express, { type Express } from 'express';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import sessionsRouter, { resetSessionStore } from '../routes/api/sessions.js';
@@ -260,7 +260,7 @@ describe('sessions routes', () => {
   });
 
   describe('DELETE /api/sessions/:id', () => {
-    it('deletes session successfully', async () => {
+    it('deletes session and workspace directory successfully', async () => {
       // Create a session first
       const createRequest = {
         title: 'Test Session',
@@ -269,7 +269,9 @@ describe('sessions routes', () => {
         workBranch: 'feature/delete-test',
       };
 
+      let workspacePath: string = '';
       vi.mocked(gitService.cloneRepository).mockImplementation(async (options) => {
+        workspacePath = options.workspacePath;
         await mkdir(options.workspacePath, { recursive: true });
       });
       vi.mocked(devcontainerService.hasDevcontainerConfig).mockResolvedValue(true);
@@ -285,6 +287,9 @@ describe('sessions routes', () => {
 
       const sessionId = createResponse.body.data.session.sessionId;
 
+      // Verify workspace directory exists before deletion
+      await expect(stat(workspacePath)).resolves.toBeDefined();
+
       const response = await request(app)
         .delete(`/api/sessions/${sessionId}`)
         .expect(200);
@@ -293,6 +298,9 @@ describe('sessions routes', () => {
 
       // Verify session is deleted
       await request(app).get(`/api/sessions/${sessionId}`).expect(404);
+
+      // Verify workspace directory is deleted
+      await expect(stat(workspacePath)).rejects.toThrow('ENOENT');
     });
 
     it('returns 404 when session not found', async () => {
