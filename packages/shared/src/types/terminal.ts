@@ -23,7 +23,7 @@ export type TerminalClientMessage =
  */
 export type TerminalServerMessage =
   | { type: 'sync-state'; tabs: TerminalTab[] }
-  | { type: 'tab-added'; tab: TerminalTab }
+  | { type: 'tab-added'; tab: TerminalTab; requesterId?: string }
   | { type: 'tab-removed'; tabId: string }
   | { type: 'tab-renamed'; tabId: string; title: string }
   | { type: 'tab-ready'; tabId: string }

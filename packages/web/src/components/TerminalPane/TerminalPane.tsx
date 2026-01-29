@@ -30,6 +30,7 @@ export function TerminalPane({ session }: TerminalPaneProps) {
     onOutput,
     onHistory,
     onExit,
+    onOwnTabAdded,
   } = useTerminalWebSocket(sessionId);
 
   // Convert remote tabs to local tabs with editing state
@@ -62,6 +63,13 @@ export function TerminalPane({ session }: TerminalPaneProps) {
       attachToTab(activeTabId);
     }
   }, [activeTabId, isConnected, attachToTab]);
+
+  // Switch to newly added tab when this client created it
+  useEffect(() => {
+    return onOwnTabAdded((tab) => {
+      setActiveTabId(tab.tabId);
+    });
+  }, [onOwnTabAdded]);
 
   const handleAddTab = useCallback(() => {
     addTab();
