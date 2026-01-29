@@ -74,14 +74,6 @@ export function Terminal({ sessionId, tabId, isActive }: TerminalProps) {
     };
 
     window.addEventListener('resize', handleResize);
-
-    // Fit when becoming active
-    if (isActive && fitAddonRef.current) {
-      setTimeout(() => {
-        fitAddonRef.current?.fit();
-      }, 0);
-    }
-
     return () => {
       window.removeEventListener('resize', handleResize);
     };
@@ -156,8 +148,11 @@ export function Terminal({ sessionId, tabId, isActive }: TerminalProps) {
 
     return () => {
       dataHandler.dispose();
-      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-        sendMessage({ type: 'detach' });
+      if (ws.readyState === WebSocket.OPEN) {
+        // Send close-tab to kill the PTY and update session
+        ws.send(JSON.stringify({ type: 'close-tab', tabId }));
+        ws.close();
+      } else if (ws.readyState === WebSocket.CONNECTING) {
         ws.close();
       }
       wsRef.current = null;
@@ -168,7 +163,7 @@ export function Terminal({ sessionId, tabId, isActive }: TerminalProps) {
   return (
     <div
       ref={containerRef}
-      className={`terminal ${isActive ? 'terminal-active' : 'terminal-inactive'}`}
+      className={`terminal ${isActive ? 'terminal-active' : 'terminal-hidden'}`}
     />
   );
 }

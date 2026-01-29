@@ -1,12 +1,17 @@
 .terminal {
   width: 100%;
   height: 100%;
-}
-
-.terminal-inactive {
-  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 .terminal-active {
-  display: block;
+  visibility: visible;
+  z-index: 1;
+}
+
+.terminal-hidden {
+  visibility: hidden;
+  z-index: 0;
 }

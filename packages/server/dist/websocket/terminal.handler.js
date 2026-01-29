@@ -145,6 +145,31 @@ export function createTerminalHandler(ws) {
         currentSessionId = null;
     }
     /**
+     * Handle close-tab message - kill terminal and update session
+     */
+    async function handleCloseTab(tabId) {
+        // Kill the terminal
+        terminalManager.kill(tabId);
+        // If we were attached to this tab, detach
+        if (currentTabId === tabId) {
+            currentTabId = null;
+        }
+        // Update session tabs if we know the session
+        if (currentSessionId) {
+            try {
+                const config = getConfig();
+                const sessionStore = new SessionStore(config.repoDir);
+                const session = await sessionStore.get(currentSessionId);
+                // Remove the tab from session
+                const updatedTabs = (session.tabs ?? []).filter(t => t.tabId !== tabId);
+                await sessionStore.update(currentSessionId, { tabs: updatedTabs });
+            }
+            catch {
+                // Ignore errors - session may not exist
+            }
+        }
+    }
+    /**
      * Process incoming WebSocket messages
      */
     function handleMessage(message) {
@@ -182,6 +207,17 @@ export function createTerminalHandler(ws) {
                 break;
             case 'detach':
                 handleDetach();
+                break;
+            case 'close-tab':
+                // Validate tabId format
+                if (!isValidUuid(message.tabId)) {
+                    sendError(ws, 'Invalid tabId format');
+                    return;
+                }
+                handleCloseTab(message.tabId).catch((error) => {
+                    const errorMessage = error instanceof Error ? error.message : 'Close tab failed';
+                    sendError(ws, errorMessage);
+                });
                 break;
             default:
                 sendError(ws, 'Unknown message type');

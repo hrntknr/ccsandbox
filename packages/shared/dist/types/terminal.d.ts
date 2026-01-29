@@ -18,6 +18,9 @@ export type TerminalClientMessage = {
     rows: number;
 } | {
     type: 'detach';
+} | {
+    type: 'close-tab';
+    tabId: string;
 };
 /**
  * Messages sent from server to client

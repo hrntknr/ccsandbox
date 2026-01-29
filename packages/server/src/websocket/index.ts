@@ -28,6 +28,8 @@ function isValidTerminalClientMessage(message: unknown): message is TerminalClie
       return typeof msg['cols'] === 'number' && typeof msg['rows'] === 'number';
     case 'detach':
       return true;
+    case 'close-tab':
+      return typeof msg['tabId'] === 'string';
     default:
       return false;
   }

@@ -11,7 +11,8 @@ export type TerminalClientMessage =
   | { type: 'attach'; sessionId: string; tabId?: string }
   | { type: 'input'; data: string }
   | { type: 'resize'; cols: number; rows: number }
-  | { type: 'detach' };
+  | { type: 'detach' }
+  | { type: 'close-tab'; tabId: string };
 
 /**
  * Messages sent from server to client
