@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdir, rm } from 'node:fs/promises';
+import { mkdir, rm, readFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn, type ChildProcess } from 'node:child_process';
 import {
   deriveGitHost,
   deriveCloneUrl,
-  setupCredentialHelper,
+  createAskpassScript,
+  cleanupAskpassScript,
   cloneRepository,
   GitOperationError,
   type CloneRepositoryOptions,
@@ -64,109 +65,58 @@ describe('git.service', () => {
     });
   });
 
-  describe('setupCredentialHelper', () => {
-    let stdinData: string;
-    let mockProcess: Partial<ChildProcess>;
+  describe('createAskpassScript', () => {
+    it('creates an executable script file', async () => {
+      const scriptPath = await createAskpassScript();
 
-    beforeEach(() => {
-      stdinData = '';
-      mockProcess = {
-        stdin: {
-          write: vi.fn((data: string) => {
-            stdinData += data;
-            return true;
-          }),
-          end: vi.fn(),
-        } as unknown as NodeJS.WritableStream,
-        stdout: {
-          on: vi.fn((event: string, handler: (data: Buffer) => void) => {
-            // No output
-          }),
-        } as unknown as NodeJS.ReadableStream,
-        stderr: {
-          on: vi.fn((event: string, handler: (data: Buffer) => void) => {
-            // No output
-          }),
-        } as unknown as NodeJS.ReadableStream,
-        on: vi.fn((event: string, handler: (code: number | null) => void) => {
-          if (event === 'close') {
-            // Simulate successful exit
-            setTimeout(() => handler(0), 0);
-          }
-        }),
-      };
-
-      mockSpawn.mockReturnValue(mockProcess as ChildProcess);
+      try {
+        // Check file exists and is readable
+        const content = await readFile(scriptPath, 'utf-8');
+        expect(content).toContain('#!/bin/sh');
+        expect(content).toContain('echo "$GIT_ASKPASS_PASSWORD"');
+      } finally {
+        await cleanupAskpassScript(scriptPath);
+      }
     });
 
-    afterEach(() => {
-      vi.clearAllMocks();
+    it('creates unique script paths', async () => {
+      const path1 = await createAskpassScript();
+      const path2 = await createAskpassScript();
+
+      try {
+        expect(path1).not.toBe(path2);
+      } finally {
+        await cleanupAskpassScript(path1);
+        await cleanupAskpassScript(path2);
+      }
+    });
+  });
+
+  describe('cleanupAskpassScript', () => {
+    it('removes the script file', async () => {
+      const scriptPath = await createAskpassScript();
+
+      // File should exist before cleanup
+      await expect(access(scriptPath)).resolves.toBeUndefined();
+
+      await cleanupAskpassScript(scriptPath);
+
+      // File should not exist after cleanup
+      await expect(access(scriptPath)).rejects.toThrow();
     });
 
-    it('calls git credential approve with correct arguments', async () => {
-      await setupCredentialHelper('https://api.github.com', 'test-token');
-
-      expect(mockSpawn).toHaveBeenCalledWith('git', ['credential', 'approve'], {
-        cwd: undefined,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-    });
-
-    it('passes credentials via stdin, not arguments', async () => {
-      await setupCredentialHelper('https://api.github.com', 'secret-token');
-
-      // Token should be in stdin, not in spawn arguments
-      expect(stdinData).toContain('password=secret-token');
-      expect(mockSpawn).toHaveBeenCalledTimes(1);
-      const spawnArgs = mockSpawn.mock.calls[0];
-      expect(spawnArgs?.[1]).not.toContain('secret-token');
-    });
-
-    it('formats credential input correctly for github.com', async () => {
-      await setupCredentialHelper('https://api.github.com', 'my-pat');
-
-      expect(stdinData).toBe(
-        'protocol=https\nhost=github.com\nusername=x-access-token\npassword=my-pat\n'
-      );
-    });
-
-    it('formats credential input correctly for GHE', async () => {
-      await setupCredentialHelper('https://ghe.example.com/api/v3', 'ghe-pat');
-
-      expect(stdinData).toBe(
-        'protocol=https\nhost=ghe.example.com\nusername=x-access-token\npassword=ghe-pat\n'
-      );
-    });
-
-    it('throws GitOperationError on failure', async () => {
-      mockProcess.on = vi.fn(
-        (event: string, handler: (codeOrError: number | null | Error) => void) => {
-          if (event === 'close') {
-            setTimeout(() => handler(1), 0);
-          }
-        }
-      );
-      mockProcess.stderr = {
-        on: vi.fn((event: string, handler: (data: Buffer) => void) => {
-          if (event === 'data') {
-            handler(Buffer.from('credential error'));
-          }
-        }),
-      } as unknown as NodeJS.ReadableStream;
-
+    it('does not throw on non-existent file', async () => {
       await expect(
-        setupCredentialHelper('https://api.github.com', 'test-token')
-      ).rejects.toThrow(GitOperationError);
+        cleanupAskpassScript('/nonexistent/path/script.sh')
+      ).resolves.toBeUndefined();
     });
   });
 
   describe('cloneRepository', () => {
-    let stdinData: string;
     let spawnCallCount: number;
-    let spawnCalls: Array<{ command: string; args: string[]; options: unknown }>;
+    let spawnCalls: Array<{ command: string; args: string[]; options: { env?: Record<string, string>; cwd?: string } }>;
 
     beforeEach(() => {
-      stdinData = '';
       spawnCallCount = 0;
       spawnCalls = [];
 
@@ -174,16 +124,13 @@ describe('git.service', () => {
         spawnCalls.push({
           command: command as string,
           args: args as string[],
-          options,
+          options: options as { env?: Record<string, string>; cwd?: string },
         });
         spawnCallCount++;
 
         const mockProcess: Partial<ChildProcess> = {
           stdin: {
-            write: vi.fn((data: string) => {
-              stdinData += data;
-              return true;
-            }),
+            write: vi.fn(() => true),
             end: vi.fn(),
           } as unknown as NodeJS.WritableStream,
           stdout: {
@@ -207,7 +154,7 @@ describe('git.service', () => {
       vi.clearAllMocks();
     });
 
-    it('sets up credential helper before cloning', async () => {
+    it('clones repository with correct URL and GIT_ASKPASS', async () => {
       const options: CloneRepositoryOptions = {
         apiBase: 'https://api.github.com',
         repo: 'owner/repo',
@@ -219,26 +166,9 @@ describe('git.service', () => {
 
       await cloneRepository(options);
 
-      // First call should be credential approve
+      // First call should be git clone
       expect(spawnCalls[0]?.command).toBe('git');
-      expect(spawnCalls[0]?.args).toEqual(['credential', 'approve']);
-    });
-
-    it('clones repository with correct URL', async () => {
-      const options: CloneRepositoryOptions = {
-        apiBase: 'https://api.github.com',
-        repo: 'owner/repo',
-        pat: 'test-token',
-        workspacePath: '/tmp/workspace',
-        baseBranch: 'main',
-        workBranch: 'feature/test',
-      };
-
-      await cloneRepository(options);
-
-      // Second call should be git clone
-      expect(spawnCalls[1]?.command).toBe('git');
-      expect(spawnCalls[1]?.args).toEqual([
+      expect(spawnCalls[0]?.args).toEqual([
         'clone',
         '--branch',
         'main',
@@ -246,6 +176,12 @@ describe('git.service', () => {
         'https://github.com/owner/repo.git',
         '/tmp/workspace',
       ]);
+
+      // Check environment variables are set
+      const cloneEnv = spawnCalls[0]?.options?.env;
+      expect(cloneEnv?.GIT_ASKPASS).toMatch(/git-askpass-.*\.sh$/);
+      expect(cloneEnv?.GIT_ASKPASS_PASSWORD).toBe('test-token');
+      expect(cloneEnv?.GIT_TERMINAL_PROMPT).toBe('0');
     });
 
     it('creates work branch after cloning', async () => {
@@ -260,18 +196,15 @@ describe('git.service', () => {
 
       await cloneRepository(options);
 
-      // Third call should be checkout -b
-      expect(spawnCalls[2]?.command).toBe('git');
-      expect(spawnCalls[2]?.args).toEqual([
+      // Second call should be checkout -b
+      expect(spawnCalls[1]?.command).toBe('git');
+      expect(spawnCalls[1]?.args).toEqual([
         'checkout',
         '-b',
         'feature/test',
         'main',
       ]);
-      expect(spawnCalls[2]?.options).toEqual({
-        cwd: '/tmp/workspace',
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
+      expect(spawnCalls[1]?.options?.cwd).toBe('/tmp/workspace');
     });
 
     it('does not expose PAT in clone command arguments', async () => {
@@ -293,8 +226,8 @@ describe('git.service', () => {
         expect(argsString).not.toContain(secretToken);
       }
 
-      // Token should only appear in stdin for credential approve
-      expect(stdinData).toContain(secretToken);
+      // Token should be in environment variable, not command line
+      expect(spawnCalls[0]?.options?.env?.GIT_ASKPASS_PASSWORD).toBe(secretToken);
     });
 
     it('handles GHE URLs correctly', async () => {
@@ -309,11 +242,8 @@ describe('git.service', () => {
 
       await cloneRepository(options);
 
-      // Check credential helper uses GHE host
-      expect(stdinData).toContain('host=ghe.example.com');
-
       // Check clone URL uses GHE host
-      expect(spawnCalls[1]?.args).toContain(
+      expect(spawnCalls[0]?.args).toContain(
         'https://ghe.example.com/org/project.git'
       );
     });
@@ -333,7 +263,7 @@ describe('git.service', () => {
           } as unknown as NodeJS.ReadableStream,
           stderr: {
             on: vi.fn((event: string, handler: (data: Buffer) => void) => {
-              if (event === 'data' && currentCall === 2) {
+              if (event === 'data' && currentCall === 1) {
                 handler(Buffer.from('fatal: repository not found'));
               }
             }),
@@ -341,8 +271,8 @@ describe('git.service', () => {
           on: vi.fn(
             (event: string, handler: (code: number | null) => void) => {
               if (event === 'close') {
-                // First call (credential) succeeds, second call (clone) fails
-                setTimeout(() => handler(currentCall === 2 ? 128 : 0), 0);
+                // First call (clone) fails
+                setTimeout(() => handler(currentCall === 1 ? 128 : 0), 0);
               }
             }
           ),
@@ -383,7 +313,7 @@ describe('git.service', () => {
           } as unknown as NodeJS.ReadableStream,
           stderr: {
             on: vi.fn((event: string, handler: (data: Buffer) => void) => {
-              if (event === 'data' && currentCall === 3) {
+              if (event === 'data' && currentCall === 2) {
                 handler(Buffer.from('error: branch already exists'));
               }
             }),
@@ -391,8 +321,8 @@ describe('git.service', () => {
           on: vi.fn(
             (event: string, handler: (code: number | null) => void) => {
               if (event === 'close') {
-                // First two calls succeed, third call (checkout) fails
-                setTimeout(() => handler(currentCall === 3 ? 1 : 0), 0);
+                // First call (clone) succeeds, second call (checkout) fails
+                setTimeout(() => handler(currentCall === 2 ? 1 : 0), 0);
               }
             }
           ),
