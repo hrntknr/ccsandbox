@@ -5,6 +5,7 @@ export interface TerminalTab {
   title: string;
   shell: string;
   exited?: boolean;
+  ready?: boolean;
 }
 
 export interface Session {
