@@ -228,6 +228,7 @@ export function TerminalPane({ session, onSessionUpdate }: TerminalPaneProps) {
               key={tab.tabId}
               tabId={tab.tabId}
               isActive={tab.tabId === activeTabId}
+              initialExited={tab.exited}
               sendInput={sendInput}
               resizeTerminal={resizeTerminal}
               onOutput={onOutput}

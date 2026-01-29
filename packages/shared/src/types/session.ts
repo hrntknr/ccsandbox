@@ -4,6 +4,7 @@ export interface TerminalTab {
   tabId: string;
   title: string;
   shell: string;
+  exited?: boolean;
 }
 
 export interface Session {

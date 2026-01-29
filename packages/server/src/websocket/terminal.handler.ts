@@ -176,25 +176,21 @@ export function createTerminalHandler(
       return;
     }
 
-    // Check if terminal exists
+    // Check if terminal exists (may be null for exited terminals)
     const terminal = terminalManager.get(tabId);
-    if (!terminal) {
-      sendError(ws, 'Terminal not found');
-      return;
-    }
 
     // Get history BEFORE setting client tab to avoid race condition:
     // If we set client tab first, any output arriving between setClientTab
     // and getOutputHistory would be sent via both 'output' and 'history' messages.
+    // For exited terminals, this returns empty string.
     const history = terminalManager.getOutputHistory(tabId);
 
     currentTabId = tabId;
     connectionManager.setClientTab(currentSessionId, clientId, tabId);
 
     // Send history (output arriving after setClientTab will be sent via 'output' message)
-    if (history) {
-      sendMessage(ws, { type: 'history', data: history });
-    }
+    // For exited terminals without history, send empty history so client knows to show exit message
+    sendMessage(ws, { type: 'history', data: history });
 
     sendMessage(ws, { type: 'attached', tabId });
   }
@@ -294,10 +290,9 @@ export function createTerminalHandler(
       return;
     }
 
-    const success = terminalManager.write(currentTabId, data);
-    if (!success) {
-      sendError(ws, 'Failed to write to terminal');
-    }
+    // Silently ignore if terminal is not found (may be exited).
+    // Client should handle this gracefully via exitedRef state.
+    terminalManager.write(currentTabId, data);
   }
 
   /**
