@@ -11,6 +11,8 @@ interface TerminalProps {
   resizeTerminal: (cols: number, rows: number) => void;
   onOutput: (tabId: string, callback: (data: string) => void) => () => void;
   onHistory: (tabId: string, callback: (data: string) => void) => () => void;
+  onExit: (tabId: string, callback: (code: number) => void) => () => void;
+  closeTab: (tabId: string) => void;
 }
 
 export function Terminal({
@@ -20,11 +22,14 @@ export function Terminal({
   resizeTerminal,
   onOutput,
   onHistory,
+  onExit,
+  closeTab,
 }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const historyReceivedRef = useRef(false);
+  const exitedRef = useRef(false);
 
   // Initialize terminal
   useEffect(() => {
@@ -65,13 +70,17 @@ export function Terminal({
     if (!terminal) return;
 
     const dataHandler = terminal.onData((data) => {
-      sendInput(tabId, data);
+      if (exitedRef.current) {
+        closeTab(tabId);
+      } else {
+        sendInput(tabId, data);
+      }
     });
 
     return () => {
       dataHandler.dispose();
     };
-  }, [tabId, sendInput]);
+  }, [tabId, sendInput, closeTab]);
 
   // Handle output
   useEffect(() => {
@@ -99,6 +108,19 @@ export function Terminal({
 
     return unsubscribe;
   }, [tabId, onHistory]);
+
+  // Handle process exit
+  useEffect(() => {
+    const terminal = terminalRef.current;
+    if (!terminal) return;
+
+    const unsubscribe = onExit(tabId, (code) => {
+      exitedRef.current = true;
+      terminal.write(`\r\n\x1b[33mProcess exited with code ${code}. Press any key to close this tab.\x1b[0m`);
+    });
+
+    return unsubscribe;
+  }, [tabId, onExit]);
 
   // Handle resize
   const handleResize = useCallback(() => {
