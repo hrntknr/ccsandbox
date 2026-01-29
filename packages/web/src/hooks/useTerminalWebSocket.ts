@@ -44,11 +44,6 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
   }, []);
 
   const handleMessage = useCallback((event: MessageEvent) => {
-    // Ignore messages from old/closed connections
-    if (event.target !== wsRef.current) {
-      return;
-    }
-
     try {
       const message: TerminalServerMessage = JSON.parse(event.data);
 
@@ -120,11 +115,6 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
       reconnectTimeoutRef.current = null;
     }
     if (wsRef.current) {
-      // Remove event handlers before closing to prevent stale messages
-      wsRef.current.onopen = null;
-      wsRef.current.onmessage = null;
-      wsRef.current.onclose = null;
-      wsRef.current.onerror = null;
       wsRef.current.close();
       wsRef.current = null;
     }
