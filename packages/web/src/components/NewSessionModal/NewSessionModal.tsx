@@ -279,11 +279,9 @@ export function NewSessionModal({
       <div className="modal modal-creating">
         <div className="modal-header">
           <h2>Creating Session</h2>
-          {!createLoading && (
-            <button className="modal-close-button" onClick={handleClose}>
-              &times;
-            </button>
-          )}
+          <button className="modal-close-button" onClick={handleClose}>
+            &times;
+          </button>
         </div>
 
         <div className="modal-creating-content">
@@ -314,7 +312,16 @@ export function NewSessionModal({
                 </button>
               </>
             ) : createLoading ? (
-              <span className="creating-status">Creating session...</span>
+              <>
+                <span className="creating-status">Creating session...</span>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={handleClose}
+                >
+                  Cancel
+                </button>
+              </>
             ) : createdSession ? (
               <span className="creating-status creating-success">Session created successfully!</span>
             ) : null}
