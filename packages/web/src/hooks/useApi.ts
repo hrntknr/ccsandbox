@@ -20,6 +20,13 @@ interface UseApiReturn<T> extends UseApiState<T> {
   reset: () => void;
 }
 
+interface UseRepositoriesReturn extends UseApiState<Repository[]> {
+  execute: () => Promise<Repository[] | null>;
+  refresh: () => Promise<Repository[] | null>;
+  refreshing: boolean;
+  reset: () => void;
+}
+
 const API_BASE_URL = '/api';
 
 async function fetchApi<T>(
@@ -131,12 +138,13 @@ export function useDeleteSession(): {
   return { deleteSession, loading, error };
 }
 
-export function useRepositories(): UseApiReturn<Repository[]> {
+export function useRepositories(): UseRepositoriesReturn {
   const [state, setState] = useState<UseApiState<Repository[]>>({
     data: null,
     loading: false,
     error: null,
   });
+  const [refreshing, setRefreshing] = useState(false);
 
   const execute = useCallback(async (): Promise<Repository[] | null> => {
     setState({ data: null, loading: true, error: null });
@@ -152,9 +160,27 @@ export function useRepositories(): UseApiReturn<Repository[]> {
     }
   }, []);
 
+  const refresh = useCallback(async (): Promise<Repository[] | null> => {
+    setRefreshing(true);
+
+    const response = await fetchApi<Repository[]>('/github/repos/refresh', {
+      method: 'POST',
+    });
+
+    setRefreshing(false);
+
+    if (response.success && response.data) {
+      setState({ data: response.data, loading: false, error: null });
+      return response.data;
+    } else {
+      setState((prev) => ({ ...prev, error: response.error || 'Failed to refresh' }));
+      return null;
+    }
+  }, []);
+
   const reset = useCallback(() => {
     setState({ data: null, loading: false, error: null });
   }, []);
 
-  return { ...state, execute, reset };
+  return { ...state, execute, refresh, refreshing, reset };
 }

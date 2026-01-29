@@ -4,6 +4,7 @@ import {
   getRepository,
   getDefaultBranch,
   GitHubApiError,
+  clearRepositoryCache,
 } from './github.service.js';
 
 describe('github.service', () => {
@@ -12,6 +13,7 @@ describe('github.service', () => {
 
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
+    clearRepositoryCache();
   });
 
   afterEach(() => {
