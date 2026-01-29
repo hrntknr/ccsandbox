@@ -107,6 +107,51 @@
   margin-bottom: 20px;
 }
 
+.form-field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.form-field-header label {
+  margin-bottom: 0;
+}
+
+.refresh-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #666;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.refresh-button:hover:not(:disabled) {
+  color: #d4d4d4;
+  background-color: #3c3c3c;
+}
+
+.refresh-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.refresh-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.refresh-icon.spinning {
+  animation: spin 1s linear infinite;
+}
+
 .repo-picker {
   border: 1px solid #444;
   border-radius: 6px;

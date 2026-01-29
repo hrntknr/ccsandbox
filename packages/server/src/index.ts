@@ -3,6 +3,7 @@ import { createApp, type CreateAppOptions } from './app.js';
 import { setConfig, type ServerConfig } from './config.js';
 import { setupWebSocketServer, type WebSocketServerInstance } from './websocket/index.js';
 import { resetTerminalManager } from './services/terminal.service.js';
+import { startBackgroundRefresh, stopBackgroundRefresh } from './services/github.service.js';
 
 export { getConfig, hasConfig, setConfig, type ServerConfig } from './config.js';
 export { createApp, type CreateAppOptions } from './app.js';
@@ -65,11 +66,17 @@ export async function startServer(options: StartServerOptions): Promise<ServerIn
       console.log(`Server listening on http://${options.listen}:${actualPort}`);
       console.log(`WebSocket terminal endpoint: ws://${options.listen}:${actualPort}/ws/terminal`);
 
+      // Start background repository cache refresh
+      startBackgroundRefresh(options.pat, options.apiBase);
+
       resolve({
         server,
         wss,
         port: actualPort,
         close: () => new Promise<void>((resolveClose, rejectClose) => {
+          // Stop background refresh
+          stopBackgroundRefresh();
+
           // Close WebSocket server and cleanup terminals
           wss.close();
           resetTerminalManager();
