@@ -614,4 +614,103 @@ describe('createTerminalHandler', () => {
       );
     });
   });
+
+  describe('exited terminal handling', () => {
+    it('should attach to exited tab without error', async () => {
+      // Setup: tab exists in room but terminal process has exited
+      mockConnectionManager.joinSession(testSessionId, testClientId, mockWs);
+      mockConnectionManager.addTab(testSessionId, {
+        tabId: testTabId,
+        title: 'Terminal 1',
+        shell: 'bash',
+        exited: true,
+      });
+
+      // Terminal is gone (process exited)
+      mockTerminalManager.get.mockReturnValue(undefined);
+      mockTerminalManager.getOutputHistory.mockReturnValue('');
+
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
+
+      // Join session
+      handler.handleMessage({
+        type: 'join-session',
+        sessionId: testSessionId,
+        clientId: testClientId,
+      });
+
+      await vi.waitFor(() => {
+        expect(sentMessages.some(m => m.includes('sync-state'))).toBe(true);
+      });
+
+      // Attach to exited tab - should succeed without error
+      handler.handleMessage({
+        type: 'attach',
+        tabId: testTabId,
+      });
+
+      await vi.waitFor(() => {
+        expect(sentMessages).toContainEqual(
+          JSON.stringify({ type: 'attached', tabId: testTabId })
+        );
+      });
+
+      // Should also send empty history
+      expect(sentMessages).toContainEqual(
+        JSON.stringify({ type: 'history', data: '' })
+      );
+
+      // Should NOT send an error
+      expect(sentMessages.some(m => m.includes('"type":"error"'))).toBe(false);
+    });
+
+    it('should silently ignore input to exited terminal', async () => {
+      // Setup: tab exists but terminal process has exited
+      mockConnectionManager.joinSession(testSessionId, testClientId, mockWs);
+      mockConnectionManager.addTab(testSessionId, {
+        tabId: testTabId,
+        title: 'Terminal 1',
+        shell: 'bash',
+        exited: true,
+      });
+
+      mockTerminalManager.get.mockReturnValue(undefined);
+      mockTerminalManager.getOutputHistory.mockReturnValue('');
+      mockTerminalManager.write.mockReturnValue(false); // write fails for exited terminal
+
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
+
+      // Join and attach
+      handler.handleMessage({
+        type: 'join-session',
+        sessionId: testSessionId,
+        clientId: testClientId,
+      });
+
+      await vi.waitFor(() => {
+        expect(sentMessages.some(m => m.includes('sync-state'))).toBe(true);
+      });
+
+      handler.handleMessage({
+        type: 'attach',
+        tabId: testTabId,
+      });
+
+      await vi.waitFor(() => {
+        expect(sentMessages.some(m => m.includes('attached'))).toBe(true);
+      });
+
+      // Clear messages before input test
+      sentMessages.length = 0;
+
+      // Send input to exited terminal
+      handler.handleMessage({
+        type: 'input',
+        data: 'test',
+      });
+
+      // Should NOT send an error for input to exited terminal
+      expect(sentMessages.some(m => m.includes('"type":"error"'))).toBe(false);
+    });
+  });
 });

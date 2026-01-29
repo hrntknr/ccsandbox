@@ -49,7 +49,16 @@ export class ConnectionManager {
     const sessionId = this.tabToSession.get(tabId);
     if (!sessionId) return;
 
-// Notify all clients in the session about the exit
+    // Mark tab as exited for reconnection state restoration
+    const room = this.rooms.get(sessionId);
+    if (room) {
+      const tab = room.tabs.find((t) => t.tabId === tabId);
+      if (tab) {
+        tab.exited = true;
+      }
+    }
+
+    // Notify all clients in the session about the exit
     // Do not remove the tab immediately - wait for client to close it after user input
     this.broadcast(sessionId, {
       type: 'exit',

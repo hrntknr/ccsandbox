@@ -7,6 +7,7 @@ import './Terminal.css';
 interface TerminalProps {
   tabId: string;
   isActive: boolean;
+  initialExited?: boolean;
   sendInput: (tabId: string, data: string) => void;
   resizeTerminal: (cols: number, rows: number) => void;
   onOutput: (tabId: string, callback: (data: string) => void) => () => void;
@@ -18,6 +19,7 @@ interface TerminalProps {
 export function Terminal({
   tabId,
   isActive,
+  initialExited,
   sendInput,
   resizeTerminal,
   onOutput,
@@ -29,7 +31,7 @@ export function Terminal({
   const terminalRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const historyReceivedRef = useRef(false);
-  const exitedRef = useRef(false);
+  const exitedRef = useRef(initialExited ?? false);
 
   // Initialize terminal
   useEffect(() => {
@@ -103,11 +105,15 @@ export function Terminal({
       if (!historyReceivedRef.current) {
         historyReceivedRef.current = true;
         terminal.write(data);
+        // Show exit message if the tab was already exited when we reconnected
+        if (initialExited) {
+          terminal.write(`\r\n\x1b[33mProcess exited. Press any key to close this tab.\x1b[0m`);
+        }
       }
     });
 
     return unsubscribe;
-  }, [tabId, onHistory]);
+  }, [tabId, onHistory, initialExited]);
 
   // Handle process exit
   useEffect(() => {
