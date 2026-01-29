@@ -1,10 +1,19 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import type { Repository } from '@ccsandbox/shared';
 import { useRepositories, useSessionCreate } from '../../hooks';
 import '@xterm/xterm/css/xterm.css';
 import './NewSessionModal.css';
+
+function generateRandomBranchName(): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let random = '';
+  for (let i = 0; i < 6; i++) {
+    random += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `sandbox-${random}`;
+}
 
 interface NewSessionModalProps {
   isOpen: boolean;
@@ -21,6 +30,7 @@ export function NewSessionModal({
 }: NewSessionModalProps) {
   const [modalState, setModalState] = useState<ModalState>('form');
   const [selectedRepo, setSelectedRepo] = useState<Repository | null>(null);
+  const [repoFilter, setRepoFilter] = useState('');
   const [baseBranch, setBaseBranch] = useState('');
   const [workBranch, setWorkBranch] = useState('');
 
@@ -45,14 +55,25 @@ export function NewSessionModal({
     reset: resetCreate,
   } = useSessionCreate();
 
+  // Filtered repositories based on search input
+  const filteredRepositories = useMemo(() => {
+    if (!repositories) return [];
+    if (!repoFilter.trim()) return repositories;
+    const lowerFilter = repoFilter.toLowerCase();
+    return repositories.filter((repo) =>
+      repo.fullName.toLowerCase().includes(lowerFilter)
+    );
+  }, [repositories, repoFilter]);
+
   // Reset modal state when opened
   useEffect(() => {
     if (isOpen) {
       fetchRepositories();
       setModalState('form');
       setSelectedRepo(null);
+      setRepoFilter('');
       setBaseBranch('');
-      setWorkBranch('');
+      setWorkBranch(generateRandomBranchName());
       resetCreate();
     }
   }, [isOpen, fetchRepositories, resetCreate]);
@@ -125,18 +146,13 @@ export function NewSessionModal({
     }
   }, [createdSession, onSessionCreated, onClose]);
 
-  const handleRepoChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const repoFullName = e.target.value;
-      const repo = repositories?.find((r) => r.fullName === repoFullName) ?? null;
+  const handleRepoSelect = useCallback(
+    (repo: Repository) => {
       setSelectedRepo(repo);
-      if (repo) {
-        setBaseBranch(repo.defaultBranch);
-      } else {
-        setBaseBranch('');
-      }
+      setRepoFilter(repo.fullName);
+      setBaseBranch(repo.defaultBranch);
     },
-    [repositories]
+    []
   );
 
   const handleSubmit = useCallback(
@@ -207,24 +223,87 @@ export function NewSessionModal({
               </div>
             )}
 
-            <div className="form-field">
+            <div className="form-field form-field-repo">
               <label htmlFor="repository">Repository</label>
-              <select
-                id="repository"
-                value={selectedRepo?.fullName ?? ''}
-                onChange={handleRepoChange}
-                disabled={reposLoading}
-                required
-              >
-                <option value="">
-                  {reposLoading ? 'Loading repositories...' : 'Select a repository'}
-                </option>
-                {repositories?.map((repo) => (
-                  <option key={repo.fullName} value={repo.fullName}>
-                    {repo.fullName}
-                  </option>
-                ))}
-              </select>
+              <div className="repo-picker">
+                <div className="repo-search-container">
+                  <svg className="repo-search-icon" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M11.5 7a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Zm-.82 4.74a6 6 0 1 1 1.06-1.06l3.04 3.04a.75.75 0 1 1-1.06 1.06l-3.04-3.04Z" />
+                  </svg>
+                  <input
+                    id="repository"
+                    type="text"
+                    className="repo-search-input"
+                    value={repoFilter}
+                    onChange={(e) => {
+                      setRepoFilter(e.target.value);
+                      if (selectedRepo && !selectedRepo.fullName.toLowerCase().includes(e.target.value.toLowerCase())) {
+                        setSelectedRepo(null);
+                        setBaseBranch('');
+                      }
+                    }}
+                    placeholder={reposLoading ? 'Loading...' : 'Search repositories...'}
+                    disabled={reposLoading}
+                    autoComplete="off"
+                  />
+                  {repoFilter && (
+                    <button
+                      type="button"
+                      className="repo-search-clear"
+                      onClick={() => {
+                        setRepoFilter('');
+                        setSelectedRepo(null);
+                        setBaseBranch('');
+                      }}
+                    >
+                      <svg viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                <div className="repo-list">
+                {reposLoading ? (
+                  <div className="repo-list-status">
+                    <div className="repo-list-spinner" />
+                    <span>Loading repositories...</span>
+                  </div>
+                ) : filteredRepositories.length === 0 ? (
+                  <div className="repo-list-status">
+                    <svg viewBox="0 0 16 16" fill="currentColor" className="repo-list-empty-icon">
+                      <path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z" />
+                    </svg>
+                    <span>{repoFilter ? 'No matching repositories' : 'No repositories found'}</span>
+                  </div>
+                ) : (
+                  filteredRepositories.map((repo) => {
+                    const isSelected = selectedRepo?.fullName === repo.fullName;
+                    const [owner, name] = repo.fullName.split('/');
+                    return (
+                      <div
+                        key={repo.fullName}
+                        className={`repo-list-item ${isSelected ? 'selected' : ''}`}
+                        onClick={() => handleRepoSelect(repo)}
+                      >
+                        <svg className="repo-list-item-icon" viewBox="0 0 16 16" fill="currentColor">
+                          <path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8ZM5 12.25a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.25a.25.25 0 0 1-.4.2l-1.45-1.087a.249.249 0 0 0-.3 0L5.4 15.7a.25.25 0 0 1-.4-.2Z" />
+                        </svg>
+                        <div className="repo-list-item-text">
+                          <span className="repo-owner">{owner}</span>
+                          <span className="repo-separator">/</span>
+                          <span className="repo-name">{name}</span>
+                        </div>
+                        {isSelected && (
+                          <svg className="repo-list-item-check" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z" />
+                          </svg>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+                </div>
+              </div>
             </div>
 
             <div className="form-field">
