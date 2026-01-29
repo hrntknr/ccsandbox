@@ -144,7 +144,6 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     outputSubscriptionsRef.current = [];
     historySubscriptionsRef.current = [];
     exitSubscriptionsRef.current = [];
-    ownTabAddedSubscriptionsRef.current = [];
   }, []);
 
   // Connect to WebSocket and join session
