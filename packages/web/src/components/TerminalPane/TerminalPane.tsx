@@ -152,6 +152,7 @@ export function TerminalPane({ session }: TerminalPaneProps) {
                     onDoubleClick={(e) => handleStartEdit(tab, e)}
                   >
                     {tab.title}
+                    {tab.ready === false && <span className="terminal-tab-loading">...</span>}
                   </span>
                 )}
                 <button
