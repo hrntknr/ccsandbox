@@ -20,3 +20,12 @@ export interface Session {
   containerName?: string;
   tabs?: TerminalTab[];
 }
+
+/**
+ * WebSocket messages for session synchronization across browser tabs.
+ */
+export type SessionSyncServerMessage =
+  | { type: 'sessions-sync'; sessions: Session[] }
+  | { type: 'session-created'; session: Session }
+  | { type: 'session-updated'; session: Session }
+  | { type: 'session-deleted'; sessionId: string };

@@ -9,7 +9,7 @@ import './NewSessionModal.css';
 interface NewSessionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSessionCreated: () => void;
+  onSessionCreated?: () => void;
 }
 
 type ModalState = 'form' | 'creating';
@@ -118,7 +118,7 @@ export function NewSessionModal({
     if (createdSession) {
       // Short delay to let user see the success message
       const timer = setTimeout(() => {
-        onSessionCreated();
+        onSessionCreated?.();
         onClose();
       }, 1000);
       return () => clearTimeout(timer);

@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import type { Session } from '@ccsandbox/shared';
 import { SessionList } from './components/SessionList';
 import { TerminalPane } from './components/TerminalPane';
 import { NewSessionModal } from './components/NewSessionModal';
-import { useSessions, useDeleteSession } from './hooks/useApi';
+import { useDeleteSession } from './hooks/useApi';
+import { useSessionSync } from './hooks/useSessionSync';
 import './App.css';
 
 type MobileView = 'sessions' | 'terminal';
@@ -14,12 +15,8 @@ export function App() {
   const [deleteConfirmSessionId, setDeleteConfirmSessionId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<MobileView>('sessions');
 
-  const { data: sessions, loading, error, execute: fetchSessions } = useSessions();
+  const { sessions, loading, error } = useSessionSync();
   const { deleteSession, loading: deleteLoading } = useDeleteSession();
-
-  useEffect(() => {
-    fetchSessions();
-  }, [fetchSessions]);
 
   const handleSelectSession = useCallback((sessionId: string) => {
     setSelectedSessionId(sessionId);
@@ -35,10 +32,6 @@ export function App() {
     setIsNewSessionModalOpen(false);
   }, []);
 
-  const handleSessionCreated = useCallback(() => {
-    fetchSessions();
-  }, [fetchSessions]);
-
   const handleDeleteSession = useCallback((sessionId: string) => {
     setDeleteConfirmSessionId(sessionId);
   }, []);
@@ -51,18 +44,14 @@ export function App() {
       if (selectedSessionId === deleteConfirmSessionId) {
         setSelectedSessionId(null);
       }
-      fetchSessions();
+      // Session list will be updated via WebSocket sync
     }
     setDeleteConfirmSessionId(null);
-  }, [deleteConfirmSessionId, deleteSession, selectedSessionId, fetchSessions]);
+  }, [deleteConfirmSessionId, deleteSession, selectedSessionId]);
 
   const handleCancelDelete = useCallback(() => {
     setDeleteConfirmSessionId(null);
   }, []);
-
-  const handleSessionUpdate = useCallback(() => {
-    fetchSessions();
-  }, [fetchSessions]);
 
   const selectedSession: Session | null =
     sessions?.find((s) => s.sessionId === selectedSessionId) ?? null;
@@ -76,9 +65,6 @@ export function App() {
       {error && (
         <div className="error-banner">
           <span className="error-message">{error}</span>
-          <button className="error-retry-button" onClick={fetchSessions}>
-            Retry
-          </button>
         </div>
       )}
       {/* Mobile navigation */}
@@ -109,14 +95,12 @@ export function App() {
       <div className={`app-main ${mobileView !== 'terminal' ? 'hidden' : ''}`}>
         <TerminalPane
           session={selectedSession}
-          onSessionUpdate={handleSessionUpdate}
         />
       </div>
 
       <NewSessionModal
         isOpen={isNewSessionModalOpen}
         onClose={handleCloseNewSessionModal}
-        onSessionCreated={handleSessionCreated}
       />
 
       {deleteConfirmSessionId && (

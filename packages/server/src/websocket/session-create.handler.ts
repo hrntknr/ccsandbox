@@ -1,6 +1,6 @@
 import { WebSocket } from 'ws';
 import type { SessionCreateClientMessage, SessionCreateServerMessage, Session } from '@ccsandbox/shared';
-import { SessionStore, WorkspaceExistsError } from '../persistence/session-store.js';
+import { getSessionStore, WorkspaceExistsError } from '../persistence/session-store.js';
 import { cloneRepository, GitOperationError } from '../services/git.service.js';
 import {
   hasDevcontainerConfig,
@@ -67,7 +67,7 @@ export function createSessionCreateHandler(ws: WebSocket): SessionCreateHandler 
     isCreating = true;
 
     const config = getConfig();
-    const sessionStore = new SessionStore(config.repoDir);
+    const sessionStore = getSessionStore(config.repoDir);
 
     const { title, repo, baseBranch, workBranch } = message;
 
