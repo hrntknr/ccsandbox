@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { Session, TerminalTab } from '@ccsandbox/shared';
 import { Terminal } from '../Terminal';
-import { useContainerAction } from '../../hooks';
+import { useContainerAction, useTerminalWebSocket } from '../../hooks';
 import './TerminalPane.css';
 
 interface TerminalPaneProps {
@@ -13,91 +13,92 @@ interface LocalTab extends TerminalTab {
   isEditing?: boolean;
 }
 
-function generateTabId(): string {
-  // Use crypto.getRandomValues for secure random UUID v4 (works in HTTP too)
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  // Set version (4) and variant (RFC4122)
-  bytes.set([(bytes[6]! & 0x0f) | 0x40], 6);
-  bytes.set([(bytes[8]! & 0x3f) | 0x80], 8);
-  // Convert to hex string with dashes
-  const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
-
 export function TerminalPane({ session, onSessionUpdate }: TerminalPaneProps) {
-  const [tabs, setTabs] = useState<LocalTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [editingTabId, setEditingTabId] = useState<string | null>(null);
 
   const { execute: executeContainerAction, loading: containerActionLoading } = useContainerAction();
 
-  // Reset tabs when session changes
+  const sessionId = session?.state === 'RUNNING' ? session.sessionId : null;
+  const {
+    isConnected,
+    tabs: remoteTabs,
+    addTab,
+    closeTab,
+    renameTab,
+    attachToTab,
+    sendInput,
+    resizeTerminal,
+    onOutput,
+    onHistory,
+  } = useTerminalWebSocket(sessionId);
+
+  // Convert remote tabs to local tabs with editing state
+  const tabs: LocalTab[] = remoteTabs.map((t) => ({
+    ...t,
+    isEditing: t.tabId === editingTabId,
+  }));
+
+  // Set active tab when tabs change
   useEffect(() => {
-    if (session) {
-      const initialTabs: LocalTab[] = session.tabs?.length
-        ? session.tabs.map((t) => ({ ...t }))
-        : [{ tabId: generateTabId(), title: 'Terminal 1', shell: 'bash' }];
-      setTabs(initialTabs);
-      setActiveTabId(initialTabs[0]?.tabId ?? null);
-    } else {
-      setTabs([]);
+    if (tabs.length > 0 && !activeTabId) {
+      const firstTab = tabs[0];
+      if (firstTab) {
+        setActiveTabId(firstTab.tabId);
+      }
+    } else if (tabs.length > 0 && activeTabId && !tabs.find((t) => t.tabId === activeTabId)) {
+      // Active tab was removed, select first tab
+      const firstTab = tabs[0];
+      if (firstTab) {
+        setActiveTabId(firstTab.tabId);
+      }
+    } else if (tabs.length === 0) {
       setActiveTabId(null);
     }
-  }, [session?.sessionId]);
+  }, [tabs, activeTabId]);
+
+  // Attach to active tab when it changes
+  useEffect(() => {
+    if (activeTabId && isConnected) {
+      attachToTab(activeTabId);
+    }
+  }, [activeTabId, isConnected, attachToTab]);
 
   const handleAddTab = useCallback(() => {
-    const newTab: LocalTab = {
-      tabId: generateTabId(),
-      title: `Terminal ${tabs.length + 1}`,
-      shell: 'bash',
-    };
-    setTabs((prev) => [...prev, newTab]);
-    setActiveTabId(newTab.tabId);
-  }, [tabs.length]);
+    addTab();
+  }, [addTab]);
 
   const handleCloseTab = useCallback(
     (tabId: string, e: React.MouseEvent) => {
       e.stopPropagation();
-      setTabs((prev) => {
-        const newTabs = prev.filter((t) => t.tabId !== tabId);
-        if (activeTabId === tabId && newTabs.length > 0) {
-          const firstTab = newTabs[0];
-          if (firstTab) {
-            setActiveTabId(firstTab.tabId);
-          }
-        } else if (newTabs.length === 0) {
-          setActiveTabId(null);
-        }
-        return newTabs;
-      });
+      closeTab(tabId);
     },
-    [activeTabId]
+    [closeTab]
   );
 
   const handleStartEdit = useCallback(
     (tab: LocalTab, e: React.MouseEvent) => {
       e.stopPropagation();
-      setTabs((prev) =>
-        prev.map((t) => ({
-          ...t,
-          isEditing: t.tabId === tab.tabId,
-        }))
-      );
+      setEditingTabId(tab.tabId);
       setEditingTitle(tab.title);
     },
     []
   );
 
-  const handleFinishEdit = useCallback((tabId: string) => {
-    setTabs((prev) =>
-      prev.map((t) =>
-        t.tabId === tabId
-          ? { ...t, title: editingTitle || t.title, isEditing: false }
-          : t
-      )
-    );
-  }, [editingTitle]);
+  const handleFinishEdit = useCallback(
+    (tabId: string) => {
+      if (editingTitle.trim()) {
+        renameTab(tabId, editingTitle.trim());
+      }
+      setEditingTabId(null);
+    },
+    [editingTitle, renameTab]
+  );
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingTabId(null);
+  }, []);
 
   const handleContainerAction = useCallback(
     async (action: 'start' | 'stop' | 'remove') => {
@@ -144,11 +145,7 @@ export function TerminalPane({ session, onSessionUpdate }: TerminalPaneProps) {
                       if (e.key === 'Enter') {
                         handleFinishEdit(tab.tabId);
                       } else if (e.key === 'Escape') {
-                        setTabs((prev) =>
-                          prev.map((t) =>
-                            t.tabId === tab.tabId ? { ...t, isEditing: false } : t
-                          )
-                        );
+                        handleCancelEdit();
                       }
                     }}
                     autoFocus
@@ -171,7 +168,11 @@ export function TerminalPane({ session, onSessionUpdate }: TerminalPaneProps) {
               </div>
             ))}
           </div>
-          <button className="terminal-add-tab" onClick={handleAddTab}>
+          <button
+            className="terminal-add-tab"
+            onClick={handleAddTab}
+            disabled={!isConnected}
+          >
             +
           </button>
         </div>
@@ -208,21 +209,28 @@ export function TerminalPane({ session, onSessionUpdate }: TerminalPaneProps) {
       </div>
 
       <div className="terminal-container">
-        {tabs.length === 0 ? (
-          <div className="terminal-placeholder">
-            No terminal tabs. Click + to add one.
-          </div>
-        ) : !isRunning ? (
+        {!isRunning ? (
           <div className="terminal-placeholder">
             Container is not running. Start the container to use the terminal.
+          </div>
+        ) : tabs.length === 0 ? (
+          <div className="terminal-placeholder">
+            {isConnected ? (
+              <>No terminal tabs. Click + to add one.</>
+            ) : (
+              <>Connecting...</>
+            )}
           </div>
         ) : (
           tabs.map((tab) => (
             <Terminal
               key={tab.tabId}
-              sessionId={session.sessionId}
               tabId={tab.tabId}
               isActive={tab.tabId === activeTabId}
+              sendInput={sendInput}
+              resizeTerminal={resizeTerminal}
+              onOutput={onOutput}
+              onHistory={onHistory}
             />
           ))
         )}

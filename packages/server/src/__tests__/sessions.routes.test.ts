@@ -31,7 +31,6 @@ vi.mock('../services/devcontainer.service.js', async () => {
     hasDevcontainerConfig: vi.fn(),
     startDevcontainer: vi.fn(),
     stopContainer: vi.fn(),
-    startContainer: vi.fn(),
     removeContainer: vi.fn(),
     isContainerRunning: vi.fn(),
   };
@@ -370,7 +369,6 @@ describe('sessions routes', () => {
         containerId: 'container123',
       });
       vi.mocked(devcontainerService.stopContainer).mockResolvedValue(undefined);
-      vi.mocked(devcontainerService.startContainer).mockResolvedValue(undefined);
 
       const createResponse = await request(app)
         .post('/api/sessions')

@@ -1,15 +1,35 @@
 import { spawn, ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import { resolve, normalize } from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
- * Validate Docker container ID format.
- * Container IDs are hexadecimal strings, typically 12 (short) or 64 (full) characters.
+ * Validate workspace path to prevent path traversal attacks.
+ * The path must be absolute and normalized (no .. or . components that resolve outside).
  */
-function isValidContainerId(containerId: string): boolean {
-  // Docker container IDs are 12-64 character hexadecimal strings
-  return /^[a-f0-9]{12,64}$/i.test(containerId);
+function isValidWorkspacePath(workspacePath: string): boolean {
+  if (!workspacePath || typeof workspacePath !== 'string') {
+    return false;
+  }
+
+  // Must be an absolute path
+  if (!workspacePath.startsWith('/')) {
+    return false;
+  }
+
+  // Normalize and resolve to check for path traversal
+  const normalized = normalize(workspacePath);
+  const resolved = resolve(workspacePath);
+
+  // After normalization, should be the same as resolved
+  return normalized === resolved;
 }
+
+/**
+ * Output buffer configuration
+ */
+const OUTPUT_BUFFER_MAX_LINES = 1000;
+const OUTPUT_BUFFER_MAX_BYTES = 50 * 1024; // 50KB
 
 /**
  * Information about an active terminal instance
@@ -17,11 +37,13 @@ function isValidContainerId(containerId: string): boolean {
 export interface TerminalInstance {
   tabId: string;
   sessionId: string;
-  containerId: string;
+  workspacePath: string;
   shell: string;
   process: ChildProcess;
   cols: number;
   rows: number;
+  outputBuffer: string[];
+  outputBufferBytes: number;
 }
 
 /**
@@ -38,7 +60,8 @@ export interface TerminalManagerEvents {
  */
 export interface CreateTerminalOptions {
   sessionId: string;
-  containerId: string;
+  workspacePath: string;
+  devcontainerCliPath?: string;
   tabId?: string;
   shell?: string;
   cols?: number;
@@ -56,15 +79,15 @@ export class TerminalManager extends EventEmitter {
   }
 
   /**
-   * Check if bash is available in a container
+   * Check if bash is available in a container via devcontainer exec
    */
-  private async detectShell(containerId: string): Promise<string> {
-    if (!isValidContainerId(containerId)) {
-      throw new Error('Invalid container ID format');
+  private async detectShell(workspacePath: string, cliPath: string): Promise<string> {
+    if (!isValidWorkspacePath(workspacePath)) {
+      throw new Error('Invalid workspace path');
     }
 
     return new Promise((resolve) => {
-      const check = spawn('docker', ['exec', containerId, 'which', 'bash'], {
+      const check = spawn(cliPath, ['exec', '--workspace-folder', workspacePath, 'which', 'bash'], {
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
@@ -93,54 +116,67 @@ export class TerminalManager extends EventEmitter {
   async create(options: CreateTerminalOptions): Promise<string> {
     const {
       sessionId,
-      containerId,
+      workspacePath,
+      devcontainerCliPath = 'devcontainer',
       tabId = uuidv4(),
       cols = 80,
       rows = 24,
     } = options;
 
-    // Validate containerId format to prevent command injection
-    if (!isValidContainerId(containerId)) {
-      throw new Error('Invalid container ID format');
+    // Validate workspacePath to prevent path traversal attacks
+    if (!isValidWorkspacePath(workspacePath)) {
+      throw new Error('Invalid workspace path');
     }
 
     // Detect shell if not specified
-    const shell = options.shell ?? await this.detectShell(containerId);
+    const shell = options.shell ?? await this.detectShell(workspacePath, devcontainerCliPath);
 
-    // Spawn docker exec with pseudo-terminal allocation
-    // Using 'script' command to create a PTY wrapper for docker exec
+    // Spawn devcontainer exec with pseudo-terminal allocation
+    // Using 'script' command to create a PTY wrapper for devcontainer exec
     // This is necessary because Node.js spawn doesn't allocate a real PTY
-    const dockerCmd = `docker exec -it -e TERM=xterm-256color -e COLUMNS=${cols} -e LINES=${rows} ${containerId} ${shell}`;
+    const devcontainerCmd = `${devcontainerCliPath} exec --workspace-folder "${workspacePath}" ${shell}`;
 
     const process = spawn('script', [
       '-q',      // Quiet mode (no start/end messages)
       '-c',      // Command to run
-      dockerCmd,
+      devcontainerCmd,
       '/dev/null', // Output file (discard)
     ], {
       stdio: ['pipe', 'pipe', 'pipe'],
+      env: {
+        ...global.process.env,
+        TERM: 'xterm-256color',
+        COLUMNS: String(cols),
+        LINES: String(rows),
+      },
     });
 
     const terminal: TerminalInstance = {
       tabId,
       sessionId,
-      containerId,
+      workspacePath,
       shell,
       process,
       cols,
       rows,
+      outputBuffer: [],
+      outputBufferBytes: 0,
     };
 
     this.terminals.set(tabId, terminal);
 
     // Handle stdout
     process.stdout?.on('data', (data: Buffer) => {
-      this.emit('data', tabId, data.toString());
+      const str = data.toString();
+      this.appendToBuffer(terminal, str);
+      this.emit('data', tabId, str);
     });
 
     // Handle stderr (merge with stdout for terminal output)
     process.stderr?.on('data', (data: Buffer) => {
-      this.emit('data', tabId, data.toString());
+      const str = data.toString();
+      this.appendToBuffer(terminal, str);
+      this.emit('data', tabId, str);
     });
 
     // Handle process exit
@@ -156,6 +192,38 @@ export class TerminalManager extends EventEmitter {
     });
 
     return tabId;
+  }
+
+  /**
+   * Append data to the output buffer, respecting size limits
+   */
+  private appendToBuffer(terminal: TerminalInstance, data: string): void {
+    const dataBytes = Buffer.byteLength(data, 'utf8');
+
+    terminal.outputBuffer.push(data);
+    terminal.outputBufferBytes += dataBytes;
+
+    // Trim buffer if it exceeds limits
+    while (
+      terminal.outputBuffer.length > OUTPUT_BUFFER_MAX_LINES ||
+      terminal.outputBufferBytes > OUTPUT_BUFFER_MAX_BYTES
+    ) {
+      const removed = terminal.outputBuffer.shift();
+      if (removed) {
+        terminal.outputBufferBytes -= Buffer.byteLength(removed, 'utf8');
+      }
+    }
+  }
+
+  /**
+   * Get output history for a terminal
+   */
+  getOutputHistory(tabId: string): string {
+    const terminal = this.terminals.get(tabId);
+    if (!terminal) {
+      return '';
+    }
+    return terminal.outputBuffer.join('');
   }
 
   /**

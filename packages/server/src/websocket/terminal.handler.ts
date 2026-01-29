@@ -1,13 +1,16 @@
 import { WebSocket } from 'ws';
-import type { TerminalClientMessage, TerminalServerMessage } from '@ccsandbox/shared';
+import { v4 as uuidv4 } from 'uuid';
+import type { TerminalClientMessage, TerminalServerMessage, TerminalTab } from '@ccsandbox/shared';
 import { getTerminalManager } from '../services/terminal.service.js';
 import { SessionStore } from '../persistence/session-store.js';
 import { getConfig } from '../config.js';
+import type { ConnectionManager } from './connection-manager.js';
 
 // Validation constants
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MIN_TERMINAL_SIZE = 1;
 const MAX_TERMINAL_SIZE = 500;
+const MAX_TITLE_LENGTH = 100;
 
 /**
  * Validate UUID format
@@ -21,6 +24,13 @@ function isValidUuid(id: string): boolean {
  */
 function isValidTerminalSize(value: number): boolean {
   return Number.isInteger(value) && value >= MIN_TERMINAL_SIZE && value <= MAX_TERMINAL_SIZE;
+}
+
+/**
+ * Validate tab title
+ */
+function isValidTitle(title: string): boolean {
+  return typeof title === 'string' && title.length > 0 && title.length <= MAX_TITLE_LENGTH;
 }
 
 /**
@@ -50,43 +60,21 @@ function sendError(ws: WebSocket, errorMessage: string): void {
 /**
  * Create a terminal handler for a WebSocket connection
  */
-export function createTerminalHandler(ws: WebSocket): TerminalHandler {
+export function createTerminalHandler(
+  ws: WebSocket,
+  connectionManager: ConnectionManager
+): TerminalHandler {
   const terminalManager = getTerminalManager();
-  let currentTabId: string | null = null;
+  let clientId: string | null = null;
   let currentSessionId: string | null = null;
-
-  // Event listeners that need cleanup
-  const dataListener = (tabId: string, data: string): void => {
-    if (tabId === currentTabId) {
-      sendMessage(ws, { type: 'output', data });
-    }
-  };
-
-  const exitListener = (tabId: string, code: number): void => {
-    if (tabId === currentTabId) {
-      sendMessage(ws, { type: 'exit', code });
-      currentTabId = null;
-    }
-  };
-
-  const errorListener = (tabId: string, error: Error): void => {
-    if (tabId === currentTabId) {
-      sendError(ws, error.message);
-      currentTabId = null;
-    }
-  };
-
-  // Register event listeners
-  terminalManager.on('data', dataListener);
-  terminalManager.on('exit', exitListener);
-  terminalManager.on('error', errorListener);
+  let currentTabId: string | null = null;
 
   /**
-   * Handle attach message - create or attach to a terminal
+   * Handle join-session message - join a session room
    */
-  async function handleAttach(
+  async function handleJoinSession(
     sessionId: string,
-    tabId?: string
+    incomingClientId: string
   ): Promise<void> {
     try {
       const config = getConfig();
@@ -100,49 +88,189 @@ export function createTerminalHandler(ws: WebSocket): TerminalHandler {
         return;
       }
 
-      if (!session.containerId) {
-        sendError(ws, 'Session has no container');
+      clientId = incomingClientId;
+      currentSessionId = sessionId;
+
+      // Join the session room
+      connectionManager.joinSession(sessionId, clientId, ws);
+
+      // Send current tab state to the client
+      const tabs = connectionManager.getTabs(sessionId);
+      sendMessage(ws, { type: 'sync-state', tabs });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to join session';
+      sendError(ws, message);
+    }
+  }
+
+  /**
+   * Handle add-tab message - create a new tab and terminal
+   */
+  async function handleAddTab(title?: string): Promise<void> {
+    if (!currentSessionId || !clientId) {
+      sendError(ws, 'Not joined to a session');
+      return;
+    }
+
+    try {
+      const config = getConfig();
+      const sessionStore = new SessionStore(config.repoDir);
+      const session = await sessionStore.get(currentSessionId);
+
+      if (session.state !== 'RUNNING') {
+        sendError(ws, 'Session is not running');
         return;
       }
 
-      currentSessionId = sessionId;
+      const tabId = uuidv4();
+      const existingTabs = connectionManager.getTabs(currentSessionId);
+      const tabTitle = title ?? `Terminal ${existingTabs.length + 1}`;
 
-      // If tabId is provided, try to attach to existing terminal
-      if (tabId) {
-        const existing = terminalManager.get(tabId);
-        if (existing && existing.sessionId === sessionId) {
-          currentTabId = tabId;
-          sendMessage(ws, { type: 'attached', tabId });
-          return;
-        }
-      }
-
-      // Create new terminal
-      const newTabId = await terminalManager.create({
-        sessionId,
-        containerId: session.containerId,
+      // Create terminal
+      await terminalManager.create({
+        sessionId: currentSessionId,
+        workspacePath: session.workspacePath,
+        devcontainerCliPath: config.devcontainerCli,
         tabId,
       });
 
-      currentTabId = newTabId;
-      sendMessage(ws, { type: 'attached', tabId: newTabId });
+      const terminal = terminalManager.get(tabId);
+      const tab: TerminalTab = {
+        tabId,
+        title: tabTitle,
+        shell: terminal?.shell ?? 'bash',
+      };
 
-      // Update session tabs
-      const tabs = session.tabs ?? [];
-      const existingTab = tabs.find((t) => t.tabId === newTabId);
-      if (!existingTab) {
-        const terminal = terminalManager.get(newTabId);
-        tabs.push({
-          tabId: newTabId,
-          title: `Terminal ${tabs.length + 1}`,
-          shell: terminal?.shell ?? 'bash',
-        });
-        await sessionStore.update(sessionId, { tabs });
-      }
+      // Add tab to room state
+      connectionManager.addTab(currentSessionId, tab);
+
+      // Broadcast to all clients in the session
+      connectionManager.broadcast(currentSessionId, {
+        type: 'tab-added',
+        tab,
+      } satisfies TerminalServerMessage);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to attach';
+      const message = error instanceof Error ? error.message : 'Failed to add tab';
       sendError(ws, message);
     }
+  }
+
+  /**
+   * Handle attach message - attach to an existing tab
+   */
+  async function handleAttach(tabId: string): Promise<void> {
+    if (!currentSessionId || !clientId) {
+      sendError(ws, 'Not joined to a session');
+      return;
+    }
+
+    // Validate tab exists in room
+    if (!connectionManager.hasTab(currentSessionId, tabId)) {
+      sendError(ws, 'Tab not found');
+      return;
+    }
+
+    // Check if terminal exists
+    const terminal = terminalManager.get(tabId);
+    if (!terminal) {
+      sendError(ws, 'Terminal not found');
+      return;
+    }
+
+    currentTabId = tabId;
+    connectionManager.setClientTab(currentSessionId, clientId, tabId);
+
+    // Send history
+    const history = terminalManager.getOutputHistory(tabId);
+    if (history) {
+      sendMessage(ws, { type: 'history', data: history });
+    }
+
+    sendMessage(ws, { type: 'attached', tabId });
+  }
+
+  /**
+   * Handle switch-tab message - switch to a different tab
+   */
+  function handleSwitchTab(tabId: string): void {
+    if (!currentSessionId || !clientId) {
+      sendError(ws, 'Not joined to a session');
+      return;
+    }
+
+    // Validate tab exists
+    if (!connectionManager.hasTab(currentSessionId, tabId)) {
+      sendError(ws, 'Tab not found');
+      return;
+    }
+
+    currentTabId = tabId;
+    connectionManager.setClientTab(currentSessionId, clientId, tabId);
+
+    // Send history for the new tab
+    const history = terminalManager.getOutputHistory(tabId);
+    if (history) {
+      sendMessage(ws, { type: 'history', data: history });
+    }
+  }
+
+  /**
+   * Handle close-tab message - close a tab and kill terminal
+   */
+  function handleCloseTab(tabId: string): void {
+    if (!currentSessionId || !clientId) {
+      sendError(ws, 'Not joined to a session');
+      return;
+    }
+
+    // Kill the terminal
+    terminalManager.kill(tabId);
+
+    // Remove tab from room state
+    connectionManager.removeTab(currentSessionId, tabId);
+
+    // Clear currentTabId for all clients watching this tab
+    const clients = connectionManager.getClientsOnTab(currentSessionId, tabId);
+    for (const client of clients) {
+      connectionManager.setClientTab(currentSessionId, client.clientId, null);
+    }
+
+    // Reset current tab if we were watching it
+    if (currentTabId === tabId) {
+      currentTabId = null;
+    }
+
+    // Broadcast to all clients in the session
+    connectionManager.broadcast(currentSessionId, {
+      type: 'tab-removed',
+      tabId,
+    } satisfies TerminalServerMessage);
+  }
+
+  /**
+   * Handle rename-tab message - rename a tab
+   */
+  function handleRenameTab(tabId: string, title: string): void {
+    if (!currentSessionId || !clientId) {
+      sendError(ws, 'Not joined to a session');
+      return;
+    }
+
+    // Validate tab exists
+    if (!connectionManager.hasTab(currentSessionId, tabId)) {
+      sendError(ws, 'Tab not found');
+      return;
+    }
+
+    // Update tab title
+    connectionManager.renameTab(currentSessionId, tabId, title);
+
+    // Broadcast to all clients in the session
+    connectionManager.broadcast(currentSessionId, {
+      type: 'tab-renamed',
+      tabId,
+      title,
+    } satisfies TerminalServerMessage);
   }
 
   /**
@@ -176,36 +304,10 @@ export function createTerminalHandler(ws: WebSocket): TerminalHandler {
    * Handle detach message - detach from terminal
    */
   function handleDetach(): void {
+    if (currentSessionId && clientId) {
+      connectionManager.setClientTab(currentSessionId, clientId, null);
+    }
     currentTabId = null;
-    currentSessionId = null;
-  }
-
-  /**
-   * Handle close-tab message - kill terminal and update session
-   */
-  async function handleCloseTab(tabId: string): Promise<void> {
-    // Kill the terminal
-    terminalManager.kill(tabId);
-
-    // If we were attached to this tab, detach
-    if (currentTabId === tabId) {
-      currentTabId = null;
-    }
-
-    // Update session tabs if we know the session
-    if (currentSessionId) {
-      try {
-        const config = getConfig();
-        const sessionStore = new SessionStore(config.repoDir);
-        const session = await sessionStore.get(currentSessionId);
-
-        // Remove the tab from session
-        const updatedTabs = (session.tabs ?? []).filter(t => t.tabId !== tabId);
-        await sessionStore.update(currentSessionId, { tabs: updatedTabs });
-      } catch {
-        // Ignore errors - session may not exist
-      }
-    }
   }
 
   /**
@@ -213,27 +315,76 @@ export function createTerminalHandler(ws: WebSocket): TerminalHandler {
    */
   function handleMessage(message: TerminalClientMessage): void {
     switch (message.type) {
-      case 'attach':
-        // Validate sessionId format
+      case 'join-session':
         if (!isValidUuid(message.sessionId)) {
           sendError(ws, 'Invalid sessionId format');
           return;
         }
-        // Validate tabId format if provided
-        if (message.tabId !== undefined && !isValidUuid(message.tabId)) {
+        if (!isValidUuid(message.clientId)) {
+          sendError(ws, 'Invalid clientId format');
+          return;
+        }
+        handleJoinSession(message.sessionId, message.clientId).catch((error) => {
+          const errorMessage = error instanceof Error ? error.message : 'Join session failed';
+          sendError(ws, errorMessage);
+        });
+        break;
+
+      case 'add-tab':
+        if (message.title !== undefined && !isValidTitle(message.title)) {
+          sendError(ws, 'Invalid title');
+          return;
+        }
+        handleAddTab(message.title).catch((error) => {
+          const errorMessage = error instanceof Error ? error.message : 'Add tab failed';
+          sendError(ws, errorMessage);
+        });
+        break;
+
+      case 'attach':
+        if (!isValidUuid(message.tabId)) {
           sendError(ws, 'Invalid tabId format');
           return;
         }
-        handleAttach(message.sessionId, message.tabId).catch((error) => {
+        handleAttach(message.tabId).catch((error) => {
           const errorMessage = error instanceof Error ? error.message : 'Attach failed';
           sendError(ws, errorMessage);
         });
         break;
+
+      case 'switch-tab':
+        if (!isValidUuid(message.tabId)) {
+          sendError(ws, 'Invalid tabId format');
+          return;
+        }
+        handleSwitchTab(message.tabId);
+        break;
+
+      case 'close-tab':
+        if (!isValidUuid(message.tabId)) {
+          sendError(ws, 'Invalid tabId format');
+          return;
+        }
+        handleCloseTab(message.tabId);
+        break;
+
+      case 'rename-tab':
+        if (!isValidUuid(message.tabId)) {
+          sendError(ws, 'Invalid tabId format');
+          return;
+        }
+        if (!isValidTitle(message.title)) {
+          sendError(ws, 'Invalid title');
+          return;
+        }
+        handleRenameTab(message.tabId, message.title);
+        break;
+
       case 'input':
         handleInput(message.data);
         break;
+
       case 'resize':
-        // Validate cols and rows range
         if (!isValidTerminalSize(message.cols)) {
           sendError(ws, `Invalid cols value: must be between ${MIN_TERMINAL_SIZE} and ${MAX_TERMINAL_SIZE}`);
           return;
@@ -244,20 +395,11 @@ export function createTerminalHandler(ws: WebSocket): TerminalHandler {
         }
         handleResize(message.cols, message.rows);
         break;
+
       case 'detach':
         handleDetach();
         break;
-      case 'close-tab':
-        // Validate tabId format
-        if (!isValidUuid(message.tabId)) {
-          sendError(ws, 'Invalid tabId format');
-          return;
-        }
-        handleCloseTab(message.tabId).catch((error) => {
-          const errorMessage = error instanceof Error ? error.message : 'Close tab failed';
-          sendError(ws, errorMessage);
-        });
-        break;
+
       default:
         sendError(ws, 'Unknown message type');
     }
@@ -267,17 +409,14 @@ export function createTerminalHandler(ws: WebSocket): TerminalHandler {
    * Clean up resources when connection closes
    */
   function cleanup(): void {
-    // Remove event listeners
-    terminalManager.off('data', dataListener);
-    terminalManager.off('exit', exitListener);
-    terminalManager.off('error', errorListener);
+    // Leave session room
+    if (currentSessionId && clientId) {
+      connectionManager.leaveSession(currentSessionId, clientId);
+    }
 
-    // Note: We don't kill the terminal on disconnect,
-    // allowing reconnection to existing terminals.
-    // The terminal will be cleaned up when the session ends
-    // or explicitly killed.
     currentTabId = null;
     currentSessionId = null;
+    clientId = null;
   }
 
   return {

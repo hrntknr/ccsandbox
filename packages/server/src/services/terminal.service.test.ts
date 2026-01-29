@@ -59,7 +59,7 @@ describe('TerminalManager', () => {
 
       const createPromise = terminalManager.create({
         sessionId: 'session-1',
-        containerId: 'abc123def001',
+        workspacePath: '/workspaces/test-project',
       });
 
       // Simulate bash detection failure -> fallback to sh
@@ -77,7 +77,7 @@ describe('TerminalManager', () => {
       // Skip shell detection by providing shell
       const tabId = await terminalManager.create({
         sessionId: 'session-1',
-        containerId: 'abc123def001',
+        workspacePath: '/workspaces/test-project',
         tabId: 'my-tab-id',
         shell: 'bash',
       });
@@ -92,7 +92,7 @@ describe('TerminalManager', () => {
 
       await terminalManager.create({
         sessionId: 'session-1',
-        containerId: 'abc123def001',
+        workspacePath: '/workspaces/test-project',
         tabId: 'tab-1',
         shell: 'bash',
       });
@@ -109,7 +109,7 @@ describe('TerminalManager', () => {
 
       await terminalManager.create({
         sessionId: 'session-1',
-        containerId: 'abc123def001',
+        workspacePath: '/workspaces/test-project',
         tabId: 'tab-1',
         shell: 'bash',
       });
@@ -126,7 +126,7 @@ describe('TerminalManager', () => {
 
       await terminalManager.create({
         sessionId: 'session-1',
-        containerId: 'abc123def001',
+        workspacePath: '/workspaces/test-project',
         tabId: 'tab-1',
         shell: 'bash',
       });
@@ -146,7 +146,7 @@ describe('TerminalManager', () => {
 
       await terminalManager.create({
         sessionId: 'session-1',
-        containerId: 'abc123def001',
+        workspacePath: '/workspaces/test-project',
         tabId: 'tab-1',
         shell: 'bash',
       });
@@ -158,6 +158,33 @@ describe('TerminalManager', () => {
       expect(errorHandler).toHaveBeenCalledWith('tab-1', testError);
       expect(terminalManager.size).toBe(0);
     });
+
+    it('should use devcontainer exec command', async () => {
+      await terminalManager.create({
+        sessionId: 'session-1',
+        workspacePath: '/workspaces/test-project',
+        tabId: 'tab-1',
+        shell: 'bash',
+        devcontainerCliPath: '/usr/local/bin/devcontainer',
+      });
+
+      // Check that spawn was called with script wrapper and devcontainer exec command
+      expect(spawn).toHaveBeenCalledWith(
+        'script',
+        [
+          '-q',
+          '-c',
+          '/usr/local/bin/devcontainer exec --workspace-folder "/workspaces/test-project" bash',
+          '/dev/null',
+        ],
+        expect.objectContaining({
+          stdio: ['pipe', 'pipe', 'pipe'],
+          env: expect.objectContaining({
+            TERM: 'xterm-256color',
+          }),
+        })
+      );
+    });
   });
 
   describe('write', () => {
@@ -166,7 +193,7 @@ describe('TerminalManager', () => {
 
       await terminalManager.create({
         sessionId: 'session-1',
-        containerId: 'abc123def001',
+        workspacePath: '/workspaces/test-project',
         tabId: 'tab-1',
         shell: 'bash',
       });
@@ -187,7 +214,7 @@ describe('TerminalManager', () => {
     it('should update terminal dimensions', async () => {
       await terminalManager.create({
         sessionId: 'session-1',
-        containerId: 'abc123def001',
+        workspacePath: '/workspaces/test-project',
         tabId: 'tab-1',
         shell: 'bash',
         cols: 80,
@@ -212,7 +239,7 @@ describe('TerminalManager', () => {
     it('should kill terminal process', async () => {
       await terminalManager.create({
         sessionId: 'session-1',
-        containerId: 'abc123def001',
+        workspacePath: '/workspaces/test-project',
         tabId: 'tab-1',
         shell: 'bash',
       });
@@ -236,7 +263,7 @@ describe('TerminalManager', () => {
     it('should return all terminals for a session', async () => {
       await terminalManager.create({
         sessionId: 'session-1',
-        containerId: 'abc123def001',
+        workspacePath: '/workspaces/test-project',
         tabId: 'tab-1',
         shell: 'bash',
       });
@@ -251,7 +278,7 @@ describe('TerminalManager', () => {
 
       await terminalManager.create({
         sessionId: 'session-1',
-        containerId: 'abc123def001',
+        workspacePath: '/workspaces/test-project',
         tabId: 'tab-2',
         shell: 'bash',
       });
@@ -266,7 +293,7 @@ describe('TerminalManager', () => {
 
       await terminalManager.create({
         sessionId: 'session-2',
-        containerId: 'abc123def002',
+        workspacePath: '/workspaces/other-project',
         tabId: 'tab-3',
         shell: 'bash',
       });
@@ -281,7 +308,7 @@ describe('TerminalManager', () => {
     it('should kill all terminals for a session', async () => {
       await terminalManager.create({
         sessionId: 'session-1',
-        containerId: 'abc123def001',
+        workspacePath: '/workspaces/test-project',
         tabId: 'tab-1',
         shell: 'bash',
       });
@@ -295,7 +322,7 @@ describe('TerminalManager', () => {
 
       await terminalManager.create({
         sessionId: 'session-1',
-        containerId: 'abc123def001',
+        workspacePath: '/workspaces/test-project',
         tabId: 'tab-2',
         shell: 'bash',
       });
@@ -312,7 +339,7 @@ describe('TerminalManager', () => {
     it('should kill all terminals', async () => {
       await terminalManager.create({
         sessionId: 'session-1',
-        containerId: 'abc123def001',
+        workspacePath: '/workspaces/test-project',
         tabId: 'tab-1',
         shell: 'bash',
       });
@@ -326,7 +353,7 @@ describe('TerminalManager', () => {
 
       await terminalManager.create({
         sessionId: 'session-2',
-        containerId: 'abc123def002',
+        workspacePath: '/workspaces/other-project',
         tabId: 'tab-2',
         shell: 'bash',
       });
@@ -361,7 +388,7 @@ describe('resetTerminalManager', () => {
   });
 });
 
-describe('containerId validation', () => {
+describe('workspacePath validation', () => {
   let terminalManager: TerminalManager;
 
   beforeEach(() => {
@@ -372,40 +399,31 @@ describe('containerId validation', () => {
     resetTerminalManager();
   });
 
-  it('should reject invalid containerId with special characters', async () => {
+  it('should reject empty workspacePath', async () => {
     await expect(terminalManager.create({
       sessionId: 'session-1',
-      containerId: 'container; rm -rf /',
+      workspacePath: '',
       shell: 'bash',
-    })).rejects.toThrow('Invalid container ID format');
+    })).rejects.toThrow('Invalid workspace path');
   });
 
-  it('should reject containerId that is too short', async () => {
+  it('should reject relative workspacePath', async () => {
     await expect(terminalManager.create({
       sessionId: 'session-1',
-      containerId: 'abc123',
+      workspacePath: 'relative/path',
       shell: 'bash',
-    })).rejects.toThrow('Invalid container ID format');
+    })).rejects.toThrow('Invalid workspace path');
   });
 
-  it('should reject containerId that is too long', async () => {
-    const longId = 'a'.repeat(65);
+  it('should reject workspacePath starting with dot-dot', async () => {
     await expect(terminalManager.create({
       sessionId: 'session-1',
-      containerId: longId,
+      workspacePath: '../etc/passwd',
       shell: 'bash',
-    })).rejects.toThrow('Invalid container ID format');
+    })).rejects.toThrow('Invalid workspace path');
   });
 
-  it('should reject containerId with non-hex characters', async () => {
-    await expect(terminalManager.create({
-      sessionId: 'session-1',
-      containerId: 'ghijklmnopqr', // non-hex characters
-      shell: 'bash',
-    })).rejects.toThrow('Invalid container ID format');
-  });
-
-  it('should accept valid 12-character containerId', async () => {
+  it('should accept valid absolute workspacePath', async () => {
     const mockProcess = new EventEmitter() as ChildProcess;
     mockProcess.stdin = new Writable({ write(_, __, cb) { cb(); return true; } });
     mockProcess.stdout = new Readable({ read() {} });
@@ -415,25 +433,7 @@ describe('containerId validation', () => {
 
     const tabId = await terminalManager.create({
       sessionId: 'session-1',
-      containerId: 'abc123def456',
-      shell: 'bash',
-    });
-
-    expect(tabId).toBeDefined();
-  });
-
-  it('should accept valid 64-character containerId', async () => {
-    const mockProcess = new EventEmitter() as ChildProcess;
-    mockProcess.stdin = new Writable({ write(_, __, cb) { cb(); return true; } });
-    mockProcess.stdout = new Readable({ read() {} });
-    mockProcess.stderr = new Readable({ read() {} });
-    mockProcess.kill = vi.fn();
-    vi.mocked(spawn).mockReturnValue(mockProcess);
-
-    const validId = 'a'.repeat(64);
-    const tabId = await terminalManager.create({
-      sessionId: 'session-1',
-      containerId: validId,
+      workspacePath: '/workspaces/test-project',
       shell: 'bash',
     });
 

@@ -8,7 +8,6 @@ import {
   hasDevcontainerConfig,
   startDevcontainer,
   stopContainer,
-  startContainer,
   removeContainer,
   isContainerRunning,
   DevcontainerConfigNotFoundError,
@@ -333,24 +332,7 @@ router.post(
     try {
       const session = await store.get(id);
 
-      if (session.containerId) {
-        // Try to start existing container
-        try {
-          await startContainer(session.containerId);
-          const updatedSession = await store.update(id, { state: 'RUNNING' });
-
-          const response: ApiResponse<{ session: Session }> = {
-            success: true,
-            data: { session: updatedSession },
-          };
-          res.json(response);
-          return;
-        } catch {
-          // Container doesn't exist anymore, need to recreate via devcontainer
-        }
-      }
-
-      // Start devcontainer (creates new container)
+      // devcontainer up is idempotent - it starts stopped containers or reuses running ones
       const containerInfo = await startDevcontainer(
         session.workspacePath,
         config.devcontainerCli

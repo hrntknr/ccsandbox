@@ -337,25 +337,6 @@ export async function stopContainer(containerId: string): Promise<void> {
 }
 
 /**
- * Starts a stopped Docker container.
- *
- * @param containerId - Container ID or name
- * @throws InvalidContainerIdError if container ID is invalid
- * @throws DockerOperationError if start fails
- */
-export async function startContainer(containerId: string): Promise<void> {
-  if (!isValidContainerId(containerId)) {
-    throw new InvalidContainerIdError(containerId);
-  }
-
-  const result = await execCommand('docker', ['start', containerId]);
-
-  if (result.exitCode !== 0) {
-    throw new DockerOperationError('start', result.exitCode, result.stderr);
-  }
-}
-
-/**
  * Removes a Docker container.
  *
  * @param containerId - Container ID or name

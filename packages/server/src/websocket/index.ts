@@ -3,6 +3,8 @@ import { WebSocketServer, WebSocket } from 'ws';
 import type { TerminalClientMessage, SessionCreateClientMessage } from '@ccsandbox/shared';
 import { createTerminalHandler } from './terminal.handler.js';
 import { createSessionCreateHandler } from './session-create.handler.js';
+import { getConnectionManager, resetConnectionManager } from './connection-manager.js';
+import { getTerminalManager } from '../services/terminal.service.js';
 
 /**
  * Validate that a message conforms to TerminalClientMessage structure
@@ -19,17 +21,24 @@ function isValidTerminalClientMessage(message: unknown): message is TerminalClie
   }
 
   switch (msg['type']) {
+    case 'join-session':
+      return typeof msg['sessionId'] === 'string' && typeof msg['clientId'] === 'string';
+    case 'add-tab':
+      return msg['title'] === undefined || typeof msg['title'] === 'string';
     case 'attach':
-      return typeof msg['sessionId'] === 'string' &&
-        (msg['tabId'] === undefined || typeof msg['tabId'] === 'string');
+      return typeof msg['tabId'] === 'string';
+    case 'switch-tab':
+      return typeof msg['tabId'] === 'string';
+    case 'close-tab':
+      return typeof msg['tabId'] === 'string';
+    case 'rename-tab':
+      return typeof msg['tabId'] === 'string' && typeof msg['title'] === 'string';
     case 'input':
       return typeof msg['data'] === 'string';
     case 'resize':
       return typeof msg['cols'] === 'number' && typeof msg['rows'] === 'number';
     case 'detach':
       return true;
-    case 'close-tab':
-      return typeof msg['tabId'] === 'string';
     default:
       return false;
   }
@@ -91,9 +100,14 @@ export function setupWebSocketServer(server: http.Server): WebSocketServerInstan
     }
   });
 
+  // Get connection manager singleton and initialize with terminal manager
+  const connectionManager = getConnectionManager();
+  const terminalManager = getTerminalManager();
+  connectionManager.initialize(terminalManager);
+
   // Handle terminal connections
   terminalWss.on('connection', (ws: WebSocket) => {
-    const handler = createTerminalHandler(ws);
+    const handler = createTerminalHandler(ws, connectionManager);
 
     ws.on('message', (data: Buffer) => {
       try {
@@ -185,6 +199,9 @@ export function setupWebSocketServer(server: http.Server): WebSocketServerInstan
         client.close();
       });
       sessionWss.close();
+
+      // Reset connection manager
+      resetConnectionManager();
     },
   };
 }

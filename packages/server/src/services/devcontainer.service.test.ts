@@ -7,7 +7,6 @@ import {
   hasDevcontainerConfig,
   startDevcontainer,
   stopContainer,
-  startContainer,
   removeContainer,
   isContainerRunning,
   getContainerId,
@@ -358,57 +357,6 @@ describe('devcontainer.service', () => {
 
     it('throws InvalidContainerIdError for empty container ID', async () => {
       await expect(stopContainer('')).rejects.toThrow(InvalidContainerIdError);
-      expect(childProcess.spawn).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('startContainer', () => {
-    function mockSpawn(exitCode: number, stderr = '') {
-      const mockProc = {
-        stdout: {
-          on: vi.fn(),
-        },
-        stderr: {
-          on: vi.fn((event, callback) => {
-            if (event === 'data' && stderr) {
-              callback(Buffer.from(stderr));
-            }
-          }),
-        },
-        stdin: {
-          write: vi.fn(),
-          end: vi.fn(),
-        },
-        on: vi.fn((event, callback) => {
-          if (event === 'close') {
-            setImmediate(() => callback(exitCode));
-          }
-        }),
-      };
-
-      vi.mocked(childProcess.spawn).mockReturnValue(mockProc as unknown as childProcess.ChildProcess);
-    }
-
-    it('starts container successfully', async () => {
-      mockSpawn(0);
-
-      await startContainer('container123');
-
-      expect(childProcess.spawn).toHaveBeenCalledWith(
-        'docker',
-        ['start', 'container123'],
-        expect.any(Object)
-      );
-    });
-
-    it('throws DockerOperationError on failure', async () => {
-      mockSpawn(1, 'No such container');
-
-      await expect(startContainer('nonexistent')).rejects.toThrow(DockerOperationError);
-    });
-
-    it('throws InvalidContainerIdError for invalid container ID', async () => {
-      await expect(startContainer('invalid$(cmd)')).rejects.toThrow(InvalidContainerIdError);
       expect(childProcess.spawn).not.toHaveBeenCalled();
     });
   });

@@ -1,28 +1,29 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import type { TerminalClientMessage, TerminalServerMessage } from '@ccsandbox/shared';
 import '@xterm/xterm/css/xterm.css';
 import './Terminal.css';
 
 interface TerminalProps {
-  sessionId: string;
   tabId: string;
   isActive: boolean;
+  sendInput: (tabId: string, data: string) => void;
+  resizeTerminal: (cols: number, rows: number) => void;
+  onOutput: (tabId: string, callback: (data: string) => void) => () => void;
+  onHistory: (tabId: string, callback: (data: string) => void) => () => void;
 }
 
-export function Terminal({ sessionId, tabId, isActive }: TerminalProps) {
+export function Terminal({
+  tabId,
+  isActive,
+  sendInput,
+  resizeTerminal,
+  onOutput,
+  onHistory,
+}: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
-  const attachedRef = useRef(false);
-
-  const sendMessage = useCallback((message: TerminalClientMessage) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(message));
-    }
-  }, []);
 
   // Initialize terminal
   useEffect(() => {
@@ -57,108 +58,75 @@ export function Terminal({ sessionId, tabId, isActive }: TerminalProps) {
     };
   }, []);
 
-  // Handle resize
-  useEffect(() => {
-    const handleResize = () => {
-      if (fitAddonRef.current && isActive) {
-        fitAddonRef.current.fit();
-        const terminal = terminalRef.current;
-        if (terminal && attachedRef.current) {
-          sendMessage({
-            type: 'resize',
-            cols: terminal.cols,
-            rows: terminal.rows,
-          });
-        }
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-  }, [isActive, sendMessage]);
-
-  // WebSocket connection
+  // Handle input
   useEffect(() => {
     const terminal = terminalRef.current;
     if (!terminal) return;
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/terminal`;
-
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      // Attach to session
-      const attachMessage: TerminalClientMessage = {
-        type: 'attach',
-        sessionId,
-        tabId,
-      };
-      ws.send(JSON.stringify(attachMessage));
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data) as TerminalServerMessage;
-
-        switch (message.type) {
-          case 'attached':
-            attachedRef.current = true;
-            // Send initial size
-            sendMessage({
-              type: 'resize',
-              cols: terminal.cols,
-              rows: terminal.rows,
-            });
-            break;
-          case 'output':
-            terminal.write(message.data);
-            break;
-          case 'error':
-            terminal.writeln(`\r\n\x1b[31mError: ${message.message}\x1b[0m`);
-            break;
-          case 'exit':
-            terminal.writeln(`\r\n\x1b[33mProcess exited with code ${message.code}\x1b[0m`);
-            attachedRef.current = false;
-            break;
-        }
-      } catch {
-        console.error('Failed to parse WebSocket message');
-      }
-    };
-
-    ws.onerror = () => {
-      terminal.writeln('\r\n\x1b[31mWebSocket connection error\x1b[0m');
-    };
-
-    ws.onclose = () => {
-      attachedRef.current = false;
-      terminal.writeln('\r\n\x1b[33mConnection closed\x1b[0m');
-    };
-
-    // Handle terminal input
     const dataHandler = terminal.onData((data) => {
-      if (attachedRef.current) {
-        sendMessage({ type: 'input', data });
-      }
+      sendInput(tabId, data);
     });
 
     return () => {
       dataHandler.dispose();
-      if (ws.readyState === WebSocket.OPEN) {
-        // Send close-tab to kill the PTY and update session
-        ws.send(JSON.stringify({ type: 'close-tab', tabId }));
-        ws.close();
-      } else if (ws.readyState === WebSocket.CONNECTING) {
-        ws.close();
-      }
-      wsRef.current = null;
-      attachedRef.current = false;
     };
-  }, [sessionId, tabId, sendMessage]);
+  }, [tabId, sendInput]);
+
+  // Handle output
+  useEffect(() => {
+    const terminal = terminalRef.current;
+    if (!terminal) return;
+
+    const unsubscribe = onOutput(tabId, (data) => {
+      terminal.write(data);
+    });
+
+    return unsubscribe;
+  }, [tabId, onOutput]);
+
+  // Handle history
+  useEffect(() => {
+    const terminal = terminalRef.current;
+    if (!terminal) return;
+
+    const unsubscribe = onHistory(tabId, (data) => {
+      terminal.write(data);
+    });
+
+    return unsubscribe;
+  }, [tabId, onHistory]);
+
+  // Handle resize
+  const handleResize = useCallback(() => {
+    if (fitAddonRef.current && isActive) {
+      fitAddonRef.current.fit();
+      const terminal = terminalRef.current;
+      if (terminal) {
+        resizeTerminal(terminal.cols, terminal.rows);
+      }
+    }
+  }, [isActive, resizeTerminal]);
+
+  useEffect(() => {
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [handleResize]);
+
+  // Fit when becoming active
+  useEffect(() => {
+    if (isActive && fitAddonRef.current) {
+      // Use setTimeout to ensure the container is visible before fitting
+      setTimeout(() => {
+        fitAddonRef.current?.fit();
+        const terminal = terminalRef.current;
+        if (terminal) {
+          resizeTerminal(terminal.cols, terminal.rows);
+        }
+      }, 0);
+    }
+  }, [isActive, resizeTerminal]);
 
   return (
     <div

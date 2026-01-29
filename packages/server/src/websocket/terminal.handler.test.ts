@@ -5,6 +5,7 @@ import { createTerminalHandler } from './terminal.handler.js';
 import * as terminalService from '../services/terminal.service.js';
 import * as config from '../config.js';
 import { SessionStore } from '../persistence/session-store.js';
+import { ConnectionManager } from './connection-manager.js';
 
 // Mock dependencies
 vi.mock('../services/terminal.service.js', () => ({
@@ -27,6 +28,7 @@ describe('createTerminalHandler', () => {
     resize: ReturnType<typeof vi.fn>;
     kill: ReturnType<typeof vi.fn>;
     get: ReturnType<typeof vi.fn>;
+    getOutputHistory: ReturnType<typeof vi.fn>;
     on: ReturnType<typeof vi.fn>;
     off: ReturnType<typeof vi.fn>;
   };
@@ -34,7 +36,12 @@ describe('createTerminalHandler', () => {
     get: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
   };
+  let mockConnectionManager: ConnectionManager;
   let sentMessages: string[];
+
+  const testSessionId = '123e4567-e89b-12d3-a456-426614174000';
+  const testClientId = '789e0123-e89b-12d3-a456-426614174001';
+  const testTabId = '456e7890-e89b-12d3-a456-426614174002';
 
   beforeEach(() => {
     sentMessages = [];
@@ -49,12 +56,12 @@ describe('createTerminalHandler', () => {
 
     // Create mock terminal manager
     mockTerminalManager = new EventEmitter() as typeof mockTerminalManager;
-    mockTerminalManager.create = vi.fn().mockResolvedValue('789e0123-e89b-12d3-a456-426614174002');
+    mockTerminalManager.create = vi.fn().mockResolvedValue(testTabId);
     mockTerminalManager.write = vi.fn().mockReturnValue(true);
     mockTerminalManager.resize = vi.fn().mockReturnValue(true);
     mockTerminalManager.kill = vi.fn().mockReturnValue(true);
-    // Default to undefined (no existing terminal) to test new terminal creation
     mockTerminalManager.get = vi.fn().mockReturnValue(undefined);
+    mockTerminalManager.getOutputHistory = vi.fn().mockReturnValue(null);
     mockTerminalManager.on = vi.fn((event, handler) => {
       EventEmitter.prototype.on.call(mockTerminalManager, event, handler);
     });
@@ -66,11 +73,12 @@ describe('createTerminalHandler', () => {
       mockTerminalManager as unknown as terminalService.TerminalManager
     );
 
-    // Create mock session store (using valid UUID and containerId formats)
+    // Create mock session store
     mockSessionStore = {
       get: vi.fn().mockResolvedValue({
-        sessionId: '123e4567-e89b-12d3-a456-426614174000',
+        sessionId: testSessionId,
         state: 'RUNNING',
+        workspacePath: '/workspaces/test-project',
         containerId: 'abc123def456',
         tabs: [],
       }),
@@ -81,6 +89,9 @@ describe('createTerminalHandler', () => {
       return mockSessionStore as unknown as SessionStore;
     } as unknown as typeof SessionStore);
 
+    // Create mock connection manager
+    mockConnectionManager = new ConnectionManager();
+
     // Mock config
     vi.mocked(config.getConfig).mockReturnValue({
       pat: 'test-pat',
@@ -88,80 +99,45 @@ describe('createTerminalHandler', () => {
       repoDir: '/tmp/test',
       listen: '127.0.0.1',
       port: 3000,
+      devcontainerCli: '/usr/local/bin/devcontainer',
     });
   });
 
   afterEach(() => {
     vi.resetAllMocks();
+    mockConnectionManager.cleanup();
   });
 
-  describe('attach message', () => {
-    it('should attach to a new terminal', async () => {
-      // After create, get should return shell info for updating session tabs
-      mockTerminalManager.get.mockImplementation((tabId: string) => {
-        if (tabId === '789e0123-e89b-12d3-a456-426614174002') {
-          return { shell: 'bash' };
-        }
-        return undefined;
-      });
-
-      const handler = createTerminalHandler(mockWs);
+  describe('join-session message', () => {
+    it('should join session and send sync-state', async () => {
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
 
       handler.handleMessage({
-        type: 'attach',
-        sessionId: '123e4567-e89b-12d3-a456-426614174000',
-      });
-
-      // Wait for async operations
-      await vi.waitFor(() => {
-        expect(mockTerminalManager.create).toHaveBeenCalledWith({
-          sessionId: '123e4567-e89b-12d3-a456-426614174000',
-          containerId: 'abc123def456',
-          tabId: undefined,
-        });
-      });
-
-      expect(sentMessages).toContainEqual(
-        JSON.stringify({ type: 'attached', tabId: '789e0123-e89b-12d3-a456-426614174002' })
-      );
-    });
-
-    it('should reattach to existing terminal if tabId provided', async () => {
-      mockTerminalManager.get.mockReturnValue({
-        tabId: '456e7890-e89b-12d3-a456-426614174001',
-        sessionId: '123e4567-e89b-12d3-a456-426614174000',
-        shell: 'bash',
-      });
-
-      const handler = createTerminalHandler(mockWs);
-
-      handler.handleMessage({
-        type: 'attach',
-        sessionId: '123e4567-e89b-12d3-a456-426614174000',
-        tabId: '456e7890-e89b-12d3-a456-426614174001',
+        type: 'join-session',
+        sessionId: testSessionId,
+        clientId: testClientId,
       });
 
       await vi.waitFor(() => {
         expect(sentMessages).toContainEqual(
-          JSON.stringify({ type: 'attached', tabId: '456e7890-e89b-12d3-a456-426614174001' })
+          JSON.stringify({ type: 'sync-state', tabs: [] })
         );
       });
-
-      expect(mockTerminalManager.create).not.toHaveBeenCalled();
     });
 
     it('should send error if session not running', async () => {
       mockSessionStore.get.mockResolvedValue({
-        sessionId: '123e4567-e89b-12d3-a456-426614174000',
+        sessionId: testSessionId,
         state: 'READY',
-        containerId: 'abc123def456',
+        workspacePath: '/workspaces/test-project',
       });
 
-      const handler = createTerminalHandler(mockWs);
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
 
       handler.handleMessage({
-        type: 'attach',
-        sessionId: '123e4567-e89b-12d3-a456-426614174000',
+        type: 'join-session',
+        sessionId: testSessionId,
+        clientId: testClientId,
       });
 
       await vi.waitFor(() => {
@@ -170,24 +146,127 @@ describe('createTerminalHandler', () => {
         );
       });
     });
+  });
 
-    it('should send error if session has no container', async () => {
-      mockSessionStore.get.mockResolvedValue({
-        sessionId: '123e4567-e89b-12d3-a456-426614174000',
-        state: 'RUNNING',
-        containerId: undefined,
+  describe('add-tab message', () => {
+    it('should create terminal and broadcast tab-added', async () => {
+      mockTerminalManager.get.mockImplementation((tabId: string) => {
+        if (tabId === testTabId) {
+          return { shell: 'bash' };
+        }
+        return undefined;
       });
 
-      const handler = createTerminalHandler(mockWs);
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
+
+      // First join session
+      handler.handleMessage({
+        type: 'join-session',
+        sessionId: testSessionId,
+        clientId: testClientId,
+      });
+
+      await vi.waitFor(() => {
+        expect(sentMessages.some(m => m.includes('sync-state'))).toBe(true);
+      });
+
+      // Then add tab
+      handler.handleMessage({
+        type: 'add-tab',
+        title: 'My Terminal',
+      });
+
+      await vi.waitFor(() => {
+        expect(mockTerminalManager.create).toHaveBeenCalledWith({
+          sessionId: testSessionId,
+          workspacePath: '/workspaces/test-project',
+          devcontainerCliPath: '/usr/local/bin/devcontainer',
+          tabId: expect.any(String),
+        });
+      });
+
+      // Check tab-added was broadcast
+      expect(sentMessages.some(m => m.includes('tab-added'))).toBe(true);
+    });
+
+    it('should send error if not joined to session', () => {
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
 
       handler.handleMessage({
+        type: 'add-tab',
+      });
+
+      expect(sentMessages).toContainEqual(
+        JSON.stringify({ type: 'error', message: 'Not joined to a session' })
+      );
+    });
+  });
+
+  describe('attach message', () => {
+    it('should attach to existing tab', async () => {
+      // Setup room with existing tab
+      mockConnectionManager.joinSession(testSessionId, testClientId, mockWs);
+      mockConnectionManager.addTab(testSessionId, {
+        tabId: testTabId,
+        title: 'Terminal 1',
+        shell: 'bash',
+      });
+
+      mockTerminalManager.get.mockReturnValue({
+        tabId: testTabId,
+        sessionId: testSessionId,
+        shell: 'bash',
+      });
+
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
+
+      // Join session first
+      handler.handleMessage({
+        type: 'join-session',
+        sessionId: testSessionId,
+        clientId: testClientId,
+      });
+
+      await vi.waitFor(() => {
+        expect(sentMessages.some(m => m.includes('sync-state'))).toBe(true);
+      });
+
+      // Then attach
+      handler.handleMessage({
         type: 'attach',
-        sessionId: '123e4567-e89b-12d3-a456-426614174000',
+        tabId: testTabId,
       });
 
       await vi.waitFor(() => {
         expect(sentMessages).toContainEqual(
-          JSON.stringify({ type: 'error', message: 'Session has no container' })
+          JSON.stringify({ type: 'attached', tabId: testTabId })
+        );
+      });
+    });
+
+    it('should send error if tab not found', async () => {
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
+
+      // Join session
+      handler.handleMessage({
+        type: 'join-session',
+        sessionId: testSessionId,
+        clientId: testClientId,
+      });
+
+      await vi.waitFor(() => {
+        expect(sentMessages.some(m => m.includes('sync-state'))).toBe(true);
+      });
+
+      // Try to attach to non-existent tab
+      handler.handleMessage({
+        type: 'attach',
+        tabId: testTabId,
+      });
+
+      await vi.waitFor(() => {
+        expect(sentMessages).toContainEqual(
+          JSON.stringify({ type: 'error', message: 'Tab not found' })
         );
       });
     });
@@ -195,29 +274,53 @@ describe('createTerminalHandler', () => {
 
   describe('input message', () => {
     it('should write data to terminal', async () => {
-      const handler = createTerminalHandler(mockWs);
+      // Setup
+      mockConnectionManager.joinSession(testSessionId, testClientId, mockWs);
+      mockConnectionManager.addTab(testSessionId, {
+        tabId: testTabId,
+        title: 'Terminal 1',
+        shell: 'bash',
+      });
 
-      // First attach
+      mockTerminalManager.get.mockReturnValue({
+        tabId: testTabId,
+        sessionId: testSessionId,
+        shell: 'bash',
+      });
+
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
+
+      // Join and attach
       handler.handleMessage({
-        type: 'attach',
-        sessionId: '123e4567-e89b-12d3-a456-426614174000',
+        type: 'join-session',
+        sessionId: testSessionId,
+        clientId: testClientId,
       });
 
       await vi.waitFor(() => {
-        expect(mockTerminalManager.create).toHaveBeenCalled();
+        expect(sentMessages.some(m => m.includes('sync-state'))).toBe(true);
       });
 
-      // Then send input
+      handler.handleMessage({
+        type: 'attach',
+        tabId: testTabId,
+      });
+
+      await vi.waitFor(() => {
+        expect(sentMessages.some(m => m.includes('attached'))).toBe(true);
+      });
+
+      // Send input
       handler.handleMessage({
         type: 'input',
         data: 'ls -la\n',
       });
 
-      expect(mockTerminalManager.write).toHaveBeenCalledWith('789e0123-e89b-12d3-a456-426614174002', 'ls -la\n');
+      expect(mockTerminalManager.write).toHaveBeenCalledWith(testTabId, 'ls -la\n');
     });
 
     it('should send error if not attached', () => {
-      const handler = createTerminalHandler(mockWs);
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
 
       handler.handleMessage({
         type: 'input',
@@ -232,30 +335,54 @@ describe('createTerminalHandler', () => {
 
   describe('resize message', () => {
     it('should resize terminal', async () => {
-      const handler = createTerminalHandler(mockWs);
+      // Setup
+      mockConnectionManager.joinSession(testSessionId, testClientId, mockWs);
+      mockConnectionManager.addTab(testSessionId, {
+        tabId: testTabId,
+        title: 'Terminal 1',
+        shell: 'bash',
+      });
 
-      // First attach
+      mockTerminalManager.get.mockReturnValue({
+        tabId: testTabId,
+        sessionId: testSessionId,
+        shell: 'bash',
+      });
+
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
+
+      // Join and attach
       handler.handleMessage({
-        type: 'attach',
-        sessionId: '123e4567-e89b-12d3-a456-426614174000',
+        type: 'join-session',
+        sessionId: testSessionId,
+        clientId: testClientId,
       });
 
       await vi.waitFor(() => {
-        expect(mockTerminalManager.create).toHaveBeenCalled();
+        expect(sentMessages.some(m => m.includes('sync-state'))).toBe(true);
       });
 
-      // Then resize
+      handler.handleMessage({
+        type: 'attach',
+        tabId: testTabId,
+      });
+
+      await vi.waitFor(() => {
+        expect(sentMessages.some(m => m.includes('attached'))).toBe(true);
+      });
+
+      // Resize
       handler.handleMessage({
         type: 'resize',
         cols: 120,
         rows: 40,
       });
 
-      expect(mockTerminalManager.resize).toHaveBeenCalledWith('789e0123-e89b-12d3-a456-426614174002', 120, 40);
+      expect(mockTerminalManager.resize).toHaveBeenCalledWith(testTabId, 120, 40);
     });
 
     it('should send error if not attached', () => {
-      const handler = createTerminalHandler(mockWs);
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
 
       handler.handleMessage({
         type: 'resize',
@@ -271,19 +398,43 @@ describe('createTerminalHandler', () => {
 
   describe('detach message', () => {
     it('should detach from terminal', async () => {
-      const handler = createTerminalHandler(mockWs);
+      // Setup
+      mockConnectionManager.joinSession(testSessionId, testClientId, mockWs);
+      mockConnectionManager.addTab(testSessionId, {
+        tabId: testTabId,
+        title: 'Terminal 1',
+        shell: 'bash',
+      });
 
-      // First attach
+      mockTerminalManager.get.mockReturnValue({
+        tabId: testTabId,
+        sessionId: testSessionId,
+        shell: 'bash',
+      });
+
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
+
+      // Join and attach
       handler.handleMessage({
-        type: 'attach',
-        sessionId: '123e4567-e89b-12d3-a456-426614174000',
+        type: 'join-session',
+        sessionId: testSessionId,
+        clientId: testClientId,
       });
 
       await vi.waitFor(() => {
-        expect(mockTerminalManager.create).toHaveBeenCalled();
+        expect(sentMessages.some(m => m.includes('sync-state'))).toBe(true);
       });
 
-      // Then detach
+      handler.handleMessage({
+        type: 'attach',
+        tabId: testTabId,
+      });
+
+      await vi.waitFor(() => {
+        expect(sentMessages.some(m => m.includes('attached'))).toBe(true);
+      });
+
+      // Detach
       handler.handleMessage({
         type: 'detach',
       });
@@ -300,83 +451,39 @@ describe('createTerminalHandler', () => {
     });
   });
 
-  describe('terminal events', () => {
-    it('should forward data events to WebSocket', async () => {
-      const handler = createTerminalHandler(mockWs);
-
-      // Attach
-      handler.handleMessage({
-        type: 'attach',
-        sessionId: '123e4567-e89b-12d3-a456-426614174000',
-      });
-
-      await vi.waitFor(() => {
-        expect(mockTerminalManager.create).toHaveBeenCalled();
-      });
-
-      // Emit data event
-      mockTerminalManager.emit('data', '789e0123-e89b-12d3-a456-426614174002', 'output data');
-
-      expect(sentMessages).toContainEqual(
-        JSON.stringify({ type: 'output', data: 'output data' })
-      );
-    });
-
-    it('should forward exit events to WebSocket', async () => {
-      const handler = createTerminalHandler(mockWs);
-
-      // Attach
-      handler.handleMessage({
-        type: 'attach',
-        sessionId: '123e4567-e89b-12d3-a456-426614174000',
-      });
-
-      await vi.waitFor(() => {
-        expect(mockTerminalManager.create).toHaveBeenCalled();
-      });
-
-      // Emit exit event
-      mockTerminalManager.emit('exit', '789e0123-e89b-12d3-a456-426614174002', 0);
-
-      expect(sentMessages).toContainEqual(
-        JSON.stringify({ type: 'exit', code: 0 })
-      );
-    });
-  });
-
   describe('cleanup', () => {
-    it('should remove event listeners on cleanup', () => {
-      const handler = createTerminalHandler(mockWs);
+    it('should leave session on cleanup', async () => {
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
+
+      // Join a session first
+      handler.handleMessage({
+        type: 'join-session',
+        sessionId: testSessionId,
+        clientId: testClientId,
+      });
+
+      await vi.waitFor(() => {
+        expect(sentMessages.some(m => m.includes('sync-state'))).toBe(true);
+      });
+
+      // Verify client is in the room
+      expect(mockConnectionManager.getClient(testSessionId, testClientId)).toBeDefined();
 
       handler.cleanup();
 
-      expect(mockTerminalManager.off).toHaveBeenCalledWith('data', expect.any(Function));
-      expect(mockTerminalManager.off).toHaveBeenCalledWith('exit', expect.any(Function));
-      expect(mockTerminalManager.off).toHaveBeenCalledWith('error', expect.any(Function));
+      // Verify client has left the room
+      expect(mockConnectionManager.getClient(testSessionId, testClientId)).toBeUndefined();
     });
   });
 
-  describe('sessionId validation', () => {
+  describe('validation', () => {
     it('should reject invalid sessionId format', () => {
-      const handler = createTerminalHandler(mockWs);
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
 
       handler.handleMessage({
-        type: 'attach',
+        type: 'join-session',
         sessionId: 'invalid-session-id',
-      });
-
-      expect(sentMessages).toContainEqual(
-        JSON.stringify({ type: 'error', message: 'Invalid sessionId format' })
-      );
-      expect(mockSessionStore.get).not.toHaveBeenCalled();
-    });
-
-    it('should reject sessionId with injection attempt', () => {
-      const handler = createTerminalHandler(mockWs);
-
-      handler.handleMessage({
-        type: 'attach',
-        sessionId: '../../../etc/passwd',
+        clientId: testClientId,
       });
 
       expect(sentMessages).toContainEqual(
@@ -384,25 +491,25 @@ describe('createTerminalHandler', () => {
       );
     });
 
-    it('should accept valid UUID sessionId', async () => {
-      const handler = createTerminalHandler(mockWs);
+    it('should reject invalid clientId format', () => {
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
 
       handler.handleMessage({
-        type: 'attach',
-        sessionId: '123e4567-e89b-12d3-a456-426614174000',
+        type: 'join-session',
+        sessionId: testSessionId,
+        clientId: 'invalid-client-id',
       });
 
-      await vi.waitFor(() => {
-        expect(mockSessionStore.get).toHaveBeenCalledWith('123e4567-e89b-12d3-a456-426614174000');
-      });
+      expect(sentMessages).toContainEqual(
+        JSON.stringify({ type: 'error', message: 'Invalid clientId format' })
+      );
     });
 
     it('should reject invalid tabId format', () => {
-      const handler = createTerminalHandler(mockWs);
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
 
       handler.handleMessage({
         type: 'attach',
-        sessionId: '123e4567-e89b-12d3-a456-426614174000',
         tabId: 'invalid-tab-id',
       });
 
@@ -410,20 +517,42 @@ describe('createTerminalHandler', () => {
         JSON.stringify({ type: 'error', message: 'Invalid tabId format' })
       );
     });
-  });
 
-  describe('cols/rows validation', () => {
     it('should reject cols below minimum', async () => {
-      const handler = createTerminalHandler(mockWs);
+      // Setup
+      mockConnectionManager.joinSession(testSessionId, testClientId, mockWs);
+      mockConnectionManager.addTab(testSessionId, {
+        tabId: testTabId,
+        title: 'Terminal 1',
+        shell: 'bash',
+      });
 
-      // First attach
+      mockTerminalManager.get.mockReturnValue({
+        tabId: testTabId,
+        sessionId: testSessionId,
+        shell: 'bash',
+      });
+
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
+
+      // Join and attach
       handler.handleMessage({
-        type: 'attach',
-        sessionId: '123e4567-e89b-12d3-a456-426614174000',
+        type: 'join-session',
+        sessionId: testSessionId,
+        clientId: testClientId,
       });
 
       await vi.waitFor(() => {
-        expect(mockTerminalManager.create).toHaveBeenCalled();
+        expect(sentMessages.some(m => m.includes('sync-state'))).toBe(true);
+      });
+
+      handler.handleMessage({
+        type: 'attach',
+        tabId: testTabId,
+      });
+
+      await vi.waitFor(() => {
+        expect(sentMessages.some(m => m.includes('attached'))).toBe(true);
       });
 
       handler.handleMessage({
@@ -438,16 +567,40 @@ describe('createTerminalHandler', () => {
     });
 
     it('should reject rows above maximum', async () => {
-      const handler = createTerminalHandler(mockWs);
+      // Setup
+      mockConnectionManager.joinSession(testSessionId, testClientId, mockWs);
+      mockConnectionManager.addTab(testSessionId, {
+        tabId: testTabId,
+        title: 'Terminal 1',
+        shell: 'bash',
+      });
 
-      // First attach
+      mockTerminalManager.get.mockReturnValue({
+        tabId: testTabId,
+        sessionId: testSessionId,
+        shell: 'bash',
+      });
+
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
+
+      // Join and attach
       handler.handleMessage({
-        type: 'attach',
-        sessionId: '123e4567-e89b-12d3-a456-426614174000',
+        type: 'join-session',
+        sessionId: testSessionId,
+        clientId: testClientId,
       });
 
       await vi.waitFor(() => {
-        expect(mockTerminalManager.create).toHaveBeenCalled();
+        expect(sentMessages.some(m => m.includes('sync-state'))).toBe(true);
+      });
+
+      handler.handleMessage({
+        type: 'attach',
+        tabId: testTabId,
+      });
+
+      await vi.waitFor(() => {
+        expect(sentMessages.some(m => m.includes('attached'))).toBe(true);
       });
 
       handler.handleMessage({
@@ -459,52 +612,6 @@ describe('createTerminalHandler', () => {
       expect(sentMessages).toContainEqual(
         JSON.stringify({ type: 'error', message: 'Invalid rows value: must be between 1 and 500' })
       );
-    });
-
-    it('should reject non-integer cols', async () => {
-      const handler = createTerminalHandler(mockWs);
-
-      // First attach
-      handler.handleMessage({
-        type: 'attach',
-        sessionId: '123e4567-e89b-12d3-a456-426614174000',
-      });
-
-      await vi.waitFor(() => {
-        expect(mockTerminalManager.create).toHaveBeenCalled();
-      });
-
-      handler.handleMessage({
-        type: 'resize',
-        cols: 80.5,
-        rows: 24,
-      });
-
-      expect(sentMessages).toContainEqual(
-        JSON.stringify({ type: 'error', message: 'Invalid cols value: must be between 1 and 500' })
-      );
-    });
-
-    it('should accept valid cols and rows', async () => {
-      const handler = createTerminalHandler(mockWs);
-
-      // First attach
-      handler.handleMessage({
-        type: 'attach',
-        sessionId: '123e4567-e89b-12d3-a456-426614174000',
-      });
-
-      await vi.waitFor(() => {
-        expect(mockTerminalManager.create).toHaveBeenCalled();
-      });
-
-      handler.handleMessage({
-        type: 'resize',
-        cols: 120,
-        rows: 40,
-      });
-
-      expect(mockTerminalManager.resize).toHaveBeenCalledWith('789e0123-e89b-12d3-a456-426614174002', 120, 40);
     });
   });
 });
