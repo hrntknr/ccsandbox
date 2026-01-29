@@ -1,0 +1,47 @@
+/**
+ * Server configuration management.
+ * Holds CLI options passed to the server.
+ */
+
+export interface ServerConfig {
+  /** GitHub Personal Access Token */
+  pat: string;
+  /** GitHub API Base URL */
+  apiBase: string;
+  /** Workspace root directory */
+  repoDir: string;
+  /** Bind host */
+  listen: string;
+  /** Listen port */
+  port: number;
+  /** Path to devcontainer CLI (optional) */
+  devcontainerCli?: string;
+}
+
+let config: ServerConfig | null = null;
+
+/**
+ * Set the server configuration.
+ * Should be called once at server startup.
+ */
+export function setConfig(newConfig: ServerConfig): void {
+  config = newConfig;
+}
+
+/**
+ * Get the current server configuration.
+ * Throws if config has not been set.
+ */
+export function getConfig(): ServerConfig {
+  if (!config) {
+    throw new Error('Server configuration has not been initialized');
+  }
+  return config;
+}
+
+/**
+ * Check if configuration has been set.
+ */
+export function hasConfig(): boolean {
+  return config !== null;
+}

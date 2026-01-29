@@ -1,0 +1,191 @@
+import { useState, useCallback } from 'react';
+import type {
+  Session,
+  Repository,
+  ApiResponse,
+  SessionListResponse,
+  SessionResponse,
+  CreateSessionRequest,
+} from '@ccsandbox/shared';
+
+
+interface UseApiState<T> {
+  data: T | null;
+  loading: boolean;
+  error: string | null;
+}
+
+interface UseApiReturn<T> extends UseApiState<T> {
+  execute: () => Promise<T | null>;
+  reset: () => void;
+}
+
+const API_BASE_URL = '/api';
+
+async function fetchApi<T>(
+  endpoint: string,
+  options?: RequestInit
+): Promise<ApiResponse<T>> {
+  const url = `${API_BASE_URL}${endpoint}`;
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+  });
+
+  // Server returns ApiResponse format directly
+  const data: ApiResponse<T> = await response.json().catch(() => ({
+    success: false,
+    error: `HTTP ${response.status}: ${response.statusText}`,
+  }));
+
+  return data;
+}
+
+export function useSessions(): UseApiReturn<Session[]> {
+  const [state, setState] = useState<UseApiState<Session[]>>({
+    data: null,
+    loading: false,
+    error: null,
+  });
+
+  const execute = useCallback(async (): Promise<Session[] | null> => {
+    setState({ data: null, loading: true, error: null });
+
+    const response = await fetchApi<SessionListResponse>('/sessions');
+
+    if (response.success && response.data) {
+      setState({ data: response.data.sessions, loading: false, error: null });
+      return response.data.sessions;
+    } else {
+      setState({ data: null, loading: false, error: response.error || 'Unknown error' });
+      return null;
+    }
+  }, []);
+
+  const reset = useCallback(() => {
+    setState({ data: null, loading: false, error: null });
+  }, []);
+
+  return { ...state, execute, reset };
+}
+
+export function useCreateSession(): {
+  create: (request: CreateSessionRequest) => Promise<Session | null>;
+  loading: boolean;
+  error: string | null;
+} {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const create = useCallback(async (request: CreateSessionRequest): Promise<Session | null> => {
+    setLoading(true);
+    setError(null);
+
+    const response = await fetchApi<SessionResponse>('/sessions', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+
+    setLoading(false);
+
+    if (response.success && response.data) {
+      return response.data.session;
+    } else {
+      setError(response.error || 'Failed to create session');
+      return null;
+    }
+  }, []);
+
+  return { create, loading, error };
+}
+
+export function useDeleteSession(): {
+  deleteSession: (sessionId: string) => Promise<boolean>;
+  loading: boolean;
+  error: string | null;
+} {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const deleteSession = useCallback(async (sessionId: string): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+
+    const response = await fetchApi<void>(`/sessions/${sessionId}`, {
+      method: 'DELETE',
+    });
+
+    setLoading(false);
+
+    if (response.success) {
+      return true;
+    } else {
+      setError(response.error || 'Failed to delete session');
+      return false;
+    }
+  }, []);
+
+  return { deleteSession, loading, error };
+}
+
+export function useRepositories(): UseApiReturn<Repository[]> {
+  const [state, setState] = useState<UseApiState<Repository[]>>({
+    data: null,
+    loading: false,
+    error: null,
+  });
+
+  const execute = useCallback(async (): Promise<Repository[] | null> => {
+    setState({ data: null, loading: true, error: null });
+
+    const response = await fetchApi<Repository[]>('/github/repos');
+
+    if (response.success && response.data) {
+      setState({ data: response.data, loading: false, error: null });
+      return response.data;
+    } else {
+      setState({ data: null, loading: false, error: response.error || 'Unknown error' });
+      return null;
+    }
+  }, []);
+
+  const reset = useCallback(() => {
+    setState({ data: null, loading: false, error: null });
+  }, []);
+
+  return { ...state, execute, reset };
+}
+
+type ContainerAction = 'start' | 'stop' | 'remove';
+
+export function useContainerAction(): {
+  execute: (sessionId: string, action: ContainerAction) => Promise<boolean>;
+  loading: boolean;
+  error: string | null;
+} {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const execute = useCallback(async (sessionId: string, action: ContainerAction): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+
+    const response = await fetchApi<void>(`/sessions/${sessionId}/container/${action}`, {
+      method: 'POST',
+    });
+
+    setLoading(false);
+
+    if (response.success) {
+      return true;
+    } else {
+      setError(response.error || `Failed to ${action} container`);
+      return false;
+    }
+  }, []);
+
+  return { execute, loading, error };
+}
