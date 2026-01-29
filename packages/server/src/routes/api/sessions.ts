@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
+import { rm } from 'node:fs/promises';
 import type { CreateSessionRequest, ApiResponse, Session } from '@ccsandbox/shared';
 import { getConfig } from '../../config.js';
 import { SessionStore, SessionNotFoundError, WorkspaceExistsError } from '../../persistence/session-store.js';
@@ -241,6 +242,15 @@ router.delete(
           await removeContainer(session.containerId, true);
         } catch {
           // Ignore errors when removing container (it might not exist)
+        }
+      }
+
+      // Remove workspace directory
+      if (session.workspacePath) {
+        try {
+          await rm(session.workspacePath, { recursive: true, force: true });
+        } catch {
+          // Ignore errors when removing directory (it might not exist)
         }
       }
 
