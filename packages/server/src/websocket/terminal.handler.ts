@@ -177,11 +177,15 @@ export function createTerminalHandler(
       return;
     }
 
+    // Get history BEFORE setting client tab to avoid race condition:
+    // If we set client tab first, any output arriving between setClientTab
+    // and getOutputHistory would be sent via both 'output' and 'history' messages.
+    const history = terminalManager.getOutputHistory(tabId);
+
     currentTabId = tabId;
     connectionManager.setClientTab(currentSessionId, clientId, tabId);
 
-    // Send history
-    const history = terminalManager.getOutputHistory(tabId);
+    // Send history (output arriving after setClientTab will be sent via 'output' message)
     if (history) {
       sendMessage(ws, { type: 'history', data: history });
     }
@@ -204,11 +208,13 @@ export function createTerminalHandler(
       return;
     }
 
+    // Get history BEFORE setting client tab to avoid race condition
+    const history = terminalManager.getOutputHistory(tabId);
+
     currentTabId = tabId;
     connectionManager.setClientTab(currentSessionId, clientId, tabId);
 
     // Send history for the new tab
-    const history = terminalManager.getOutputHistory(tabId);
     if (history) {
       sendMessage(ws, { type: 'history', data: history });
     }
