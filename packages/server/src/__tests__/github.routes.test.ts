@@ -7,6 +7,7 @@ import http from 'node:http';
 vi.mock('../services/github.service.js', () => ({
   listRepositories: vi.fn(),
   getRepository: vi.fn(),
+  refreshRepositoriesCache: vi.fn(),
   GitHubApiError: class GitHubApiError extends Error {
     constructor(
       message: string,
@@ -22,6 +23,7 @@ vi.mock('../services/github.service.js', () => ({
 import {
   listRepositories,
   getRepository,
+  refreshRepositoriesCache,
   GitHubApiError,
 } from '../services/github.service.js';
 
@@ -119,6 +121,56 @@ describe('GitHub API routes', () => {
         success: false,
         error:
           'Access forbidden. This may be due to rate limiting or insufficient permissions.',
+      });
+    });
+  });
+
+  describe('POST /api/github/repos/refresh', () => {
+    it('should refresh and return list of repositories', async () => {
+      const mockRepos = [
+        {
+          fullName: 'owner/repo1',
+          owner: 'owner',
+          name: 'repo1',
+          defaultBranch: 'main',
+          isPrivate: false,
+          description: 'Test repo',
+          cloneUrl: 'https://github.com/owner/repo1.git',
+        },
+      ];
+
+      vi.mocked(refreshRepositoriesCache).mockResolvedValueOnce(mockRepos);
+
+      const response = await fetch(`${baseUrl}/api/github/repos/refresh`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({
+        success: true,
+        data: mockRepos,
+      });
+      expect(refreshRepositoriesCache).toHaveBeenCalledWith(
+        'test-pat',
+        'https://api.github.com'
+      );
+    });
+
+    it('should return 401 on authentication error', async () => {
+      vi.mocked(refreshRepositoriesCache).mockRejectedValueOnce(
+        new GitHubApiError('Bad credentials', 401, 'Unauthorized')
+      );
+
+      const response = await fetch(`${baseUrl}/api/github/repos/refresh`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(data).toEqual({
+        success: false,
+        error: 'Authentication failed. Please check your GitHub PAT.',
       });
     });
   });

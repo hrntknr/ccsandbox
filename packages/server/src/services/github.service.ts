@@ -1,6 +1,97 @@
 import type { Repository } from '@ccsandbox/shared';
 
 /**
+ * Cache for repository list.
+ * Stores repositories with a timestamp for cache invalidation.
+ */
+interface RepositoryCache {
+  repositories: Repository[];
+  timestamp: number;
+}
+
+/** Cache TTL: 1 hour in milliseconds */
+const CACHE_TTL_MS = 60 * 60 * 1000;
+
+/** In-memory cache keyed by `${pat}:${apiBase}` */
+const repositoryCache = new Map<string, RepositoryCache>();
+
+/** Background refresh timer */
+let refreshTimer: ReturnType<typeof setInterval> | null = null;
+
+/** Credentials for background refresh */
+let backgroundRefreshCredentials: { pat: string; apiBase: string } | null = null;
+
+/**
+ * Get cache key for a given PAT and API base.
+ */
+function getCacheKey(pat: string, apiBase: string): string {
+  return `${pat}:${apiBase}`;
+}
+
+/**
+ * Clear all repository caches.
+ * Primarily used for testing.
+ */
+export function clearRepositoryCache(): void {
+  repositoryCache.clear();
+}
+
+/**
+ * Start background cache refresh.
+ * Refreshes the cache every hour automatically.
+ */
+export function startBackgroundRefresh(pat: string, apiBase: string): void {
+  // Store credentials for refresh
+  backgroundRefreshCredentials = { pat, apiBase };
+
+  // Clear existing timer if any
+  stopBackgroundRefresh();
+
+  // Initial fetch
+  fetchRepositoriesFromApi(pat, apiBase)
+    .then((repos) => {
+      const cacheKey = getCacheKey(pat, apiBase);
+      repositoryCache.set(cacheKey, {
+        repositories: repos,
+        timestamp: Date.now(),
+      });
+      console.log(`[github] Initial cache loaded: ${repos.length} repositories`);
+    })
+    .catch((err) => {
+      console.error('[github] Failed to load initial cache:', err);
+    });
+
+  // Set up periodic refresh
+  refreshTimer = setInterval(async () => {
+    if (!backgroundRefreshCredentials) return;
+
+    try {
+      const { pat: p, apiBase: a } = backgroundRefreshCredentials;
+      const repos = await fetchRepositoriesFromApi(p, a);
+      const cacheKey = getCacheKey(p, a);
+      repositoryCache.set(cacheKey, {
+        repositories: repos,
+        timestamp: Date.now(),
+      });
+      console.log(`[github] Cache refreshed: ${repos.length} repositories`);
+    } catch (err) {
+      console.error('[github] Background refresh failed:', err);
+    }
+  }, CACHE_TTL_MS);
+}
+
+/**
+ * Stop background cache refresh.
+ */
+export function stopBackgroundRefresh(): void {
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+  backgroundRefreshCredentials = null;
+}
+
+/**
  * GitHub API error with status code.
  */
 export class GitHubApiError extends Error {
@@ -85,13 +176,12 @@ async function getErrorMessage(response: Response): Promise<string> {
 }
 
 /**
- * List repositories accessible to the authenticated user.
+ * Fetch repositories from GitHub API (bypasses cache).
  */
-export async function listRepositories(
+async function fetchRepositoriesFromApi(
   pat: string,
   apiBase: string
 ): Promise<Repository[]> {
-  // Fetch all repositories with pagination
   const repos: Repository[] = [];
   let page = 1;
   const perPage = 100;
@@ -110,6 +200,56 @@ export async function listRepositories(
     }
     page++;
   }
+
+  return repos;
+}
+
+/**
+ * List repositories accessible to the authenticated user.
+ * Uses cached data if available and not expired (1 hour TTL).
+ */
+export async function listRepositories(
+  pat: string,
+  apiBase: string
+): Promise<Repository[]> {
+  const cacheKey = getCacheKey(pat, apiBase);
+  const cached = repositoryCache.get(cacheKey);
+
+  // Return cached data if valid
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.repositories;
+  }
+
+  // Fetch fresh data
+  const repos = await fetchRepositoriesFromApi(pat, apiBase);
+
+  // Update cache
+  repositoryCache.set(cacheKey, {
+    repositories: repos,
+    timestamp: Date.now(),
+  });
+
+  return repos;
+}
+
+/**
+ * Force refresh the repository cache.
+ * Returns the fresh repository list.
+ */
+export async function refreshRepositoriesCache(
+  pat: string,
+  apiBase: string
+): Promise<Repository[]> {
+  const cacheKey = getCacheKey(pat, apiBase);
+
+  // Fetch fresh data
+  const repos = await fetchRepositoriesFromApi(pat, apiBase);
+
+  // Update cache
+  repositoryCache.set(cacheKey, {
+    repositories: repos,
+    timestamp: Date.now(),
+  });
 
   return repos;
 }

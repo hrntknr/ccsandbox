@@ -3,6 +3,7 @@ import { getConfig } from '../../config.js';
 import {
   listRepositories,
   getRepository,
+  refreshRepositoriesCache,
   GitHubApiError,
 } from '../../services/github.service.js';
 import type { ApiResponse, Repository } from '@ccsandbox/shared';
@@ -17,6 +18,28 @@ router.get('/repos', async (_req, res) => {
   try {
     const { pat, apiBase } = getConfig();
     const repos = await listRepositories(pat, apiBase);
+    const response: ApiResponse<Repository[]> = {
+      success: true,
+      data: repos,
+    };
+    res.json(response);
+  } catch (error) {
+    const response: ApiResponse<never> = {
+      success: false,
+      error: formatError(error),
+    };
+    res.status(getStatusCode(error)).json(response);
+  }
+});
+
+/**
+ * POST /api/github/repos/refresh
+ * Force refresh the repository cache and return fresh data.
+ */
+router.post('/repos/refresh', async (_req, res) => {
+  try {
+    const { pat, apiBase } = getConfig();
+    const repos = await refreshRepositoriesCache(pat, apiBase);
     const response: ApiResponse<Repository[]> = {
       success: true,
       data: repos,
