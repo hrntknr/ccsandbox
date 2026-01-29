@@ -1,24 +1,21 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { Session, TerminalTab } from '@ccsandbox/shared';
 import { Terminal } from '../Terminal';
-import { useContainerAction, useTerminalWebSocket } from '../../hooks';
+import { useTerminalWebSocket } from '../../hooks';
 import './TerminalPane.css';
 
 interface TerminalPaneProps {
   session: Session | null;
-  onSessionUpdate?: () => void;
 }
 
 interface LocalTab extends TerminalTab {
   isEditing?: boolean;
 }
 
-export function TerminalPane({ session, onSessionUpdate }: TerminalPaneProps) {
+export function TerminalPane({ session }: TerminalPaneProps) {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
-
-  const { execute: executeContainerAction, loading: containerActionLoading } = useContainerAction();
 
   const sessionId = session?.state === 'RUNNING' ? session.sessionId : null;
   const {
@@ -101,17 +98,6 @@ export function TerminalPane({ session, onSessionUpdate }: TerminalPaneProps) {
     setEditingTabId(null);
   }, []);
 
-  const handleContainerAction = useCallback(
-    async (action: 'start' | 'stop' | 'remove') => {
-      if (!session) return;
-      const success = await executeContainerAction(session.sessionId, action);
-      if (success && onSessionUpdate) {
-        onSessionUpdate();
-      }
-    },
-    [session, executeContainerAction, onSessionUpdate]
-  );
-
   if (!session) {
     return (
       <div className="terminal-pane terminal-pane-empty">
@@ -175,36 +161,6 @@ export function TerminalPane({ session, onSessionUpdate }: TerminalPaneProps) {
             disabled={!isConnected}
           >
             +
-          </button>
-        </div>
-
-        <div className="terminal-actions">
-          {isRunning ? (
-            <button
-              className="terminal-action-button stop"
-              onClick={() => handleContainerAction('stop')}
-              disabled={containerActionLoading}
-              title="Stop container"
-            >
-              Stop
-            </button>
-          ) : (
-            <button
-              className="terminal-action-button start"
-              onClick={() => handleContainerAction('start')}
-              disabled={containerActionLoading || session.state === 'ERROR'}
-              title="Start container"
-            >
-              Start
-            </button>
-          )}
-          <button
-            className="terminal-action-button remove"
-            onClick={() => handleContainerAction('remove')}
-            disabled={containerActionLoading}
-            title="Remove container"
-          >
-            Remove
           </button>
         </div>
       </div>
