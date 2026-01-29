@@ -32,6 +32,7 @@ export function TerminalPane({ session, onSessionUpdate }: TerminalPaneProps) {
     resizeTerminal,
     onOutput,
     onHistory,
+    onExit,
   } = useTerminalWebSocket(sessionId);
 
   // Convert remote tabs to local tabs with editing state
@@ -231,6 +232,8 @@ export function TerminalPane({ session, onSessionUpdate }: TerminalPaneProps) {
               resizeTerminal={resizeTerminal}
               onOutput={onOutput}
               onHistory={onHistory}
+              onExit={onExit}
+              closeTab={closeTab}
             />
           ))
         )}
