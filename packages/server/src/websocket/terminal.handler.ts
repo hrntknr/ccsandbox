@@ -123,6 +123,8 @@ export function createTerminalHandler(
 
   /**
    * Handle add-tab message - create a new tab and terminal
+   * Uses 2-phase response: immediately broadcasts tab-added (ready: false),
+   * then broadcasts tab-ready after terminal creation completes.
    */
   async function handleAddTab(title?: string): Promise<void> {
     if (!currentSessionId || !clientId) {
@@ -130,10 +132,13 @@ export function createTerminalHandler(
       return;
     }
 
+    // Capture sessionId for use in async callback
+    const sessionId = currentSessionId;
+
     try {
       const config = getConfig();
       const sessionStore = new SessionStore(config.repoDir);
-      const session = await sessionStore.get(currentSessionId);
+      const session = await sessionStore.get(sessionId);
 
       if (session.state !== 'RUNNING') {
         sendError(ws, 'Session is not running');
@@ -141,33 +146,50 @@ export function createTerminalHandler(
       }
 
       const tabId = uuidv4();
-      const existingTabs = connectionManager.getTabs(currentSessionId);
+      const existingTabs = connectionManager.getTabs(sessionId);
       const tabTitle = title ?? generateUniqueTabTitle(existingTabs);
 
-      // Create terminal
-      await terminalManager.create({
-        sessionId: currentSessionId,
-        workspacePath: session.workspacePath,
-        devcontainerCliPath: config.devcontainerCli,
-        tabId,
-      });
-
-      const terminal = terminalManager.get(tabId);
+      // Step 1: Immediately add tab with ready: false
       const tab: TerminalTab = {
         tabId,
         title: tabTitle,
-        shell: terminal?.shell ?? 'bash',
+        shell: 'bash',
+        ready: false,
       };
 
-      // Add tab to room state
-      connectionManager.addTab(currentSessionId, tab);
-
-      // Broadcast to all clients in the session
-      connectionManager.broadcast(currentSessionId, {
+      connectionManager.addTab(sessionId, tab);
+      connectionManager.broadcast(sessionId, {
         type: 'tab-added',
         tab,
         requesterId: clientId,
       } satisfies TerminalServerMessage);
+
+      // Step 2: Create terminal in background
+      terminalManager.create({
+        sessionId,
+        workspacePath: session.workspacePath,
+        devcontainerCliPath: config.devcontainerCli,
+        tabId,
+      }).then(() => {
+        const terminal = terminalManager.get(tabId);
+        connectionManager.updateTab(sessionId, tabId, {
+          shell: terminal?.shell ?? 'bash',
+          ready: true,
+        });
+        connectionManager.broadcast(sessionId, {
+          type: 'tab-ready',
+          tabId,
+        } satisfies TerminalServerMessage);
+      }).catch((error) => {
+        // On error: remove the tab
+        connectionManager.removeTab(sessionId, tabId);
+        connectionManager.broadcast(sessionId, {
+          type: 'tab-removed',
+          tabId,
+        } satisfies TerminalServerMessage);
+        const errorMessage = error instanceof Error ? error.message : 'Failed to create terminal';
+        sendError(ws, errorMessage);
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to add tab';
       sendError(ws, message);

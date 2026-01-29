@@ -80,6 +80,14 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
           );
           break;
 
+        case 'tab-ready':
+          setTabs((prev) =>
+            prev.map((t) =>
+              t.tabId === message.tabId ? { ...t, ready: true } : t
+            )
+          );
+          break;
+
         case 'output':
           for (const sub of outputSubscriptionsRef.current) {
             if (sub.tabId === currentTabIdRef.current) {

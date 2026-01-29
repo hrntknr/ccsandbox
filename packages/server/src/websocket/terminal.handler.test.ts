@@ -200,6 +200,106 @@ describe('createTerminalHandler', () => {
         JSON.stringify({ type: 'error', message: 'Not joined to a session' })
       );
     });
+
+    it('should broadcast tab-added immediately with ready:false, then tab-ready after terminal creation', async () => {
+      // Setup: terminal creation resolves after a delay
+      let resolveCreate: () => void;
+      const createPromise = new Promise<void>((resolve) => {
+        resolveCreate = resolve;
+      });
+      mockTerminalManager.create.mockReturnValue(createPromise);
+      mockTerminalManager.get.mockReturnValue({ shell: 'zsh' });
+
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
+
+      // First join session
+      handler.handleMessage({
+        type: 'join-session',
+        sessionId: testSessionId,
+        clientId: testClientId,
+      });
+
+      await vi.waitFor(() => {
+        expect(sentMessages.some(m => m.includes('sync-state'))).toBe(true);
+      });
+
+      // Clear messages before add-tab test
+      sentMessages.length = 0;
+
+      // Add tab
+      handler.handleMessage({
+        type: 'add-tab',
+        title: 'My Terminal',
+      });
+
+      // Immediately check for tab-added with ready:false
+      await vi.waitFor(() => {
+        const tabAddedMessage = sentMessages.find(m => m.includes('tab-added'));
+        expect(tabAddedMessage).toBeDefined();
+        const parsed = JSON.parse(tabAddedMessage!);
+        expect(parsed.type).toBe('tab-added');
+        expect(parsed.tab.ready).toBe(false);
+        expect(parsed.tab.title).toBe('My Terminal');
+      });
+
+      // At this point, tab-ready should NOT have been sent yet
+      expect(sentMessages.some(m => m.includes('tab-ready'))).toBe(false);
+
+      // Now resolve the create promise
+      resolveCreate!();
+
+      // After terminal creation completes, tab-ready should be broadcast
+      await vi.waitFor(() => {
+        expect(sentMessages.some(m => m.includes('tab-ready'))).toBe(true);
+      });
+
+      const tabReadyMessage = sentMessages.find(m => m.includes('tab-ready'));
+      const parsed = JSON.parse(tabReadyMessage!);
+      expect(parsed.type).toBe('tab-ready');
+      expect(parsed.tabId).toBeDefined();
+    });
+
+    it('should remove tab and broadcast tab-removed on terminal creation failure', async () => {
+      // Setup: terminal creation rejects
+      mockTerminalManager.create.mockRejectedValue(new Error('Terminal creation failed'));
+
+      const handler = createTerminalHandler(mockWs, mockConnectionManager);
+
+      // First join session
+      handler.handleMessage({
+        type: 'join-session',
+        sessionId: testSessionId,
+        clientId: testClientId,
+      });
+
+      await vi.waitFor(() => {
+        expect(sentMessages.some(m => m.includes('sync-state'))).toBe(true);
+      });
+
+      // Clear messages before add-tab test
+      sentMessages.length = 0;
+
+      // Add tab
+      handler.handleMessage({
+        type: 'add-tab',
+        title: 'My Terminal',
+      });
+
+      // First, tab-added with ready:false should be sent
+      await vi.waitFor(() => {
+        expect(sentMessages.some(m => m.includes('tab-added'))).toBe(true);
+      });
+
+      // After failure, tab-removed should be broadcast and error sent
+      await vi.waitFor(() => {
+        expect(sentMessages.some(m => m.includes('tab-removed'))).toBe(true);
+        expect(sentMessages.some(m => m.includes('Terminal creation failed'))).toBe(true);
+      });
+
+      // The tab should have been removed from the connection manager
+      const tabs = mockConnectionManager.getTabs(testSessionId);
+      expect(tabs.length).toBe(0);
+    });
   });
 
   describe('attach message', () => {
