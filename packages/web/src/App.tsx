@@ -4,7 +4,7 @@ import { SessionList } from './components/SessionList';
 import { TerminalPane } from './components/TerminalPane';
 import { NewSessionModal } from './components/NewSessionModal';
 import { SettingsModal } from './components/SettingsModal';
-import { useDeleteSession, useClientConfig } from './hooks/useApi';
+import { useDeleteSession, useStartSession, useStopSession, useClientConfig } from './hooks/useApi';
 import { useSessionSync } from './hooks/useSessionSync';
 import './App.css';
 
@@ -20,6 +20,8 @@ export function App() {
 
   const { sessions, loading, error } = useSessionSync();
   const { deleteSession, loading: deleteLoading } = useDeleteSession();
+  const { startSession } = useStartSession();
+  const { stopSession } = useStopSession();
   const { execute: fetchConfig } = useClientConfig();
 
   // Fetch config on mount and check if PAT is required
@@ -64,6 +66,16 @@ export function App() {
   const handleDeleteSession = useCallback((sessionId: string) => {
     setDeleteConfirmSessionId(sessionId);
   }, []);
+
+  const handleStartSession = useCallback(async (sessionId: string) => {
+    await startSession(sessionId);
+    // Session state will be updated via WebSocket sync
+  }, [startSession]);
+
+  const handleStopSession = useCallback(async (sessionId: string) => {
+    await stopSession(sessionId);
+    // Session state will be updated via WebSocket sync
+  }, [stopSession]);
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deleteConfirmSessionId) return;
@@ -121,6 +133,8 @@ export function App() {
           onSelectSession={handleSelectSession}
           onNewSession={handleNewSession}
           onDeleteSession={handleDeleteSession}
+          onStartSession={handleStartSession}
+          onStopSession={handleStopSession}
           onOpenSettings={handleOpenSettings}
           loading={loading}
         />

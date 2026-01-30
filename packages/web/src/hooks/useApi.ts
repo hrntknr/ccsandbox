@@ -140,6 +140,64 @@ export function useDeleteSession(): {
   return { deleteSession, loading, error };
 }
 
+export function useStartSession(): {
+  startSession: (sessionId: string) => Promise<boolean>;
+  loading: boolean;
+  error: string | null;
+} {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const startSession = useCallback(async (sessionId: string): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+
+    const response = await fetchApi<SessionResponse>(`/sessions/${sessionId}/start`, {
+      method: 'POST',
+    });
+
+    setLoading(false);
+
+    if (response.success) {
+      return true;
+    } else {
+      setError(response.error || 'Failed to start session');
+      return false;
+    }
+  }, []);
+
+  return { startSession, loading, error };
+}
+
+export function useStopSession(): {
+  stopSession: (sessionId: string) => Promise<boolean>;
+  loading: boolean;
+  error: string | null;
+} {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const stopSession = useCallback(async (sessionId: string): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+
+    const response = await fetchApi<SessionResponse>(`/sessions/${sessionId}/stop`, {
+      method: 'POST',
+    });
+
+    setLoading(false);
+
+    if (response.success) {
+      return true;
+    } else {
+      setError(response.error || 'Failed to stop session');
+      return false;
+    }
+  }, []);
+
+  return { stopSession, loading, error };
+}
+
 export function useRepositories(): UseRepositoriesReturn {
   const [state, setState] = useState<UseApiState<Repository[]>>({
     data: null,

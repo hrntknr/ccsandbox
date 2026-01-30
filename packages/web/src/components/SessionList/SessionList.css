@@ -119,27 +119,73 @@
   white-space: nowrap;
 }
 
-.session-delete-button {
-  background: none;
-  border: none;
-  color: #666;
-  font-size: 18px;
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 3px;
+.session-menu-container {
+  position: relative;
   margin-left: 8px;
   flex-shrink: 0;
 }
 
-.session-delete-button:hover {
+.session-menu-button {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  padding: 4px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+}
+
+.session-menu-button:hover {
   background-color: rgba(255, 255, 255, 0.1);
+  color: #d4d4d4;
+}
+
+.session-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 100;
+  min-width: 120px;
+  background-color: #252526;
+  border: 1px solid #3c3c3c;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  padding: 4px 0;
+  margin-top: 4px;
+}
+
+.session-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  color: #d4d4d4;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.session-menu-item:hover {
+  background-color: #094771;
+}
+
+.session-menu-item svg {
+  flex-shrink: 0;
+}
+
+.session-menu-item-danger {
   color: #c94e4e;
+}
+
+.session-menu-item-danger:hover {
+  background-color: #4b1b1b;
 }
 
 .session-repo {
