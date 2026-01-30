@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Streamdown } from 'streamdown';
 import { code } from '@streamdown/code';
 import type { ClaudeMessage } from '@ccsandbox/shared';
+import { AnsiOutput } from './AnsiOutput';
 
 interface MessageListProps {
   messages: ClaudeMessage[];
@@ -65,7 +66,7 @@ function ToolItem({ tool, result }: ToolItemProps) {
                 </span>
                 <span>Output</span>
               </div>
-              <pre className={`font-mono text-xs m-0 p-3 overflow-x-auto max-h-[300px] overflow-y-auto ${result.isError ? 'text-claude-error' : 'text-claude-text-primary'}`}>{result.content}</pre>
+              <AnsiOutput content={result.content} />
             </div>
           )}
         </div>

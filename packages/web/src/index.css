@@ -106,6 +106,15 @@
   padding: 8px;
 }
 
+/* AnsiOutput specific styles */
+.ansi-output .xterm {
+  padding: 0;
+}
+
+.ansi-output .xterm-viewport {
+  overflow-y: auto !important;
+}
+
 /* Custom scrollbar styles */
 @layer utilities {
   .scrollbar-thin::-webkit-scrollbar {
