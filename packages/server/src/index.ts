@@ -39,6 +39,9 @@ export async function startServer(options: StartServerOptions): Promise<ServerIn
     listen: options.listen,
     port: options.port,
     devcontainerCli: options.devcontainerCli,
+    dotfilesRepository: options.dotfilesRepository,
+    dotfilesTargetPath: options.dotfilesTargetPath,
+    dotfilesInstallCommand: options.dotfilesInstallCommand,
   });
 
   // Create Express app
