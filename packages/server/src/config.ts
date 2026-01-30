@@ -16,6 +16,12 @@ export interface ServerConfig {
   port: number;
   /** Path to devcontainer CLI (optional) */
   devcontainerCli?: string;
+  /** Dotfiles repository URL (optional) */
+  dotfilesRepository?: string;
+  /** Dotfiles target path (optional) */
+  dotfilesTargetPath?: string;
+  /** Dotfiles install command (optional) */
+  dotfilesInstallCommand?: string;
 }
 
 let config: ServerConfig | null = null;
