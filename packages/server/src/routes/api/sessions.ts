@@ -204,8 +204,8 @@ router.get(
           await store.update(id, { state: 'RUNNING' });
           session.state = 'RUNNING';
         } else if (!running && session.state === 'RUNNING') {
-          await store.update(id, { state: 'READY' });
-          session.state = 'READY';
+          await store.update(id, { state: 'STOPPED' });
+          session.state = 'STOPPED';
         }
       }
 

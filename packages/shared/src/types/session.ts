@@ -1,4 +1,4 @@
-export type SessionState = 'READY' | 'RUNNING' | 'ERROR';
+export type SessionState = 'STOPPED' | 'RUNNING' | 'ERROR';
 
 export interface TerminalTab {
   tabId: string;

@@ -15,8 +15,8 @@ function getStateClassName(state: Session['state']): string {
   switch (state) {
     case 'RUNNING':
       return 'state-running';
-    case 'READY':
-      return 'state-ready';
+    case 'STOPPED':
+      return 'state-stopped';
     case 'ERROR':
       return 'state-error';
     default:
