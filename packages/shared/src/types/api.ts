@@ -66,3 +66,10 @@ export interface ErrorPayload {
   message: string;
   code?: string;
 }
+
+/**
+ * Client-safe configuration exposed via API
+ */
+export interface ClientConfig {
+  defaultShell?: string;
+}

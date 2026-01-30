@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import type { Repository } from '@ccsandbox/shared';
-import { useRepositories, useSessionCreate } from '../../hooks';
+import { useRepositories, useSessionCreate, useClientConfig } from '../../hooks';
 import '@xterm/xterm/css/xterm.css';
 import './NewSessionModal.css';
 
@@ -33,6 +33,7 @@ export function NewSessionModal({
   const [repoFilter, setRepoFilter] = useState('');
   const [baseBranch, setBaseBranch] = useState('');
   const [workBranch, setWorkBranch] = useState('');
+  const [shell, setShell] = useState('');
 
   const terminalContainerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerm | null>(null);
@@ -46,6 +47,11 @@ export function NewSessionModal({
     refresh: refreshRepositories,
     refreshing: reposRefreshing,
   } = useRepositories();
+
+  const {
+    data: clientConfig,
+    execute: fetchClientConfig,
+  } = useClientConfig();
 
   const {
     create,
@@ -71,14 +77,23 @@ export function NewSessionModal({
   useEffect(() => {
     if (isOpen) {
       fetchRepositories();
+      fetchClientConfig();
       setModalState('form');
       setSelectedRepo(null);
       setRepoFilter('');
       setBaseBranch('');
       setWorkBranch(generateRandomBranchName());
+      setShell('');
       resetCreate();
     }
-  }, [isOpen, fetchRepositories, resetCreate]);
+  }, [isOpen, fetchRepositories, fetchClientConfig, resetCreate]);
+
+  // Set default shell from config when loaded
+  useEffect(() => {
+    if (clientConfig?.defaultShell && !shell) {
+      setShell(clientConfig.defaultShell);
+    }
+  }, [clientConfig, shell]);
 
   // Initialize terminal when entering creating state
   useEffect(() => {
@@ -173,9 +188,10 @@ export function NewSessionModal({
         repo: selectedRepo.fullName,
         baseBranch,
         workBranch,
+        shell: shell || undefined,
       });
     },
-    [selectedRepo, baseBranch, workBranch, create]
+    [selectedRepo, baseBranch, workBranch, shell, create]
   );
 
   const handleClose = useCallback(() => {
@@ -346,6 +362,17 @@ export function NewSessionModal({
                 onChange={(e) => setWorkBranch(e.target.value)}
                 placeholder="e.g., feature/new-feature"
                 required
+              />
+            </div>
+
+            <div className="form-field">
+              <label htmlFor="shell">Shell</label>
+              <input
+                id="shell"
+                type="text"
+                value={shell}
+                onChange={(e) => setShell(e.target.value)}
+                placeholder="e.g., /bin/bash, /bin/zsh"
               />
             </div>
 

@@ -69,7 +69,7 @@ export function createSessionCreateHandler(ws: WebSocket): SessionCreateHandler 
     const config = getConfig();
     const sessionStore = getSessionStore(config.repoDir);
 
-    const { title, repo, baseBranch, workBranch } = message;
+    const { title, repo, baseBranch, workBranch, shell } = message;
 
     // Validate required fields
     if (!repo || !baseBranch || !workBranch) {
@@ -90,6 +90,7 @@ export function createSessionCreateHandler(ws: WebSocket): SessionCreateHandler 
         apiBase: config.apiBase,
         baseBranch,
         workBranch,
+        shell,
       });
       sendLog(ws, `Session created with ID: ${session.sessionId}\n\n`);
 

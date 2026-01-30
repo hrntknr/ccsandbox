@@ -20,6 +20,7 @@ export interface Session {
   createdAt: string; // ISO 8601
   containerId?: string;
   containerName?: string;
+  shell?: string;
 }
 
 /**
