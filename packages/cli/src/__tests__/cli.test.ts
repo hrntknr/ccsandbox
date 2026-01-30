@@ -27,7 +27,6 @@ describe('CLI', () => {
     it('should display help information', () => {
       const result = runCli('--help');
       expect(result.stdout).toContain('ccsandbox');
-      expect(result.stdout).toContain('--api-base <url>');
       expect(result.stdout).toContain('--repo-dir <path>');
       expect(result.stdout).toContain('--listen <host>');
       expect(result.stdout).toContain('--port <port>');
@@ -42,15 +41,4 @@ describe('CLI', () => {
     });
   });
 
-  describe('default options', () => {
-    it('should use default api-base when not specified', () => {
-      // --api-base has a default value of https://api.github.com
-      // So this should not error for missing api-base
-      // We use --help to avoid actually starting a server
-      const result = runCli('--help');
-      expect(result.stdout).toContain('--api-base');
-      expect(result.stdout).toContain('default');
-      expect(result.stdout).toContain('api.github.com');
-    });
-  });
 });

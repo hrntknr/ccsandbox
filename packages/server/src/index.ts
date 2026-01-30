@@ -13,8 +13,6 @@ export { setupWebSocketServer, type WebSocketServerInstance } from './websocket/
 export { getTerminalManager, resetTerminalManager } from './services/terminal.service.js';
 
 export interface StartServerOptions {
-  /** GitHub API Base URL */
-  apiBase: string;
   /** Workspace root directory */
   repoDir: string;
   /** Bind host */
@@ -47,10 +45,8 @@ export async function startServer(options: StartServerOptions): Promise<ServerIn
   const configStore = getConfigStore(options.repoDir);
   const persistedConfig = await configStore.read();
 
-  // Merge CLI options with persisted config
-  // Editable options (pat, apiBase, dotfiles, defaultShell) come from persisted config if available
-  // CLI options serve as defaults
-  const effectiveApiBase = persistedConfig.apiBase ?? options.apiBase;
+  // Use persisted apiBase or default
+  const effectiveApiBase = persistedConfig.apiBase ?? 'https://api.github.com';
 
   setConfig({
     pat: persistedConfig.pat,
