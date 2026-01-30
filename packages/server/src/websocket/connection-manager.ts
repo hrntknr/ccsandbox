@@ -249,6 +249,27 @@ export class ConnectionManager {
     return { cols: minCols, rows: minRows };
   }
 
+  /**
+   * Clear all tabs for a session (used when session is stopped)
+   */
+  clearSessionTabs(sessionId: string): void {
+    const room = this.rooms.get(sessionId);
+    if (!room) return;
+
+    // Remove tab-to-session mappings
+    for (const tab of room.tabs) {
+      this.tabToSession.delete(tab.tabId);
+    }
+
+    // Clear tabs array
+    room.tabs = [];
+
+    // Reset currentTabId for all clients in this session
+    for (const client of room.clients.values()) {
+      client.currentTabId = null;
+    }
+  }
+
   cleanup(): void {
     if (this.terminalManager && this.listenersRegistered) {
       this.terminalManager.off('data', this.handleTerminalData);
