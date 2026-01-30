@@ -44,11 +44,11 @@ export function InputForm({ onSubmit, disabled }: InputFormProps) {
   );
 
   return (
-    <form className="claude-input-form" onSubmit={handleSubmit}>
-      <div className="claude-input-wrapper">
+    <form className="flex gap-0 py-3 px-4 bg-claude-bg-secondary border-t border-claude-border items-end" onSubmit={handleSubmit}>
+      <div className="flex-1 relative bg-claude-bg-tertiary border border-claude-border rounded-lg transition-colors focus-within:border-claude-accent">
         <textarea
           ref={textareaRef}
-          className="claude-input-textarea"
+          className="w-full bg-transparent border-none py-3 px-3.5 text-claude-text-primary font-sans text-sm resize-none min-h-[44px] max-h-[200px] leading-normal focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-claude-text-muted"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -56,7 +56,7 @@ export function InputForm({ onSubmit, disabled }: InputFormProps) {
           disabled={disabled}
           rows={1}
         />
-        <div className="claude-input-footer">
+        <div className="flex items-center justify-between py-1.5 px-3 border-t border-claude-border bg-claude-bg-hover rounded-b-[7px]">
           <PermissionModeSelector
             value={permissionMode}
             onChange={setPermissionMode}
@@ -64,10 +64,10 @@ export function InputForm({ onSubmit, disabled }: InputFormProps) {
           />
           <button
             type="submit"
-            className="claude-input-submit"
+            className="py-1.5 px-3.5 bg-claude-accent text-white border-none rounded-md cursor-pointer text-[13px] font-medium transition-all flex items-center gap-1.5 hover:bg-claude-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={disabled || !input.trim()}
           >
-            <span className="claude-input-submit-icon">↑</span>
+            <span className="text-sm">↑</span>
             Send
           </button>
         </div>
