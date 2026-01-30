@@ -5,6 +5,7 @@ import { createTerminalHandler } from './terminal.handler.js';
 import { createSessionCreateHandler } from './session-create.handler.js';
 import { getConnectionManager, resetConnectionManager } from './connection-manager.js';
 import { getTerminalManager } from '../services/terminal.service.js';
+import { getClaudeManager, resetClaudeManager } from '../services/claude.service.js';
 import { getSessionSyncManager, resetSessionSyncManager } from './session-sync-manager.js';
 import { getSessionStore } from '../persistence/session-store.js';
 import { getConfig } from '../config.js';
@@ -27,7 +28,10 @@ function isValidTerminalClientMessage(message: unknown): message is TerminalClie
     case 'join-session':
       return typeof msg['sessionId'] === 'string' && typeof msg['clientId'] === 'string';
     case 'add-tab':
-      return msg['title'] === undefined || typeof msg['title'] === 'string';
+      return (
+        (msg['title'] === undefined || typeof msg['title'] === 'string') &&
+        (msg['tabType'] === undefined || msg['tabType'] === 'shell' || msg['tabType'] === 'claude')
+      );
     case 'attach':
       return typeof msg['tabId'] === 'string';
     case 'switch-tab':
@@ -42,6 +46,13 @@ function isValidTerminalClientMessage(message: unknown): message is TerminalClie
       return typeof msg['cols'] === 'number' && typeof msg['rows'] === 'number';
     case 'detach':
       return true;
+    case 'claude-message':
+      return typeof msg['content'] === 'string';
+    case 'claude-permission-response':
+      return (
+        typeof msg['requestId'] === 'string' &&
+        (msg['permission'] === 'allow' || msg['permission'] === 'deny')
+      );
     default:
       return false;
   }
@@ -109,10 +120,12 @@ export function setupWebSocketServer(server: http.Server): WebSocketServerInstan
     }
   });
 
-  // Get connection manager singleton and initialize with terminal manager
+  // Get connection manager singleton and initialize with terminal/claude managers
   const connectionManager = getConnectionManager();
   const terminalManager = getTerminalManager();
+  const claudeManager = getClaudeManager();
   connectionManager.initialize(terminalManager);
+  connectionManager.initializeClaude(claudeManager);
 
   // Handle terminal connections
   terminalWss.on('connection', (ws: WebSocket) => {
@@ -262,6 +275,7 @@ export function setupWebSocketServer(server: http.Server): WebSocketServerInstan
       // Reset managers
       resetConnectionManager();
       resetSessionSyncManager();
+      resetClaudeManager();
     },
   };
 }

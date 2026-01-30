@@ -3,8 +3,24 @@ export type {
   Session,
   SessionState,
   SessionSyncServerMessage,
+  TabType,
   TerminalTab,
 } from './types/session.js';
+
+export type {
+  ClaudeAssistantEvent,
+  ClaudeContentBlock,
+  ClaudeControlRequestEvent,
+  ClaudeEvent,
+  ClaudeMessage,
+  ClaudePendingPermission,
+  ClaudePermissionRequest,
+  ClaudeResultEvent,
+  ClaudeStreamEvent,
+  ClaudeStreamEventDetail,
+  ClaudeSystemInitEvent,
+  ClaudeUserEvent,
+} from './types/claude.js';
 
 export type { Repository } from './types/github.js';
 
