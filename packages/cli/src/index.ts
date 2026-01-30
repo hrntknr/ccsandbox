@@ -10,6 +10,9 @@ interface CliOptions {
   listen: string;
   port: string;
   devcontainerCli?: string;
+  dotfilesRepository?: string;
+  dotfilesTargetPath?: string;
+  dotfilesInstallCommand?: string;
 }
 
 const DEFAULT_REPO_DIR = path.join(os.homedir(), '.ccsandbox');
@@ -27,6 +30,9 @@ program
   .option('--listen <host>', 'Bind host', DEFAULT_LISTEN)
   .option('--port <port>', 'Listen port', DEFAULT_PORT)
   .option('--devcontainer-cli <path>', 'Path to devcontainer CLI')
+  .option('--dotfiles-repository <url>', 'Dotfiles repository URL')
+  .option('--dotfiles-target-path <path>', 'Dotfiles target path')
+  .option('--dotfiles-install-command <command>', 'Dotfiles install command')
   .action(async (options: CliOptions) => {
     const { startServer } = await import('@ccsandbox/server');
 
@@ -44,6 +50,9 @@ program
         listen: options.listen,
         port,
         devcontainerCli: options.devcontainerCli,
+        dotfilesRepository: options.dotfilesRepository,
+        dotfilesTargetPath: options.dotfilesTargetPath,
+        dotfilesInstallCommand: options.dotfilesInstallCommand,
         serveStatic: true,
       });
     } catch (err) {

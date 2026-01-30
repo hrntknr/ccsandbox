@@ -200,6 +200,12 @@ export interface StartDevcontainerOptions {
   devcontainerCliPath?: string;
   /** Callback for streaming log output */
   onLog?: (data: string) => void;
+  /** Dotfiles repository URL */
+  dotfilesRepository?: string;
+  /** Dotfiles target path */
+  dotfilesTargetPath?: string;
+  /** Dotfiles install command */
+  dotfilesInstallCommand?: string;
 }
 
 /**
@@ -220,7 +226,14 @@ export async function startDevcontainer(
     ? { workspacePath: workspacePathOrOptions, devcontainerCliPath }
     : workspacePathOrOptions;
 
-  const { workspacePath, devcontainerCliPath: cliPathOpt, onLog } = options;
+  const {
+    workspacePath,
+    devcontainerCliPath: cliPathOpt,
+    onLog,
+    dotfilesRepository,
+    dotfilesTargetPath,
+    dotfilesInstallCommand,
+  } = options;
 
   // Verify devcontainer config exists
   if (!(await hasDevcontainerConfig(workspacePath))) {
@@ -231,8 +244,20 @@ export async function startDevcontainer(
 
   onLog?.(`Starting devcontainer for ${workspacePath}\n`);
 
+  // Build devcontainer up arguments
+  const args = ['up', '--workspace-folder', workspacePath];
+  if (dotfilesRepository) {
+    args.push('--dotfiles-repository', dotfilesRepository);
+  }
+  if (dotfilesTargetPath) {
+    args.push('--dotfiles-target-path', dotfilesTargetPath);
+  }
+  if (dotfilesInstallCommand) {
+    args.push('--dotfiles-install-command', dotfilesInstallCommand);
+  }
+
   // Run devcontainer up
-  const result = await execCommand(cliPath, ['up', '--workspace-folder', workspacePath], { onLog });
+  const result = await execCommand(cliPath, args, { onLog });
 
   if (result.exitCode !== 0) {
     throw new DevcontainerCliError('up', result.exitCode, result.stderr);

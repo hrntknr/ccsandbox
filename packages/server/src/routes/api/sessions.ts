@@ -89,10 +89,13 @@ router.post(
 
       // Step 4: Start devcontainer
       try {
-        const containerInfo = await startDevcontainer(
-          session.workspacePath,
-          config.devcontainerCli
-        );
+        const containerInfo = await startDevcontainer({
+          workspacePath: session.workspacePath,
+          devcontainerCliPath: config.devcontainerCli,
+          dotfilesRepository: config.dotfilesRepository,
+          dotfilesTargetPath: config.dotfilesTargetPath,
+          dotfilesInstallCommand: config.dotfilesInstallCommand,
+        });
 
         // Update session with container info
         const updatedSession = await store.update(session.sessionId, {
@@ -281,10 +284,13 @@ router.post(
       const session = await store.get(id);
 
       // devcontainer up is idempotent - it starts stopped containers or reuses running ones
-      const containerInfo = await startDevcontainer(
-        session.workspacePath,
-        config.devcontainerCli
-      );
+      const containerInfo = await startDevcontainer({
+        workspacePath: session.workspacePath,
+        devcontainerCliPath: config.devcontainerCli,
+        dotfilesRepository: config.dotfilesRepository,
+        dotfilesTargetPath: config.dotfilesTargetPath,
+        dotfilesInstallCommand: config.dotfilesInstallCommand,
+      });
 
       const updatedSession = await store.update(id, {
         state: 'RUNNING',
