@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
-import './AnsiOutput.css';
 
 interface AnsiOutputProps {
   content: string;
@@ -48,5 +47,5 @@ export function AnsiOutput({ content }: AnsiOutputProps) {
     };
   }, [content]);
 
-  return <div ref={containerRef} className="ansi-output" />;
+  return <div ref={containerRef} className="ansi-output p-3 rounded-b-md overflow-hidden" />;
 }

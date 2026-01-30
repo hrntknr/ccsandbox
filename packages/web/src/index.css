@@ -1,0 +1,144 @@
+@import url('https://fonts.cdnfonts.com/css/jetbrainsmono-nerd-font');
+
+@import "tailwindcss";
+
+/* Streamdown styles */
+@source "../../../node_modules/streamdown/dist/*.js";
+@source "../../../node_modules/@streamdown/code/dist/*.js";
+
+/* Custom theme configuration */
+@theme {
+  /* VS Code theme colors */
+  --color-vscode-bg: #1e1e1e;
+  --color-vscode-bg-secondary: #252526;
+  --color-vscode-bg-hover: #2a2a2a;
+  --color-vscode-border: #333;
+  --color-vscode-border-light: #3c3c3c;
+  --color-vscode-text: #d4d4d4;
+  --color-vscode-text-secondary: #888;
+  --color-vscode-text-muted: #666;
+  --color-vscode-accent: #0078d4;
+  --color-vscode-accent-hover: #106ebe;
+  --color-vscode-selection: #094771;
+  --color-vscode-error: #c94e4e;
+  --color-vscode-error-bg: #4b1b1b;
+  --color-vscode-success: #4ec94e;
+  --color-vscode-success-bg: #1b4b1b;
+  --color-vscode-info: #4eb8c9;
+  --color-vscode-info-bg: #1b3c4b;
+  /* Claude theme colors */
+  --color-claude-bg-primary: #1a1a1a;
+  --color-claude-bg-secondary: #242424;
+  --color-claude-bg-tertiary: #2d2d2d;
+  --color-claude-bg-hover: #363636;
+  --color-claude-border: #3d3d3d;
+  --color-claude-text-primary: #e4e4e4;
+  --color-claude-text-secondary: #a0a0a0;
+  --color-claude-text-muted: #6b6b6b;
+  --color-claude-accent: #d97706;
+  --color-claude-accent-hover: #f59e0b;
+  --color-claude-user-bg: #1e3a5f;
+  --color-claude-code-bg: #1e1e1e;
+  --color-claude-success: #22c55e;
+  --color-claude-error: #ef4444;
+  --color-claude-warning: #f59e0b;
+
+  /* Font families */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+    Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', Consolas, monospace;
+  --font-nerd: 'JetBrainsMono Nerd Font', monospace;
+
+  /* Animations */
+  --animate-spin-slow: spin 1s linear infinite;
+  --animate-bounce-dot: bounce-dot 1.4s infinite ease-in-out both;
+  --animate-loading-pulse: loading-pulse 1s ease-in-out infinite;
+  --animate-spinner-char: spinner-char 0.6s steps(1) infinite;
+}
+
+@keyframes bounce-dot {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes loading-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes spinner-char {
+  0% { content: '·'; }
+  16.67% { content: '✻'; }
+  33.33% { content: '✽'; }
+  50% { content: '✶'; }
+  66.67% { content: '✳'; }
+  83.33% { content: '✢'; }
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
+      Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: #1e1e1e;
+    color: #d4d4d4;
+  }
+}
+
+/* xterm.js specific styles that need to remain */
+.xterm {
+  height: 100%;
+  padding: 8px;
+}
+
+/* AnsiOutput specific styles */
+.ansi-output .xterm {
+  padding: 0;
+}
+
+.ansi-output .xterm-viewport {
+  overflow-y: auto !important;
+}
+
+/* Custom scrollbar styles */
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: #3d3d3d;
+    border-radius: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: #6b6b6b;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
