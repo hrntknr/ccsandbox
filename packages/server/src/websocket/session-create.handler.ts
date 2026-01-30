@@ -129,6 +129,9 @@ export function createSessionCreateHandler(ws: WebSocket): SessionCreateHandler 
           workspacePath: session.workspacePath,
           devcontainerCliPath: config.devcontainerCli,
           onLog: (data) => sendLog(ws, data),
+          dotfilesRepository: config.dotfilesRepository,
+          dotfilesTargetPath: config.dotfilesTargetPath,
+          dotfilesInstallCommand: config.dotfilesInstallCommand,
         });
 
         // Update session with container info
