@@ -70,18 +70,22 @@ export interface SessionStoreEvents {
  */
 export class SessionStore extends EventEmitter {
   private readonly sessionsFilePath: string;
+  private readonly configDir: string;
   private readonly repoDir: string;
   private lockPromise: Promise<void> | null = null;
 
   /**
    * Creates a new SessionStore.
    *
-   * @param repoDir - Base directory for repositories (default: $HOME/.ccsandbox)
+   * @param configDir - Configuration directory for sessions.json (default: $HOME/.ccsandbox)
+   * @param repoDir - Repository directory for cloned workspaces (default: $HOME/.ccsandbox/repo)
    */
-  constructor(repoDir?: string) {
+  constructor(configDir?: string, repoDir?: string) {
     super();
-    this.repoDir = repoDir ?? join(process.env['HOME'] ?? homedir(), '.ccsandbox');
-    this.sessionsFilePath = join(this.repoDir, '.ccsandbox', 'sessions.json');
+    const defaultConfigDir = join(process.env['HOME'] ?? homedir(), '.ccsandbox');
+    this.configDir = configDir ?? defaultConfigDir;
+    this.repoDir = repoDir ?? join(defaultConfigDir, 'repo');
+    this.sessionsFilePath = join(this.configDir, 'sessions.json');
   }
 
   /**
@@ -326,11 +330,11 @@ let sessionStoreInstance: SessionStore | null = null;
 
 /**
  * Gets the singleton SessionStore instance.
- * Creates the instance on first call using config.repoDir.
+ * Creates the instance on first call using configDir and repoDir.
  */
-export function getSessionStore(repoDir?: string): SessionStore {
+export function getSessionStore(configDir?: string, repoDir?: string): SessionStore {
   if (!sessionStoreInstance) {
-    sessionStoreInstance = new SessionStore(repoDir);
+    sessionStoreInstance = new SessionStore(configDir, repoDir);
   }
   return sessionStoreInstance;
 }

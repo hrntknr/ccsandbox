@@ -67,7 +67,8 @@ Conventional Commits形式: `feat(scope):`, `fix(scope):`, `refactor(scope):`, `
 ## CLI Options
 
 ```
---repo-dir <path>          ワークスペースルート (default: ~/.ccsandbox)
+--config-dir <path>        設定ディレクトリ (default: ~/.ccsandbox)
+--repo-dir <path>          リポジトリディレクトリ (default: ~/.ccsandbox/repo)
 --listen <host>            バインドホスト (default: 127.0.0.1)
 --port <port>              ポート (default: 3000)
 --devcontainer-cli <path>  devcontainer CLIパス

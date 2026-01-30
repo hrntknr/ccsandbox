@@ -42,7 +42,7 @@ router.post(
   asyncHandler(async (req: Request, res: Response) => {
     const body = req.body as CreateSessionRequest;
     const config = getConfig();
-    const store = getSessionStore(getConfig().repoDir);
+    const store = getSessionStore(getConfig().configDir, getConfig().repoDir);
 
     // Validate request
     if (!body.title || !body.repo || !body.baseBranch || !body.workBranch) {
@@ -173,7 +173,7 @@ router.post(
 router.get(
   '/',
   asyncHandler(async (_req: Request, res: Response) => {
-    const store = getSessionStore(getConfig().repoDir);
+    const store = getSessionStore(getConfig().configDir, getConfig().repoDir);
     const sessions = await store.list();
 
     const response: ApiResponse<{ sessions: Session[] }> = {
@@ -192,7 +192,7 @@ router.get(
   '/:id',
   asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
-    const store = getSessionStore(getConfig().repoDir);
+    const store = getSessionStore(getConfig().configDir, getConfig().repoDir);
 
     try {
       const session = await store.get(id);
@@ -236,7 +236,7 @@ router.delete(
   '/:id',
   asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
-    const store = getSessionStore(getConfig().repoDir);
+    const store = getSessionStore(getConfig().configDir, getConfig().repoDir);
 
     try {
       const session = await store.get(id);
@@ -287,7 +287,7 @@ router.post(
   '/:id/start',
   asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
     const { id } = req.params;
-    const store = getSessionStore(getConfig().repoDir);
+    const store = getSessionStore(getConfig().configDir, getConfig().repoDir);
     const config = getConfig();
 
     try {

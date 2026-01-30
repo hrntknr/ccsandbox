@@ -16,7 +16,8 @@ describe('config', () => {
       const testConfig = {
         pat: 'test-pat',
         apiBase: 'https://api.github.com',
-        repoDir: '/home/user/.ccsandbox',
+        configDir: '/home/user/.ccsandbox',
+        repoDir: '/home/user/.ccsandbox/repo',
         listen: '127.0.0.1',
         port: 3000,
         devcontainerCli: '/usr/local/bin/devcontainer',
@@ -36,7 +37,8 @@ describe('config', () => {
       config.setConfig({
         pat: 'test',
         apiBase: 'https://api.github.com',
-        repoDir: '/home/user/.ccsandbox',
+        configDir: '/home/user/.ccsandbox',
+        repoDir: '/home/user/.ccsandbox/repo',
         listen: '127.0.0.1',
         port: 3000,
       });
