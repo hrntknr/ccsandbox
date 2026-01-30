@@ -170,6 +170,7 @@ export function createTerminalHandler(
         workspacePath: session.workspacePath,
         devcontainerCliPath: config.devcontainerCli,
         tabId,
+        shell: session.shell,
       }).then(() => {
         const terminal = terminalManager.get(tabId);
         connectionManager.updateTab(sessionId, tabId, {
