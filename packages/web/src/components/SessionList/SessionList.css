@@ -21,6 +21,42 @@
   color: #fff;
 }
 
+.session-list-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #888;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.settings-button:hover:not(:disabled) {
+  color: #d4d4d4;
+  background-color: #3c3c3c;
+}
+
+.settings-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.settings-button svg {
+  width: 18px;
+  height: 18px;
+}
+
 .new-session-button {
   padding: 6px 12px;
   background-color: #0078d4;

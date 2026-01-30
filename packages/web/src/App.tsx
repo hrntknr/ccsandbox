@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react';
-import type { Session } from '@ccsandbox/shared';
+import { useState, useCallback, useEffect } from 'react';
+import type { Session, ClientConfig } from '@ccsandbox/shared';
 import { SessionList } from './components/SessionList';
 import { TerminalPane } from './components/TerminalPane';
 import { NewSessionModal } from './components/NewSessionModal';
-import { useDeleteSession } from './hooks/useApi';
+import { SettingsModal } from './components/SettingsModal';
+import { useDeleteSession, useClientConfig } from './hooks/useApi';
 import { useSessionSync } from './hooks/useSessionSync';
 import './App.css';
 
@@ -12,11 +13,27 @@ type MobileView = 'sessions' | 'terminal';
 export function App() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [deleteConfirmSessionId, setDeleteConfirmSessionId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<MobileView>('sessions');
+  const [clientConfig, setClientConfig] = useState<ClientConfig | null>(null);
 
   const { sessions, loading, error } = useSessionSync();
   const { deleteSession, loading: deleteLoading } = useDeleteSession();
+  const { execute: fetchConfig } = useClientConfig();
+
+  // Fetch config on mount and check if PAT is required
+  useEffect(() => {
+    fetchConfig().then((config) => {
+      if (config) {
+        setClientConfig(config);
+        // Auto-open settings modal if PAT is not configured
+        if (!config.hasPat) {
+          setIsSettingsModalOpen(true);
+        }
+      }
+    });
+  }, [fetchConfig]);
 
   const handleSelectSession = useCallback((sessionId: string) => {
     setSelectedSessionId(sessionId);
@@ -30,6 +47,18 @@ export function App() {
 
   const handleCloseNewSessionModal = useCallback(() => {
     setIsNewSessionModalOpen(false);
+  }, []);
+
+  const handleOpenSettings = useCallback(() => {
+    setIsSettingsModalOpen(true);
+  }, []);
+
+  const handleCloseSettingsModal = useCallback(() => {
+    setIsSettingsModalOpen(false);
+  }, []);
+
+  const handleConfigUpdated = useCallback((config: ClientConfig) => {
+    setClientConfig(config);
   }, []);
 
   const handleDeleteSession = useCallback((sessionId: string) => {
@@ -60,6 +89,9 @@ export function App() {
     ? sessions?.find((s) => s.sessionId === deleteConfirmSessionId)
     : null;
 
+  // Determine if PAT is required (not yet configured)
+  const requirePat = clientConfig !== null && !clientConfig.hasPat;
+
   return (
     <div className="app">
       {error && (
@@ -89,6 +121,7 @@ export function App() {
           onSelectSession={handleSelectSession}
           onNewSession={handleNewSession}
           onDeleteSession={handleDeleteSession}
+          onOpenSettings={handleOpenSettings}
           loading={loading}
         />
       </div>
@@ -101,6 +134,14 @@ export function App() {
       <NewSessionModal
         isOpen={isNewSessionModalOpen}
         onClose={handleCloseNewSessionModal}
+      />
+
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={handleCloseSettingsModal}
+        initialConfig={clientConfig}
+        onConfigUpdated={handleConfigUpdated}
+        requirePat={requirePat}
       />
 
       {deleteConfirmSessionId && (
