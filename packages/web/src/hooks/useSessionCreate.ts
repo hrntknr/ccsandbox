@@ -26,27 +26,39 @@ export interface UseSessionCreateReturn {
   reset: () => void;
 }
 
+const SESSION_CREATE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
 export function useSessionCreate(): UseSessionCreateReturn {
   const [logs, setLogs] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearSessionTimeout = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
 
   const reset = useCallback(() => {
     setLogs('');
     setLoading(false);
     setError(null);
     setSession(null);
-  }, []);
+    clearSessionTimeout();
+  }, [clearSessionTimeout]);
 
   const cancel = useCallback(() => {
+    clearSessionTimeout();
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
     setLoading(false);
-  }, []);
+  }, [clearSessionTimeout]);
 
   const create = useCallback((request: SessionCreateRequest) => {
     // Reset previous state
@@ -59,6 +71,16 @@ export function useSessionCreate(): UseSessionCreateReturn {
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
+
+    // Set timeout
+    timeoutRef.current = setTimeout(() => {
+      if (wsRef.current === ws && loading) {
+        setError('Session creation timed out');
+        setLoading(false);
+        ws.close();
+        wsRef.current = null;
+      }
+    }, SESSION_CREATE_TIMEOUT_MS);
 
     ws.onopen = () => {
       // Send create-session message
@@ -82,12 +104,14 @@ export function useSessionCreate(): UseSessionCreateReturn {
             setLogs((prev) => prev + message.data);
             break;
           case 'session-created':
+            clearSessionTimeout();
             setSession(message.session);
             setLoading(false);
             ws.close();
             wsRef.current = null;
             break;
           case 'session-error':
+            clearSessionTimeout();
             setError(message.message);
             setLoading(false);
             ws.close();
@@ -96,10 +120,16 @@ export function useSessionCreate(): UseSessionCreateReturn {
         }
       } catch {
         console.error('Failed to parse WebSocket message');
+        clearSessionTimeout();
+        setError('Failed to parse server message');
+        setLoading(false);
+        ws.close();
+        wsRef.current = null;
       }
     };
 
     ws.onerror = () => {
+      clearSessionTimeout();
       setError('WebSocket connection error');
       setLoading(false);
       wsRef.current = null;
@@ -108,11 +138,12 @@ export function useSessionCreate(): UseSessionCreateReturn {
     ws.onclose = () => {
       // If still loading when closed, it's an unexpected close
       if (wsRef.current === ws) {
+        clearSessionTimeout();
         setLoading(false);
         wsRef.current = null;
       }
     };
-  }, [reset]);
+  }, [reset, clearSessionTimeout]);
 
   return {
     create,

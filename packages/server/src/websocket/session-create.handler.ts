@@ -35,17 +35,19 @@ function sendLog(ws: WebSocket, data: string): void {
 }
 
 /**
- * Send an error message
+ * Send an error message and close the connection
  */
 function sendError(ws: WebSocket, message: string): void {
   sendMessage(ws, { type: 'session-error', message });
+  ws.close();
 }
 
 /**
- * Send a success message with the created session
+ * Send a success message with the created session and close the connection
  */
 function sendCreated(ws: WebSocket, session: Session): void {
   sendMessage(ws, { type: 'session-created', session });
+  ws.close();
 }
 
 /**
