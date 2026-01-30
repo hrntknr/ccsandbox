@@ -1,7 +1,8 @@
 import { WebSocket } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
-import type { TerminalClientMessage, TerminalServerMessage, TerminalTab } from '@ccsandbox/shared';
+import type { TerminalClientMessage, TerminalServerMessage, TerminalTab, TabType } from '@ccsandbox/shared';
 import { getTerminalManager } from '../services/terminal.service.js';
+import { getClaudeManager } from '../services/claude.service.js';
 import { SessionStore } from '../persistence/session-store.js';
 import { getConfig } from '../config.js';
 import type { ConnectionManager } from './connection-manager.js';
@@ -36,13 +37,14 @@ function isValidTitle(title: string): boolean {
 /**
  * Generate a unique tab title that doesn't conflict with existing tabs
  */
-function generateUniqueTabTitle(existingTabs: TerminalTab[]): string {
+function generateUniqueTabTitle(existingTabs: TerminalTab[], tabType: TabType = 'shell'): string {
   const existingTitles = new Set(existingTabs.map((tab) => tab.title));
+  const prefix = tabType === 'claude' ? 'Claude' : 'Terminal';
   let number = 1;
-  while (existingTitles.has(`Terminal ${number}`)) {
+  while (existingTitles.has(`${prefix} ${number}`)) {
     number++;
   }
-  return `Terminal ${number}`;
+  return `${prefix} ${number}`;
 }
 
 /**
@@ -77,6 +79,7 @@ export function createTerminalHandler(
   connectionManager: ConnectionManager
 ): TerminalHandler {
   const terminalManager = getTerminalManager();
+  const claudeManager = getClaudeManager();
   let clientId: string | null = null;
   let currentSessionId: string | null = null;
   let currentTabId: string | null = null;
@@ -122,11 +125,11 @@ export function createTerminalHandler(
   }
 
   /**
-   * Handle add-tab message - create a new tab and terminal
+   * Handle add-tab message - create a new tab and terminal/claude instance
    * Uses 2-phase response: immediately broadcasts tab-added (ready: false),
-   * then broadcasts tab-ready after terminal creation completes.
+   * then broadcasts tab-ready after terminal/claude creation completes.
    */
-  async function handleAddTab(title?: string): Promise<void> {
+  async function handleAddTab(title?: string, tabType: TabType = 'shell'): Promise<void> {
     if (!currentSessionId || !clientId) {
       sendError(ws, 'Not joined to a session');
       return;
@@ -147,13 +150,14 @@ export function createTerminalHandler(
 
       const tabId = uuidv4();
       const existingTabs = connectionManager.getTabs(sessionId);
-      const tabTitle = title ?? generateUniqueTabTitle(existingTabs);
+      const tabTitle = title ?? generateUniqueTabTitle(existingTabs, tabType);
 
       // Step 1: Immediately add tab with ready: false
       const tab: TerminalTab = {
         tabId,
         title: tabTitle,
-        shell: 'bash',
+        shell: tabType === 'claude' ? 'claude' : 'bash',
+        tabType,
         ready: false,
       };
 
@@ -164,33 +168,59 @@ export function createTerminalHandler(
         requesterId: clientId,
       } satisfies TerminalServerMessage);
 
-      // Step 2: Create terminal in background
-      terminalManager.create({
-        sessionId,
-        workspacePath: session.workspacePath,
-        devcontainerCliPath: config.devcontainerCli,
-        tabId,
-        shell: session.shell,
-      }).then(() => {
-        const terminal = terminalManager.get(tabId);
-        connectionManager.updateTab(sessionId, tabId, {
-          shell: terminal?.shell ?? 'bash',
-          ready: true,
+      // Step 2: Create terminal or Claude instance in background
+      if (tabType === 'claude') {
+        claudeManager.create({
+          sessionId,
+          workspacePath: session.workspacePath,
+          devcontainerCliPath: config.devcontainerCli,
+          tabId,
+        }).then(() => {
+          connectionManager.updateTab(sessionId, tabId, {
+            ready: true,
+          });
+          connectionManager.broadcast(sessionId, {
+            type: 'tab-ready',
+            tabId,
+          } satisfies TerminalServerMessage);
+        }).catch((error) => {
+          // On error: remove the tab
+          connectionManager.removeTab(sessionId, tabId);
+          connectionManager.broadcast(sessionId, {
+            type: 'tab-removed',
+            tabId,
+          } satisfies TerminalServerMessage);
+          const errorMessage = error instanceof Error ? error.message : 'Failed to create Claude instance';
+          sendError(ws, errorMessage);
         });
-        connectionManager.broadcast(sessionId, {
-          type: 'tab-ready',
+      } else {
+        terminalManager.create({
+          sessionId,
+          workspacePath: session.workspacePath,
+          devcontainerCliPath: config.devcontainerCli,
           tabId,
-        } satisfies TerminalServerMessage);
-      }).catch((error) => {
-        // On error: remove the tab
-        connectionManager.removeTab(sessionId, tabId);
-        connectionManager.broadcast(sessionId, {
-          type: 'tab-removed',
-          tabId,
-        } satisfies TerminalServerMessage);
-        const errorMessage = error instanceof Error ? error.message : 'Failed to create terminal';
-        sendError(ws, errorMessage);
-      });
+          shell: session.shell,
+        }).then(() => {
+          const terminal = terminalManager.get(tabId);
+          connectionManager.updateTab(sessionId, tabId, {
+            shell: terminal?.shell ?? 'bash',
+            ready: true,
+          });
+          connectionManager.broadcast(sessionId, {
+            type: 'tab-ready',
+            tabId,
+          } satisfies TerminalServerMessage);
+        }).catch((error) => {
+          // On error: remove the tab
+          connectionManager.removeTab(sessionId, tabId);
+          connectionManager.broadcast(sessionId, {
+            type: 'tab-removed',
+            tabId,
+          } satisfies TerminalServerMessage);
+          const errorMessage = error instanceof Error ? error.message : 'Failed to create terminal';
+          sendError(ws, errorMessage);
+        });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to add tab';
       sendError(ws, message);
@@ -212,21 +242,29 @@ export function createTerminalHandler(
       return;
     }
 
-    // Check if terminal exists (may be null for exited terminals)
-    const terminal = terminalManager.get(tabId);
-
-    // Get history BEFORE setting client tab to avoid race condition:
-    // If we set client tab first, any output arriving between setClientTab
-    // and getOutputHistory would be sent via both 'output' and 'history' messages.
-    // For exited terminals, this returns empty string.
-    const history = terminalManager.getOutputHistory(tabId);
+    // Get the tab to determine its type
+    const tabs = connectionManager.getTabs(currentSessionId);
+    const tab = tabs.find((t) => t.tabId === tabId);
 
     currentTabId = tabId;
     connectionManager.setClientTab(currentSessionId, clientId, tabId);
 
-    // Send history (output arriving after setClientTab will be sent via 'output' message)
-    // For exited terminals without history, send empty history so client knows to show exit message
-    sendMessage(ws, { type: 'history', data: history });
+    if (tab?.tabType === 'claude') {
+      // Send Claude history
+      const messages = claudeManager.getMessages(tabId);
+      const pendingPermissions = claudeManager.getPendingPermissions(tabId);
+      sendMessage(ws, { type: 'claude-history', tabId, messages, pendingPermissions });
+    } else {
+      // Get terminal history BEFORE setting client tab to avoid race condition:
+      // If we set client tab first, any output arriving between setClientTab
+      // and getOutputHistory would be sent via both 'output' and 'history' messages.
+      // For exited terminals, this returns empty string.
+      const history = terminalManager.getOutputHistory(tabId);
+
+      // Send history (output arriving after setClientTab will be sent via 'output' message)
+      // For exited terminals without history, send empty history so client knows to show exit message
+      sendMessage(ws, { type: 'history', data: history });
+    }
 
     sendMessage(ws, { type: 'attached', tabId });
   }
@@ -259,7 +297,7 @@ export function createTerminalHandler(
   }
 
   /**
-   * Handle close-tab message - close a tab and kill terminal
+   * Handle close-tab message - close a tab and kill terminal/claude instance
    */
   function handleCloseTab(tabId: string): void {
     if (!currentSessionId || !clientId) {
@@ -267,8 +305,16 @@ export function createTerminalHandler(
       return;
     }
 
-    // Kill the terminal
-    terminalManager.kill(tabId);
+    // Get the tab to determine its type
+    const tabs = connectionManager.getTabs(currentSessionId);
+    const tab = tabs.find((t) => t.tabId === tabId);
+
+    // Kill the terminal or Claude instance
+    if (tab?.tabType === 'claude') {
+      claudeManager.kill(tabId);
+    } else {
+      terminalManager.kill(tabId);
+    }
 
     // Remove tab from room state
     connectionManager.removeTab(currentSessionId, tabId);
@@ -399,6 +445,40 @@ export function createTerminalHandler(
   }
 
   /**
+   * Handle claude-message - send a message to Claude
+   */
+  function handleClaudeMessage(content: string): void {
+    if (!currentTabId || !currentSessionId) {
+      sendError(ws, 'Not attached to a Claude tab');
+      return;
+    }
+
+    const instance = claudeManager.get(currentTabId);
+    if (!instance) {
+      sendError(ws, 'Claude instance not found');
+      return;
+    }
+
+    if (!claudeManager.sendMessage(currentTabId, content)) {
+      sendError(ws, 'Failed to send message to Claude');
+    }
+  }
+
+  /**
+   * Handle claude-permission-response - respond to a permission request
+   */
+  function handleClaudePermissionResponse(requestId: string, permission: 'allow' | 'deny'): void {
+    if (!currentTabId) {
+      sendError(ws, 'Not attached to a Claude tab');
+      return;
+    }
+
+    if (!claudeManager.respondToPermission(currentTabId, requestId, permission)) {
+      sendError(ws, 'Failed to respond to permission request');
+    }
+  }
+
+  /**
    * Process incoming WebSocket messages
    */
   function handleMessage(message: TerminalClientMessage): void {
@@ -423,7 +503,7 @@ export function createTerminalHandler(
           sendError(ws, 'Invalid title');
           return;
         }
-        handleAddTab(message.title).catch((error) => {
+        handleAddTab(message.title, message.tabType).catch((error) => {
           const errorMessage = error instanceof Error ? error.message : 'Add tab failed';
           sendError(ws, errorMessage);
         });
@@ -486,6 +566,18 @@ export function createTerminalHandler(
 
       case 'detach':
         handleDetach();
+        break;
+
+      case 'claude-message':
+        handleClaudeMessage(message.content);
+        break;
+
+      case 'claude-permission-response':
+        if (!isValidUuid(message.requestId)) {
+          sendError(ws, 'Invalid requestId format');
+          return;
+        }
+        handleClaudePermissionResponse(message.requestId, message.permission);
         break;
 
       default:

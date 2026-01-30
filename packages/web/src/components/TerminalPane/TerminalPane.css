@@ -129,17 +129,25 @@
   color: #fff;
 }
 
+.terminal-add-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
 .terminal-add-tab {
   background: none;
-  border: none;
+  border: 1px solid transparent;
   color: #888;
-  font-size: 16px;
+  font-size: 12px;
   cursor: pointer;
   padding: 4px 8px;
-  margin-left: 4px;
-  margin-bottom: 4px;
   border-radius: 4px;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .terminal-add-tab:hover {
@@ -150,6 +158,29 @@
 .terminal-add-tab:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.terminal-add-tab-claude {
+  color: #9cdcfe;
+}
+
+.terminal-add-tab-claude:hover {
+  color: #4fc3f7;
+}
+
+/* Claude tab styling */
+.terminal-tab-claude {
+  border-left: 2px solid #9cdcfe;
+}
+
+.terminal-tab-claude.active {
+  border-left-color: #4fc3f7;
+}
+
+.terminal-tab-icon {
+  font-size: 10px;
+  color: #9cdcfe;
+  flex-shrink: 0;
 }
 
 .terminal-container {

@@ -1,6 +1,7 @@
 import type { WebSocket } from 'ws';
-import type { TerminalTab, TerminalServerMessage } from '@ccsandbox/shared';
+import type { TerminalTab, TerminalServerMessage, ClaudeEvent } from '@ccsandbox/shared';
 import type { TerminalManager } from '../services/terminal.service.js';
+import type { ClaudeManager } from '../services/claude.service.js';
 
 export interface ClientConnection {
   ws: WebSocket;
@@ -20,7 +21,9 @@ export class ConnectionManager {
   private rooms: Map<string, SessionRoom> = new Map();
   private tabToSession: Map<string, string> = new Map();
   private terminalManager: TerminalManager | null = null;
+  private claudeManager: ClaudeManager | null = null;
   private listenersRegistered = false;
+  private claudeListenersRegistered = false;
 
   /**
    * Initialize with TerminalManager and register event listeners
@@ -35,6 +38,21 @@ export class ConnectionManager {
     terminalManager.on('error', this.handleTerminalError);
 
     this.listenersRegistered = true;
+  }
+
+  /**
+   * Initialize with ClaudeManager and register event listeners
+   */
+  initializeClaude(claudeManager: ClaudeManager): void {
+    if (this.claudeListenersRegistered) return;
+
+    this.claudeManager = claudeManager;
+
+    claudeManager.on('event', this.handleClaudeEvent);
+    claudeManager.on('exit', this.handleClaudeExit);
+    claudeManager.on('error', this.handleClaudeError);
+
+    this.claudeListenersRegistered = true;
   }
 
   private handleTerminalData = (tabId: string, data: string): void => {
@@ -70,6 +88,47 @@ export class ConnectionManager {
   };
 
   private handleTerminalError = (tabId: string, error: Error): void => {
+    const sessionId = this.tabToSession.get(tabId);
+    if (!sessionId) return;
+
+    this.broadcastToTab(sessionId, tabId, {
+      type: 'error',
+      message: error.message,
+    } satisfies TerminalServerMessage);
+  };
+
+  private handleClaudeEvent = (tabId: string, event: ClaudeEvent): void => {
+    const sessionId = this.tabToSession.get(tabId);
+    if (!sessionId) return;
+
+    this.broadcastToTab(sessionId, tabId, {
+      type: 'claude-event',
+      tabId,
+      event,
+    } satisfies TerminalServerMessage);
+  };
+
+  private handleClaudeExit = (tabId: string, code: number): void => {
+    const sessionId = this.tabToSession.get(tabId);
+    if (!sessionId) return;
+
+    // Mark tab as exited
+    const room = this.rooms.get(sessionId);
+    if (room) {
+      const tab = room.tabs.find((t) => t.tabId === tabId);
+      if (tab) {
+        tab.exited = true;
+      }
+    }
+
+    this.broadcast(sessionId, {
+      type: 'exit',
+      tabId,
+      code,
+    } satisfies TerminalServerMessage);
+  };
+
+  private handleClaudeError = (tabId: string, error: Error): void => {
     const sessionId = this.tabToSession.get(tabId);
     if (!sessionId) return;
 
@@ -276,6 +335,12 @@ export class ConnectionManager {
       this.terminalManager.off('exit', this.handleTerminalExit);
       this.terminalManager.off('error', this.handleTerminalError);
       this.listenersRegistered = false;
+    }
+    if (this.claudeManager && this.claudeListenersRegistered) {
+      this.claudeManager.off('event', this.handleClaudeEvent);
+      this.claudeManager.off('exit', this.handleClaudeExit);
+      this.claudeManager.off('error', this.handleClaudeError);
+      this.claudeListenersRegistered = false;
     }
     this.rooms.clear();
     this.tabToSession.clear();
