@@ -333,24 +333,69 @@ export function createTerminalHandler(
 
   /**
    * Handle resize message - resize terminal
+   * Syncs to the minimum size across all connected clients
    */
   function handleResize(cols: number, rows: number): void {
-    if (!currentTabId) {
+    if (!currentTabId || !currentSessionId || !clientId) {
       sendError(ws, 'Not attached to a terminal');
       return;
     }
 
-    terminalManager.resize(currentTabId, cols, rows);
+    // Update this client's size
+    connectionManager.setClientSize(currentSessionId, clientId, cols, rows);
+
+    // Calculate minimum size across all clients on this tab
+    const minSize = connectionManager.getMinSizeForTab(currentSessionId, currentTabId);
+    if (!minSize) {
+      return;
+    }
+
+    // Resize the PTY to the minimum size
+    terminalManager.resize(currentTabId, minSize.cols, minSize.rows);
+
+    // Broadcast the synchronized size to all clients on this tab
+    connectionManager.broadcastToTab(currentSessionId, currentTabId, {
+      type: 'resize-sync',
+      cols: minSize.cols,
+      rows: minSize.rows,
+    } satisfies TerminalServerMessage);
+  }
+
+  /**
+   * Recalculate and broadcast minimum size for a tab after client disconnect or detach
+   */
+  function recalculateTabSize(sessionId: string, tabId: string): void {
+    const minSize = connectionManager.getMinSizeForTab(sessionId, tabId);
+    if (!minSize) {
+      return;
+    }
+
+    // Resize the PTY to the new minimum size
+    terminalManager.resize(tabId, minSize.cols, minSize.rows);
+
+    // Broadcast the synchronized size to remaining clients
+    connectionManager.broadcastToTab(sessionId, tabId, {
+      type: 'resize-sync',
+      cols: minSize.cols,
+      rows: minSize.rows,
+    } satisfies TerminalServerMessage);
   }
 
   /**
    * Handle detach message - detach from terminal
    */
   function handleDetach(): void {
-    if (currentSessionId && clientId) {
+    if (currentSessionId && clientId && currentTabId) {
+      const previousTabId = currentTabId;
       connectionManager.setClientTab(currentSessionId, clientId, null);
+      // Clear client size since they're no longer on this tab
+      connectionManager.setClientSize(currentSessionId, clientId, 0, 0);
+      currentTabId = null;
+      // Recalculate size for remaining clients on the tab
+      recalculateTabSize(currentSessionId, previousTabId);
+    } else {
+      currentTabId = null;
     }
-    currentTabId = null;
   }
 
   /**
@@ -452,6 +497,10 @@ export function createTerminalHandler(
    * Clean up resources when connection closes
    */
   function cleanup(): void {
+    // Recalculate tab size before leaving (if attached to a tab)
+    const previousSessionId = currentSessionId;
+    const previousTabId = currentTabId;
+
     // Leave session room
     if (currentSessionId && clientId) {
       connectionManager.leaveSession(currentSessionId, clientId);
@@ -460,6 +509,11 @@ export function createTerminalHandler(
     currentTabId = null;
     currentSessionId = null;
     clientId = null;
+
+    // Recalculate size for remaining clients on the tab
+    if (previousSessionId && previousTabId) {
+      recalculateTabSize(previousSessionId, previousTabId);
+    }
   }
 
   return {

@@ -6,9 +6,18 @@ interface OutputCallback {
   (data: string): void;
 }
 
+interface ResizeSyncCallback {
+  (cols: number, rows: number): void;
+}
+
 interface OutputSubscription {
   tabId: string;
   callback: OutputCallback;
+}
+
+interface ResizeSyncSubscription {
+  tabId: string;
+  callback: ResizeSyncCallback;
 }
 
 export interface UseTerminalWebSocketReturn {
@@ -23,6 +32,7 @@ export interface UseTerminalWebSocketReturn {
   onOutput: (tabId: string, callback: OutputCallback) => () => void;
   onHistory: (tabId: string, callback: OutputCallback) => () => void;
   onExit: (tabId: string, callback: (code: number) => void) => () => void;
+  onResizeSync: (tabId: string, callback: ResizeSyncCallback) => () => void;
   onOwnTabAdded: (callback: (tab: TerminalTab) => void) => () => void;
 }
 
@@ -36,6 +46,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
   const outputSubscriptionsRef = useRef<OutputSubscription[]>([]);
   const historySubscriptionsRef = useRef<OutputSubscription[]>([]);
   const exitSubscriptionsRef = useRef<{ tabId: string; callback: (code: number) => void }[]>([]);
+  const resizeSyncSubscriptionsRef = useRef<ResizeSyncSubscription[]>([]);
   const ownTabAddedSubscriptionsRef = useRef<((tab: TerminalTab) => void)[]>([]);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -116,6 +127,14 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
           }
           break;
 
+        case 'resize-sync':
+          for (const sub of resizeSyncSubscriptionsRef.current) {
+            if (sub.tabId === currentTabIdRef.current) {
+              sub.callback(message.cols, message.rows);
+            }
+          }
+          break;
+
         case 'error':
           console.error('Terminal WebSocket error:', message.message);
           break;
@@ -144,6 +163,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     outputSubscriptionsRef.current = [];
     historySubscriptionsRef.current = [];
     exitSubscriptionsRef.current = [];
+    resizeSyncSubscriptionsRef.current = [];
   }, []);
 
   // Connect to WebSocket and join session
@@ -303,6 +323,20 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     []
   );
 
+  const onResizeSync = useCallback(
+    (tabId: string, callback: ResizeSyncCallback): (() => void) => {
+      const subscription = { tabId, callback };
+      resizeSyncSubscriptionsRef.current.push(subscription);
+
+      return () => {
+        resizeSyncSubscriptionsRef.current = resizeSyncSubscriptionsRef.current.filter(
+          (s) => s !== subscription
+        );
+      };
+    },
+    []
+  );
+
   const onOwnTabAdded = useCallback(
     (callback: (tab: TerminalTab) => void): (() => void) => {
       ownTabAddedSubscriptionsRef.current.push(callback);
@@ -328,6 +362,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     onOutput,
     onHistory,
     onExit,
+    onResizeSync,
     onOwnTabAdded,
   };
 }

@@ -13,6 +13,7 @@ interface TerminalProps {
   onOutput: (tabId: string, callback: (data: string) => void) => () => void;
   onHistory: (tabId: string, callback: (data: string) => void) => () => void;
   onExit: (tabId: string, callback: (code: number) => void) => () => void;
+  onResizeSync: (tabId: string, callback: (cols: number, rows: number) => void) => () => void;
   closeTab: (tabId: string) => void;
 }
 
@@ -25,6 +26,7 @@ export function Terminal({
   onOutput,
   onHistory,
   onExit,
+  onResizeSync,
   closeTab,
 }: TerminalProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -127,6 +129,18 @@ export function Terminal({
 
     return unsubscribe;
   }, [tabId, onExit]);
+
+  // Handle server-initiated resize sync (when another client has smaller terminal)
+  useEffect(() => {
+    const terminal = terminalRef.current;
+    if (!terminal) return;
+
+    const unsubscribe = onResizeSync(tabId, (cols, rows) => {
+      terminal.resize(cols, rows);
+    });
+
+    return unsubscribe;
+  }, [tabId, onResizeSync]);
 
   // Handle resize
   const handleResize = useCallback(() => {

@@ -6,6 +6,8 @@ export interface ClientConnection {
   ws: WebSocket;
   clientId: string;
   currentTabId: string | null;
+  cols: number | null;
+  rows: number | null;
 }
 
 export interface SessionRoom {
@@ -101,6 +103,8 @@ export class ConnectionManager {
         ws,
         clientId,
         currentTabId: null,
+        cols: null,
+        rows: null,
       });
     }
 
@@ -218,6 +222,31 @@ export class ConnectionManager {
     return Array.from(room.clients.values()).filter(
       (c) => c.currentTabId === tabId
     );
+  }
+
+  setClientSize(sessionId: string, clientId: string, cols: number, rows: number): void {
+    const client = this.getClient(sessionId, clientId);
+    if (client) {
+      client.cols = cols;
+      client.rows = rows;
+    }
+  }
+
+  getMinSizeForTab(sessionId: string, tabId: string): { cols: number; rows: number } | null {
+    const clients = this.getClientsOnTab(sessionId, tabId);
+    const clientsWithSize = clients.filter(
+      (c): c is ClientConnection & { cols: number; rows: number } =>
+        c.cols !== null && c.rows !== null
+    );
+
+    if (clientsWithSize.length === 0) {
+      return null;
+    }
+
+    const minCols = Math.min(...clientsWithSize.map((c) => c.cols));
+    const minRows = Math.min(...clientsWithSize.map((c) => c.rows));
+
+    return { cols: minCols, rows: minRows };
   }
 
   cleanup(): void {
