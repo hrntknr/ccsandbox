@@ -179,7 +179,7 @@
   color: #4ec94e;
 }
 
-.session-state.state-ready {
+.session-state.state-stopped {
   background-color: #1b3c4b;
   color: #4eb8c9;
 }

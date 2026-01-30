@@ -241,7 +241,7 @@ export class SessionStore extends EventEmitter {
         baseBranch: options.baseBranch,
         workBranch: options.workBranch,
         workspacePath,
-        state: 'READY',
+        state: 'STOPPED',
         createdAt: new Date().toISOString(),
         shell: options.shell,
       };

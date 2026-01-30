@@ -76,7 +76,7 @@ describe('SessionStore', () => {
       expect(session.baseBranch).toBe('main');
       expect(session.workBranch).toBe('feature/test');
       expect(session.workspacePath).toBe(join(testDir, 'myrepo.feature_test'));
-      expect(session.state).toBe('READY');
+      expect(session.state).toBe('STOPPED');
       expect(session.createdAt).toBeDefined();
     });
 
