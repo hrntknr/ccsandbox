@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-"build": "tsc --build && npm run build --workspace=packages/web",
+    "build": "tsc --build && npm run build --workspace=packages/web",
     "clean": "npm run clean --workspaces --if-present",
     "typecheck": "tsc --build",
     "test": "vitest run",
@@ -19,6 +19,7 @@
     "node": ">=20.0.0"
   },
   "devDependencies": {
+    "loupe": "^3.2.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
   }
