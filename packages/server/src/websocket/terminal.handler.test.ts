@@ -96,6 +96,7 @@ describe('createTerminalHandler', () => {
     vi.mocked(config.getConfig).mockReturnValue({
       pat: 'test-pat',
       apiBase: 'https://api.github.com',
+      configDir: '/tmp/test-config',
       repoDir: '/tmp/test',
       listen: '127.0.0.1',
       port: 3000,
