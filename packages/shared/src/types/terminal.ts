@@ -46,6 +46,7 @@ export type SessionCreateClientMessage = {
   repo: string;
   baseBranch: string;
   workBranch: string;
+  shell?: string;
 };
 
 /**

@@ -42,6 +42,7 @@ export async function startServer(options: StartServerOptions): Promise<ServerIn
     dotfilesRepository: options.dotfilesRepository,
     dotfilesTargetPath: options.dotfilesTargetPath,
     dotfilesInstallCommand: options.dotfilesInstallCommand,
+    defaultShell: options.defaultShell,
   });
 
   // Create Express app

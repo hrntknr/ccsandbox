@@ -3,6 +3,7 @@ export {
   useCreateSession,
   useDeleteSession,
   useRepositories,
+  useClientConfig,
 } from './useApi';
 
 export { useSessionCreate } from './useSessionCreate';

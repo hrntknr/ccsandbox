@@ -6,6 +6,7 @@ import type {
   SessionListResponse,
   SessionResponse,
   CreateSessionRequest,
+  ClientConfig,
 } from '@ccsandbox/shared';
 
 
@@ -183,4 +184,32 @@ export function useRepositories(): UseRepositoriesReturn {
   }, []);
 
   return { ...state, execute, refresh, refreshing, reset };
+}
+
+export function useClientConfig(): UseApiReturn<ClientConfig> {
+  const [state, setState] = useState<UseApiState<ClientConfig>>({
+    data: null,
+    loading: false,
+    error: null,
+  });
+
+  const execute = useCallback(async (): Promise<ClientConfig | null> => {
+    setState({ data: null, loading: true, error: null });
+
+    const response = await fetchApi<{ config: ClientConfig }>('/config');
+
+    if (response.success && response.data) {
+      setState({ data: response.data.config, loading: false, error: null });
+      return response.data.config;
+    } else {
+      setState({ data: null, loading: false, error: response.error || 'Unknown error' });
+      return null;
+    }
+  }, []);
+
+  const reset = useCallback(() => {
+    setState({ data: null, loading: false, error: null });
+  }, []);
+
+  return { ...state, execute, reset };
 }

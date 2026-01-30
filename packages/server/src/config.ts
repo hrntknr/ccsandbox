@@ -22,6 +22,8 @@ export interface ServerConfig {
   dotfilesTargetPath?: string;
   /** Dotfiles install command (optional) */
   dotfilesInstallCommand?: string;
+  /** Default shell for new sessions (optional) */
+  defaultShell?: string;
 }
 
 let config: ServerConfig | null = null;

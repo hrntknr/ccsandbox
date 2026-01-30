@@ -22,6 +22,7 @@ export interface CreateSessionOptions {
   apiBase: string;
   baseBranch: string;
   workBranch: string;
+  shell?: string;
 }
 
 /**
@@ -242,6 +243,7 @@ export class SessionStore extends EventEmitter {
         workspacePath,
         state: 'READY',
         createdAt: new Date().toISOString(),
+        shell: options.shell,
       };
 
       sessions.push(session);

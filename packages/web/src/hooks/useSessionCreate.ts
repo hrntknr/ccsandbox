@@ -6,6 +6,7 @@ export interface SessionCreateRequest {
   repo: string;
   baseBranch: string;
   workBranch: string;
+  shell?: string;
 }
 
 export interface UseSessionCreateReturn {
@@ -67,6 +68,7 @@ export function useSessionCreate(): UseSessionCreateReturn {
         repo: request.repo,
         baseBranch: request.baseBranch,
         workBranch: request.workBranch,
+        shell: request.shell,
       };
       ws.send(JSON.stringify(message));
     };
