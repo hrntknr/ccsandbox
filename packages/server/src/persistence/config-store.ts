@@ -14,11 +14,11 @@ export class ConfigStore {
   /**
    * Creates a new ConfigStore.
    *
-   * @param repoDir - Base directory for data (default: $HOME/.ccsandbox)
+   * @param configDir - Configuration directory (default: $HOME/.ccsandbox)
    */
-  constructor(repoDir?: string) {
-    const baseDir = repoDir ?? join(process.env['HOME'] ?? homedir(), '.ccsandbox');
-    this.configFilePath = join(baseDir, '.ccsandbox', 'config.json');
+  constructor(configDir?: string) {
+    const baseDir = configDir ?? join(process.env['HOME'] ?? homedir(), '.ccsandbox');
+    this.configFilePath = join(baseDir, 'config.json');
   }
 
   /**
@@ -101,11 +101,11 @@ let configStoreInstance: ConfigStore | null = null;
 
 /**
  * Gets the singleton ConfigStore instance.
- * Creates the instance on first call using the provided repoDir.
+ * Creates the instance on first call using the provided configDir.
  */
-export function getConfigStore(repoDir?: string): ConfigStore {
+export function getConfigStore(configDir?: string): ConfigStore {
   if (!configStoreInstance) {
-    configStoreInstance = new ConfigStore(repoDir);
+    configStoreInstance = new ConfigStore(configDir);
   }
   return configStoreInstance;
 }

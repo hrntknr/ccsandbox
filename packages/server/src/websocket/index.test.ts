@@ -29,7 +29,8 @@ describe('setupWebSocketServer', () => {
     setConfig({
       pat: 'test-token',
       apiBase: 'https://api.github.com',
-      repoDir: '/tmp/test-repos',
+      configDir: '/tmp/test-repos',
+      repoDir: '/tmp/test-repos/repo',
       listen: '127.0.0.1',
       port: 0,
     });
