@@ -13,6 +13,7 @@ import { cloneRepository, GitOperationError } from '../../services/git.service.j
 import {
   hasDevcontainerConfig,
   startDevcontainer,
+  stopContainer,
   removeContainer,
   isContainerRunning,
   DevcontainerConfigNotFoundError,
@@ -337,6 +338,75 @@ router.post(
         const response: ApiResponse<null> = {
           success: false,
           error: `Devcontainer CLI failed: ${error.message}`,
+        };
+        res.status(500).json(response);
+        return;
+      }
+
+      throw error;
+    }
+  })
+);
+
+/**
+ * POST /api/sessions/:id/stop
+ * Stop the container for a session.
+ */
+router.post(
+  '/:id/stop',
+  asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
+    const { id } = req.params;
+    const store = getSessionStore(getConfig().configDir, getConfig().repoDir);
+
+    try {
+      const session = await store.get(id);
+
+      if (!session.containerId) {
+        const response: ApiResponse<null> = {
+          success: false,
+          error: 'Session has no container to stop',
+        };
+        res.status(400).json(response);
+        return;
+      }
+
+      // Check if container is actually running
+      const running = await isContainerRunning(session.containerId);
+      if (!running) {
+        // Already stopped, just update state
+        const updatedSession = await store.update(id, { state: 'STOPPED' });
+        const response: ApiResponse<{ session: Session }> = {
+          success: true,
+          data: { session: updatedSession },
+        };
+        res.json(response);
+        return;
+      }
+
+      // Stop the container
+      await stopContainer(session.containerId);
+
+      const updatedSession = await store.update(id, { state: 'STOPPED' });
+
+      const response: ApiResponse<{ session: Session }> = {
+        success: true,
+        data: { session: updatedSession },
+      };
+      res.json(response);
+    } catch (error) {
+      if (error instanceof SessionNotFoundError) {
+        const response: ApiResponse<null> = {
+          success: false,
+          error: `Session not found: ${id}`,
+        };
+        res.status(404).json(response);
+        return;
+      }
+
+      if (error instanceof DockerOperationError) {
+        const response: ApiResponse<null> = {
+          success: false,
+          error: `Failed to stop container: ${error.stderr}`,
         };
         res.status(500).json(response);
         return;
