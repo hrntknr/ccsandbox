@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ClaudeMessage } from '@ccsandbox/shared';
+import { AnsiOutput } from './AnsiOutput';
 
 interface MessageListProps {
   messages: ClaudeMessage[];
@@ -59,7 +60,7 @@ function ToolItem({ tool, result }: ToolItemProps) {
                 </span>
                 <span>Output</span>
               </div>
-              <pre>{result.content}</pre>
+              <AnsiOutput content={result.content} />
             </div>
           )}
         </div>
