@@ -1,7 +1,9 @@
-import { spawn, ChildProcess } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { resolve, normalize } from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
+import * as pty from '@lydell/node-pty';
+import type { IPty } from '@lydell/node-pty';
 
 /**
  * Validate workspace path to prevent path traversal attacks.
@@ -39,7 +41,7 @@ export interface TerminalInstance {
   sessionId: string;
   workspacePath: string;
   shell: string;
-  process: ChildProcess;
+  pty: IPty;
   cols: number;
   rows: number;
   outputBuffer: string[];
@@ -131,23 +133,19 @@ export class TerminalManager extends EventEmitter {
     // Detect shell if not specified
     const shell = options.shell ?? await this.detectShell(workspacePath, devcontainerCliPath);
 
-    // Spawn devcontainer exec with pseudo-terminal allocation
-    // Using 'script' command to create a PTY wrapper for devcontainer exec
-    // This is necessary because Node.js spawn doesn't allocate a real PTY
-    const devcontainerCmd = `${devcontainerCliPath} exec --workspace-folder "${workspacePath}" ${shell}`;
-
-    const process = spawn('script', [
-      '-q',      // Quiet mode (no start/end messages)
-      '-c',      // Command to run
-      devcontainerCmd,
-      '/dev/null', // Output file (discard)
+    // Spawn devcontainer exec with node-pty for real PTY support
+    const ptyProcess = pty.spawn(devcontainerCliPath, [
+      'exec',
+      '--workspace-folder',
+      workspacePath,
+      shell,
     ], {
-      stdio: ['pipe', 'pipe', 'pipe'],
+      name: 'xterm-256color',
+      cols,
+      rows,
       env: {
         ...global.process.env,
         TERM: 'xterm-256color',
-        COLUMNS: String(cols),
-        LINES: String(rows),
       },
     });
 
@@ -156,7 +154,7 @@ export class TerminalManager extends EventEmitter {
       sessionId,
       workspacePath,
       shell,
-      process,
+      pty: ptyProcess,
       cols,
       rows,
       outputBuffer: [],
@@ -165,30 +163,16 @@ export class TerminalManager extends EventEmitter {
 
     this.terminals.set(tabId, terminal);
 
-    // Handle stdout
-    process.stdout?.on('data', (data: Buffer) => {
-      const str = data.toString();
-      this.appendToBuffer(terminal, str);
-      this.emit('data', tabId, str);
+    // Handle PTY data output
+    ptyProcess.onData((data: string) => {
+      this.appendToBuffer(terminal, data);
+      this.emit('data', tabId, data);
     });
 
-    // Handle stderr (merge with stdout for terminal output)
-    process.stderr?.on('data', (data: Buffer) => {
-      const str = data.toString();
-      this.appendToBuffer(terminal, str);
-      this.emit('data', tabId, str);
-    });
-
-    // Handle process exit
-    process.on('close', (code) => {
+    // Handle PTY exit
+    ptyProcess.onExit(({ exitCode }) => {
       this.terminals.delete(tabId);
-      this.emit('exit', tabId, code ?? 0);
-    });
-
-    // Handle process error
-    process.on('error', (error) => {
-      this.terminals.delete(tabId);
-      this.emit('error', tabId, error);
+      this.emit('exit', tabId, exitCode);
     });
 
     return tabId;
@@ -231,18 +215,16 @@ export class TerminalManager extends EventEmitter {
    */
   write(tabId: string, data: string): boolean {
     const terminal = this.terminals.get(tabId);
-    if (!terminal || !terminal.process.stdin) {
+    if (!terminal) {
       return false;
     }
 
-    return terminal.process.stdin.write(data);
+    terminal.pty.write(data);
+    return true;
   }
 
   /**
    * Resize a terminal
-   * Note: docker exec via script doesn't support runtime resize.
-   * We only store the dimensions for reference.
-   * The terminal size is set at creation time via environment variables.
    */
   resize(tabId: string, cols: number, rows: number): boolean {
     const terminal = this.terminals.get(tabId);
@@ -252,10 +234,7 @@ export class TerminalManager extends EventEmitter {
 
     terminal.cols = cols;
     terminal.rows = rows;
-
-    // Note: Runtime resize is not supported with docker exec via script.
-    // The terminal size is fixed at creation time.
-    // For true resize support, consider using docker attach with a PTY library.
+    terminal.pty.resize(cols, rows);
 
     return true;
   }
@@ -269,7 +248,7 @@ export class TerminalManager extends EventEmitter {
       return false;
     }
 
-    terminal.process.kill('SIGTERM');
+    terminal.pty.kill();
     this.terminals.delete(tabId);
     return true;
   }

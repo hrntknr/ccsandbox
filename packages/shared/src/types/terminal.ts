@@ -31,7 +31,8 @@ export type TerminalServerMessage =
   | { type: 'output'; data: string }
   | { type: 'attached'; tabId: string }
   | { type: 'error'; message: string }
-  | { type: 'exit'; tabId: string; code: number };
+  | { type: 'exit'; tabId: string; code: number }
+  | { type: 'resize-sync'; cols: number; rows: number };
 
 /**
  * Session creation WebSocket message types
