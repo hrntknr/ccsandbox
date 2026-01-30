@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { mkdir } from 'node:fs/promises';
 import { createApp, type CreateAppOptions } from './app.js';
 import { setConfig, type ServerConfig } from './config.js';
 import { setupWebSocketServer, type WebSocketServerInstance } from './websocket/index.js';
@@ -13,7 +14,9 @@ export { setupWebSocketServer, type WebSocketServerInstance } from './websocket/
 export { getTerminalManager, resetTerminalManager } from './services/terminal.service.js';
 
 export interface StartServerOptions {
-  /** Workspace root directory */
+  /** Configuration directory (sessions.json, config.json) */
+  configDir: string;
+  /** Workspace root directory for cloned repositories */
   repoDir: string;
   /** Bind host */
   listen: string;
@@ -41,8 +44,12 @@ export interface ServerInstance {
  * Returns a promise that resolves when the server is listening.
  */
 export async function startServer(options: StartServerOptions): Promise<ServerInstance> {
+  // Ensure configDir and repoDir exist
+  await mkdir(options.configDir, { recursive: true });
+  await mkdir(options.repoDir, { recursive: true });
+
   // Load persisted configuration from config.json
-  const configStore = getConfigStore(options.repoDir);
+  const configStore = getConfigStore(options.configDir);
   const persistedConfig = await configStore.read();
 
   // Use persisted apiBase or default
@@ -51,6 +58,7 @@ export async function startServer(options: StartServerOptions): Promise<ServerIn
   setConfig({
     pat: persistedConfig.pat,
     apiBase: effectiveApiBase,
+    configDir: options.configDir,
     repoDir: options.repoDir,
     listen: options.listen,
     port: options.port,
