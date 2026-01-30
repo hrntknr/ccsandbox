@@ -1,4 +1,5 @@
-import type { Session, TerminalTab } from './session.js';
+import type { Session, TabType, TerminalTab } from './session.js';
+import type { ClaudeEvent, ClaudeMessage, ClaudePendingPermission } from './claude.js';
 
 /**
  * Terminal WebSocket message types
@@ -10,13 +11,20 @@ import type { Session, TerminalTab } from './session.js';
 export type TerminalClientMessage =
   | { type: 'join-session'; sessionId: string; clientId: string }
   | { type: 'attach'; tabId: string }
-  | { type: 'add-tab'; title?: string }
+  | { type: 'add-tab'; title?: string; tabType?: TabType }
   | { type: 'close-tab'; tabId: string }
   | { type: 'rename-tab'; tabId: string; title: string }
   | { type: 'switch-tab'; tabId: string }
   | { type: 'input'; data: string }
   | { type: 'resize'; cols: number; rows: number }
-  | { type: 'detach' };
+  | { type: 'detach' }
+  // Claude-specific messages
+  | { type: 'claude-message'; content: string }
+  | {
+      type: 'claude-permission-response';
+      requestId: string;
+      permission: 'allow' | 'deny';
+    };
 
 /**
  * Messages sent from server to client
@@ -32,7 +40,15 @@ export type TerminalServerMessage =
   | { type: 'attached'; tabId: string }
   | { type: 'error'; message: string }
   | { type: 'exit'; tabId: string; code: number }
-  | { type: 'resize-sync'; cols: number; rows: number };
+  | { type: 'resize-sync'; cols: number; rows: number }
+  // Claude-specific messages
+  | { type: 'claude-event'; tabId: string; event: ClaudeEvent }
+  | {
+      type: 'claude-history';
+      tabId: string;
+      messages: ClaudeMessage[];
+      pendingPermissions: ClaudePendingPermission[];
+    };
 
 /**
  * Session creation WebSocket message types

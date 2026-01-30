@@ -21,6 +21,7 @@ import {
   DockerOperationError,
 } from '../../services/devcontainer.service.js';
 import { getTerminalManager } from '../../services/terminal.service.js';
+import { getClaudeManager } from '../../services/claude.service.js';
 import { getConnectionManager } from '../../websocket/connection-manager.js';
 
 const router = Router();
@@ -372,8 +373,9 @@ router.post(
         return;
       }
 
-      // Clean up terminal processes and tabs for this session
+      // Clean up terminal and Claude processes and tabs for this session
       getTerminalManager().killBySession(id);
+      getClaudeManager().killBySession(id);
       getConnectionManager().clearSessionTabs(id);
 
       // Check if container is actually running

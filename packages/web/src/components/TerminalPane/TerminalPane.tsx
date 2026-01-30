@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { Session, TerminalTab } from '@ccsandbox/shared';
 import { Terminal } from '../Terminal';
+import { ClaudeChat } from '../ClaudeChat';
 import { useTerminalWebSocket } from '../../hooks';
 import './TerminalPane.css';
 
@@ -32,6 +33,11 @@ export function TerminalPane({ session }: TerminalPaneProps) {
     onExit,
     onResizeSync,
     onOwnTabAdded,
+    // Claude-specific
+    sendClaudeMessage,
+    respondToPermission,
+    onClaudeEvent,
+    onClaudeHistory,
   } = useTerminalWebSocket(sessionId);
 
   // Convert remote tabs to local tabs with editing state
@@ -72,8 +78,12 @@ export function TerminalPane({ session }: TerminalPaneProps) {
     });
   }, [onOwnTabAdded]);
 
-  const handleAddTab = useCallback(() => {
-    addTab();
+  const handleAddTerminalTab = useCallback(() => {
+    addTab(undefined, 'shell');
+  }, [addTab]);
+
+  const handleAddClaudeTab = useCallback(() => {
+    addTab(undefined, 'claude');
   }, [addTab]);
 
   const handleCloseTab = useCallback(
@@ -127,9 +137,12 @@ export function TerminalPane({ session }: TerminalPaneProps) {
             {tabs.map((tab) => (
               <div
                 key={tab.tabId}
-                className={`terminal-tab ${activeTabId === tab.tabId ? 'active' : ''}`}
+                className={`terminal-tab ${activeTabId === tab.tabId ? 'active' : ''} ${tab.tabType === 'claude' ? 'terminal-tab-claude' : ''}`}
                 onClick={() => setActiveTabId(tab.tabId)}
               >
+                {tab.tabType === 'claude' && (
+                  <span className="terminal-tab-icon">&#9672;</span>
+                )}
                 {tab.isEditing ? (
                   <input
                     type="text"
@@ -165,13 +178,24 @@ export function TerminalPane({ session }: TerminalPaneProps) {
               </div>
             ))}
           </div>
-          <button
-            className="terminal-add-tab"
-            onClick={handleAddTab}
-            disabled={!isConnected}
-          >
-            +
-          </button>
+          <div className="terminal-add-tabs">
+            <button
+              className="terminal-add-tab"
+              onClick={handleAddTerminalTab}
+              disabled={!isConnected}
+              title="Add Terminal"
+            >
+              + Terminal
+            </button>
+            <button
+              className="terminal-add-tab terminal-add-tab-claude"
+              onClick={handleAddClaudeTab}
+              disabled={!isConnected}
+              title="Add Claude"
+            >
+              + Claude
+            </button>
+          </div>
         </div>
       </div>
 
@@ -189,21 +213,33 @@ export function TerminalPane({ session }: TerminalPaneProps) {
             )}
           </div>
         ) : (
-          tabs.map((tab) => (
-            <Terminal
-              key={tab.tabId}
-              tabId={tab.tabId}
-              isActive={tab.tabId === activeTabId}
-              initialExited={tab.exited}
-              sendInput={sendInput}
-              resizeTerminal={resizeTerminal}
-              onOutput={onOutput}
-              onHistory={onHistory}
-              onExit={onExit}
-              onResizeSync={onResizeSync}
-              closeTab={closeTab}
-            />
-          ))
+          tabs.map((tab) =>
+            tab.tabType === 'claude' ? (
+              <ClaudeChat
+                key={tab.tabId}
+                tabId={tab.tabId}
+                isActive={tab.tabId === activeTabId}
+                sendClaudeMessage={sendClaudeMessage}
+                respondToPermission={respondToPermission}
+                onClaudeEvent={onClaudeEvent}
+                onClaudeHistory={onClaudeHistory}
+              />
+            ) : (
+              <Terminal
+                key={tab.tabId}
+                tabId={tab.tabId}
+                isActive={tab.tabId === activeTabId}
+                initialExited={tab.exited}
+                sendInput={sendInput}
+                resizeTerminal={resizeTerminal}
+                onOutput={onOutput}
+                onHistory={onHistory}
+                onExit={onExit}
+                onResizeSync={onResizeSync}
+                closeTab={closeTab}
+              />
+            )
+          )
         )}
       </div>
     </div>

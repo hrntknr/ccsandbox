@@ -1,9 +1,12 @@
 export type SessionState = 'STOPPED' | 'RUNNING' | 'ERROR';
 
+export type TabType = 'shell' | 'claude';
+
 export interface TerminalTab {
   tabId: string;
   title: string;
   shell: string;
+  tabType: TabType;
   exited?: boolean;
   ready?: boolean;
 }
