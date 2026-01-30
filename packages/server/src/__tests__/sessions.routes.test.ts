@@ -30,7 +30,6 @@ vi.mock('../services/devcontainer.service.js', async () => {
     ...(actual as object),
     hasDevcontainerConfig: vi.fn(),
     startDevcontainer: vi.fn(),
-    stopContainer: vi.fn(),
     removeContainer: vi.fn(),
     isContainerRunning: vi.fn(),
   };
@@ -312,56 +311,8 @@ describe('sessions routes', () => {
     });
   });
 
-  describe('POST /api/sessions/:id/stop', () => {
-    it('stops container successfully', async () => {
-      // Create a session first
-      const createRequest = {
-        title: 'Test Session',
-        repo: 'owner/repo',
-        baseBranch: 'main',
-        workBranch: 'feature/stop-test',
-      };
-
-      vi.mocked(gitService.cloneRepository).mockImplementation(async (options) => {
-        await mkdir(options.workspacePath, { recursive: true });
-      });
-      vi.mocked(devcontainerService.hasDevcontainerConfig).mockResolvedValue(true);
-      vi.mocked(devcontainerService.startDevcontainer).mockResolvedValue({
-        containerId: 'container123',
-      });
-      vi.mocked(devcontainerService.stopContainer).mockResolvedValue(undefined);
-
-      const createResponse = await request(app)
-        .post('/api/sessions')
-        .send(createRequest)
-        .expect(201);
-
-      const sessionId = createResponse.body.data.session.sessionId;
-
-      const response = await request(app)
-        .post(`/api/sessions/${sessionId}/stop`)
-        .expect(200);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.session.state).toBe('READY');
-    });
-
-    it('returns 400 when session has no container', async () => {
-      // We need to manually create a session without container for this test
-      // This is a bit tricky since our normal flow always creates a container
-      // For now, we'll just test the error case
-
-      const response = await request(app)
-        .post('/api/sessions/nonexistent-id/stop')
-        .expect(404);
-
-      expect(response.body.success).toBe(false);
-    });
-  });
-
   describe('POST /api/sessions/:id/start', () => {
     it('starts container successfully', async () => {
-      // Create a session and stop it first
       const createRequest = {
         title: 'Test Session',
         repo: 'owner/repo',
@@ -376,7 +327,6 @@ describe('sessions routes', () => {
       vi.mocked(devcontainerService.startDevcontainer).mockResolvedValue({
         containerId: 'container123',
       });
-      vi.mocked(devcontainerService.stopContainer).mockResolvedValue(undefined);
 
       const createResponse = await request(app)
         .post('/api/sessions')
@@ -385,10 +335,7 @@ describe('sessions routes', () => {
 
       const sessionId = createResponse.body.data.session.sessionId;
 
-      // Stop the container
-      await request(app).post(`/api/sessions/${sessionId}/stop`).expect(200);
-
-      // Start the container
+      // Start endpoint is idempotent - can call on already running session
       const response = await request(app)
         .post(`/api/sessions/${sessionId}/start`)
         .expect(200);
@@ -400,50 +347,6 @@ describe('sessions routes', () => {
     it('returns 404 when session not found', async () => {
       const response = await request(app)
         .post('/api/sessions/nonexistent-id/start')
-        .expect(404);
-
-      expect(response.body.success).toBe(false);
-    });
-  });
-
-  describe('POST /api/sessions/:id/remove', () => {
-    it('removes container successfully', async () => {
-      // Create a session first
-      const createRequest = {
-        title: 'Test Session',
-        repo: 'owner/repo',
-        baseBranch: 'main',
-        workBranch: 'feature/remove-test',
-      };
-
-      vi.mocked(gitService.cloneRepository).mockImplementation(async (options) => {
-        await mkdir(options.workspacePath, { recursive: true });
-      });
-      vi.mocked(devcontainerService.hasDevcontainerConfig).mockResolvedValue(true);
-      vi.mocked(devcontainerService.startDevcontainer).mockResolvedValue({
-        containerId: 'container123',
-      });
-      vi.mocked(devcontainerService.removeContainer).mockResolvedValue(undefined);
-
-      const createResponse = await request(app)
-        .post('/api/sessions')
-        .send(createRequest)
-        .expect(201);
-
-      const sessionId = createResponse.body.data.session.sessionId;
-
-      const response = await request(app)
-        .post(`/api/sessions/${sessionId}/remove`)
-        .expect(200);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.session.state).toBe('READY');
-      expect(response.body.data.session.containerId).toBeUndefined();
-    });
-
-    it('returns 404 when session not found', async () => {
-      const response = await request(app)
-        .post('/api/sessions/nonexistent-id/remove')
         .expect(404);
 
       expect(response.body.success).toBe(false);
