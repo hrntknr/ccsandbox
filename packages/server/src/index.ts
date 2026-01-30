@@ -5,6 +5,7 @@ import { setConfig, type ServerConfig } from './config.js';
 import { setupWebSocketServer, type WebSocketServerInstance } from './websocket/index.js';
 import { resetTerminalManager } from './services/terminal.service.js';
 import { startBackgroundRefresh, stopBackgroundRefresh } from './services/github.service.js';
+import { startContainerHealthCheck, stopContainerHealthCheck } from './services/container-health.service.js';
 import { getConfigStore } from './persistence/config-store.js';
 
 export { getConfig, hasConfig, setConfig, updateConfig, type ServerConfig } from './config.js';
@@ -12,6 +13,11 @@ export { getConfigStore, resetConfigStore, ConfigStore } from './persistence/con
 export { createApp, type CreateAppOptions } from './app.js';
 export { setupWebSocketServer, type WebSocketServerInstance } from './websocket/index.js';
 export { getTerminalManager, resetTerminalManager } from './services/terminal.service.js';
+export {
+  startContainerHealthCheck,
+  stopContainerHealthCheck,
+  isHealthCheckRunning,
+} from './services/container-health.service.js';
 
 export interface StartServerOptions {
   /** Configuration directory (sessions.json, config.json) */
@@ -99,6 +105,9 @@ export async function startServer(options: StartServerOptions): Promise<ServerIn
         startBackgroundRefresh(persistedConfig.pat, effectiveApiBase);
       }
 
+      // Start container health check
+      startContainerHealthCheck();
+
       resolve({
         server,
         wss,
@@ -106,6 +115,9 @@ export async function startServer(options: StartServerOptions): Promise<ServerIn
         close: () => new Promise<void>((resolveClose, rejectClose) => {
           // Stop background refresh
           stopBackgroundRefresh();
+
+          // Stop container health check
+          stopContainerHealthCheck();
 
           // Close WebSocket server and cleanup terminals
           wss.close();
