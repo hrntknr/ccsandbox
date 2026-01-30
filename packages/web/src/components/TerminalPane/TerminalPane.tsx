@@ -3,7 +3,6 @@ import type { Session, TerminalTab } from '@ccsandbox/shared';
 import { Terminal } from '../Terminal';
 import { ClaudeChat } from '../ClaudeChat';
 import { useTerminalWebSocket } from '../../hooks';
-import './TerminalPane.css';
 
 interface TerminalPaneProps {
   session: Session | null;
@@ -119,8 +118,8 @@ export function TerminalPane({ session }: TerminalPaneProps) {
 
   if (!session) {
     return (
-      <div className="terminal-pane terminal-pane-empty">
-        <div className="terminal-pane-placeholder">
+      <div className="flex flex-col h-full bg-vscode-bg justify-center items-center">
+        <div className="text-vscode-text-muted text-base max-md:text-sm max-md:p-5 max-md:text-center">
           Select a session or create a new one
         </div>
       </div>
@@ -130,18 +129,18 @@ export function TerminalPane({ session }: TerminalPaneProps) {
   const isRunning = session.state === 'RUNNING';
 
   return (
-    <div className="terminal-pane">
-      <div className="terminal-pane-header">
-        <div className="terminal-tabs-bar">
-          <div className="terminal-tabs">
+    <div className="flex flex-col h-full bg-vscode-bg">
+      <div className="flex justify-between items-end p-0 bg-vscode-bg-secondary min-h-[35px] max-md:flex-wrap max-md:gap-1">
+        <div className="flex items-end flex-1 min-w-0 overflow-hidden pl-2 max-md:w-full max-md:pl-1">
+          <div className="flex items-end gap-0 overflow-x-auto flex-1 min-w-0 scrollbar-none">
             {tabs.map((tab) => (
               <div
                 key={tab.tabId}
-                className={`terminal-tab ${activeTabId === tab.tabId ? 'active' : ''} ${tab.tabType === 'claude' ? 'terminal-tab-claude' : ''}`}
+                className={`flex items-center gap-1.5 py-1.5 px-3 bg-transparent border border-transparent border-b-0 cursor-pointer text-xs text-vscode-text-secondary min-w-[80px] max-w-[160px] shrink-0 relative hover:text-[#ccc] max-md:py-[5px] max-md:px-2 max-md:min-w-[60px] max-md:max-w-[120px] max-md:text-[11px] ${activeTabId === tab.tabId ? 'bg-vscode-bg text-white border-vscode-border-light rounded-t -mb-px pb-[7px]' : ''} ${tab.tabType === 'claude' ? 'border-l-2 border-l-[#9cdcfe]' : ''} ${activeTabId === tab.tabId && tab.tabType === 'claude' ? 'border-l-[#4fc3f7]' : ''}`}
                 onClick={() => setActiveTabId(tab.tabId)}
               >
                 {tab.tabType === 'claude' && (
-                  <span className="terminal-tab-icon">&#9672;</span>
+                  <span className="text-[10px] text-[#9cdcfe] shrink-0">◈</span>
                 )}
                 {tab.isEditing ? (
                   <form
@@ -153,7 +152,7 @@ export function TerminalPane({ session }: TerminalPaneProps) {
                   >
                     <input
                       type="text"
-                      className="terminal-tab-input"
+                      className="flex-1 bg-transparent border border-vscode-accent text-white text-xs py-0.5 px-1 rounded-sm outline-none min-w-[50px]"
                       value={editingTitle}
                       onChange={(e) => setEditingTitle(e.target.value)}
                       onBlur={() => handleFinishEdit(tab.tabId)}
@@ -167,15 +166,15 @@ export function TerminalPane({ session }: TerminalPaneProps) {
                   </form>
                 ) : (
                   <span
-                    className="terminal-tab-title"
+                    className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap"
                     onDoubleClick={(e) => handleStartEdit(tab, e)}
                   >
                     {tab.title}
-                    {tab.ready === false && <span className="terminal-tab-loading">...</span>}
+                    {tab.ready === false && <span className="text-vscode-text-muted ml-0.5 animate-loading-pulse">...</span>}
                   </span>
                 )}
                 <button
-                  className="terminal-tab-close"
+                  className="bg-transparent border-none text-vscode-text-secondary text-sm cursor-pointer p-0 leading-none w-4 h-4 flex items-center justify-center rounded-sm hover:bg-white/10 hover:text-white max-[480px]:hidden max-[480px]:[.terminal-tab.active_&]:flex"
                   onClick={(e) => handleCloseTab(tab.tabId, e)}
                 >
                   &times;
@@ -183,9 +182,9 @@ export function TerminalPane({ session }: TerminalPaneProps) {
               </div>
             ))}
           </div>
-          <div className="terminal-add-tabs">
+          <div className="flex items-center gap-1 ml-2 mr-2 shrink-0">
             <button
-              className="terminal-add-tab"
+              className="bg-transparent border border-transparent text-vscode-text-secondary text-xs cursor-pointer py-1 px-2 rounded leading-none whitespace-nowrap hover:bg-white/10 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
               onClick={handleAddTerminalTab}
               disabled={!isConnected}
               title="Add Terminal"
@@ -193,7 +192,7 @@ export function TerminalPane({ session }: TerminalPaneProps) {
               + Terminal
             </button>
             <button
-              className="terminal-add-tab terminal-add-tab-claude"
+              className="bg-transparent border border-transparent text-[#9cdcfe] text-xs cursor-pointer py-1 px-2 rounded leading-none whitespace-nowrap hover:bg-white/10 hover:text-[#4fc3f7] disabled:opacity-40 disabled:cursor-not-allowed"
               onClick={handleAddClaudeTab}
               disabled={!isConnected}
               title="Add Claude"
@@ -204,13 +203,13 @@ export function TerminalPane({ session }: TerminalPaneProps) {
         </div>
       </div>
 
-      <div className="terminal-container">
+      <div className="flex-1 overflow-hidden relative bg-vscode-bg border-t border-vscode-border-light">
         {!isRunning ? (
-          <div className="terminal-placeholder">
+          <div className="text-vscode-text-muted text-[13px] flex items-center justify-center h-full">
             Container is not running. Start the container to use the terminal.
           </div>
         ) : tabs.length === 0 ? (
-          <div className="terminal-placeholder">
+          <div className="text-vscode-text-muted text-[13px] flex items-center justify-center h-full">
             {isConnected ? (
               <>No terminal tabs. Click + to add one.</>
             ) : (

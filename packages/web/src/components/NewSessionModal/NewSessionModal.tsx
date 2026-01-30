@@ -4,7 +4,6 @@ import { FitAddon } from '@xterm/addon-fit';
 import type { Repository } from '@ccsandbox/shared';
 import { useRepositories, useSessionCreate, useClientConfig } from '../../hooks';
 import '@xterm/xterm/css/xterm.css';
-import './NewSessionModal.css';
 
 function generateRandomBranchName(): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -225,34 +224,34 @@ export function NewSessionModal({
   // Form view
   if (modalState === 'form') {
     return (
-      <div className="modal-backdrop" onClick={handleBackdropClick}>
-        <div className="modal">
-          <div className="modal-header">
-            <h2>New Session</h2>
-            <button className="modal-close-button" onClick={handleClose}>
+      <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[1000]" onClick={handleBackdropClick}>
+        <div className="bg-vscode-bg-secondary rounded-lg w-[480px] max-w-[90%] max-h-[90%] overflow-auto shadow-[0_4px_20px_rgba(0,0,0,0.4)] max-md:w-[95%] max-md:max-w-none max-md:mx-4 max-md:max-h-[calc(100%-32px)]">
+          <div className="flex justify-between items-center py-4 px-5 border-b border-vscode-border max-md:py-3 max-md:px-4">
+            <h2 className="m-0 text-lg font-semibold text-white max-md:text-base">New Session</h2>
+            <button className="bg-transparent border-none text-2xl text-vscode-text-secondary cursor-pointer p-0 leading-none hover:text-white" onClick={handleClose}>
               &times;
             </button>
           </div>
 
-          <form className="modal-form" onSubmit={handleSubmit}>
+          <form className="p-5 max-md:p-4" onSubmit={handleSubmit}>
             {reposError && (
-              <div className="modal-error">
+              <div className="bg-vscode-error-bg text-[#ff6b6b] p-3 rounded mb-4 text-[13px]">
                 {reposError}
               </div>
             )}
 
-            <div className="form-field form-field-repo">
-              <div className="form-field-header">
-                <label htmlFor="repository">Repository</label>
+            <div className="mb-5">
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="repository" className="block text-[13px] font-medium text-[#ccc]">Repository</label>
                 <button
                   type="button"
-                  className="refresh-button"
+                  className="flex items-center justify-center w-6 h-6 p-0 bg-transparent border-none rounded text-vscode-text-muted cursor-pointer transition-colors hover:text-vscode-text hover:bg-vscode-border-light disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={refreshRepositories}
                   disabled={reposLoading || reposRefreshing}
                   title="Refresh repository list"
                 >
                   <svg
-                    className={`refresh-icon ${reposRefreshing ? 'spinning' : ''}`}
+                    className={`w-3.5 h-3.5 ${reposRefreshing ? 'animate-spin' : ''}`}
                     viewBox="0 0 16 16"
                     fill="currentColor"
                   >
@@ -260,15 +259,15 @@ export function NewSessionModal({
                   </svg>
                 </button>
               </div>
-              <div className="repo-picker">
-                <div className="repo-search-container">
-                  <svg className="repo-search-icon" viewBox="0 0 16 16" fill="currentColor">
+              <div className="border border-[#444] rounded-md bg-vscode-bg transition-all focus-within:border-vscode-accent focus-within:shadow-[0_0_0_3px_rgba(0,120,212,0.15)]">
+                <div className="relative flex items-center">
+                  <svg className="absolute left-3 w-4 h-4 text-vscode-text-muted pointer-events-none z-[1]" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M11.5 7a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Zm-.82 4.74a6 6 0 1 1 1.06-1.06l3.04 3.04a.75.75 0 1 1-1.06 1.06l-3.04-3.04Z" />
                   </svg>
                   <input
                     id="repository"
                     type="text"
-                    className="repo-search-input"
+                    className="w-full py-2.5 px-9 bg-transparent border-none rounded-t-md text-vscode-text text-sm focus:outline-none focus:shadow-none placeholder:text-vscode-text-muted max-md:py-3 max-md:text-base"
                     value={repoFilter}
                     onChange={(e) => {
                       setRepoFilter(e.target.value);
@@ -284,28 +283,28 @@ export function NewSessionModal({
                   {repoFilter && (
                     <button
                       type="button"
-                      className="repo-search-clear"
+                      className="absolute right-2 flex items-center justify-center w-6 h-6 p-0 bg-transparent border-none rounded text-vscode-text-muted cursor-pointer transition-colors hover:text-vscode-text hover:bg-vscode-border-light"
                       onClick={() => {
                         setRepoFilter('');
                         setSelectedRepo(null);
                         setBaseBranch('');
                       }}
                     >
-                      <svg viewBox="0 0 16 16" fill="currentColor">
+                      <svg viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
                         <path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z" />
                       </svg>
                     </button>
                   )}
                 </div>
-                <div className="repo-list">
+                <div className="max-h-[180px] overflow-y-auto bg-transparent border-t border-vscode-border scrollbar-thin">
                 {reposLoading ? (
-                  <div className="repo-list-status">
-                    <div className="repo-list-spinner" />
+                  <div className="flex flex-col items-center justify-center gap-2 py-6 px-4 text-vscode-text-muted text-[13px]">
+                    <div className="w-5 h-5 border-2 border-vscode-border border-t-vscode-accent rounded-full animate-spin" />
                     <span>Loading repositories...</span>
                   </div>
                 ) : filteredRepositories.length === 0 ? (
-                  <div className="repo-list-status">
-                    <svg viewBox="0 0 16 16" fill="currentColor" className="repo-list-empty-icon">
+                  <div className="flex flex-col items-center justify-center gap-2 py-6 px-4 text-vscode-text-muted text-[13px]">
+                    <svg viewBox="0 0 16 16" fill="currentColor" className="w-6 h-6 text-[#444]">
                       <path d="M2 1.75C2 .784 2.784 0 3.75 0h6.586c.464 0 .909.184 1.237.513l2.914 2.914c.329.328.513.773.513 1.237v9.586A1.75 1.75 0 0 1 13.25 16h-9.5A1.75 1.75 0 0 1 2 14.25Zm1.75-.25a.25.25 0 0 0-.25.25v12.5c0 .138.112.25.25.25h9.5a.25.25 0 0 0 .25-.25V6h-2.75A1.75 1.75 0 0 1 9 4.25V1.5Zm6.75.062V4.25c0 .138.112.25.25.25h2.688l-.011-.013-2.914-2.914-.013-.011Z" />
                     </svg>
                     <span>{repoFilter ? 'No matching repositories' : 'No repositories found'}</span>
@@ -317,19 +316,19 @@ export function NewSessionModal({
                     return (
                       <div
                         key={repo.fullName}
-                        className={`repo-list-item ${isSelected ? 'selected' : ''}`}
+                        className={`flex items-center gap-2.5 py-2.5 px-3 text-sm text-vscode-text cursor-pointer transition-colors duration-100 hover:bg-[#2a2d2e] ${isSelected ? 'bg-[rgba(0,120,212,0.15)] hover:bg-[rgba(0,120,212,0.2)]' : ''}`}
                         onClick={() => handleRepoSelect(repo)}
                       >
-                        <svg className="repo-list-item-icon" viewBox="0 0 16 16" fill="currentColor">
+                        <svg className={`shrink-0 w-4 h-4 ${isSelected ? 'text-vscode-accent' : 'text-vscode-text-muted'}`} viewBox="0 0 16 16" fill="currentColor">
                           <path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8ZM5 12.25a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.25a.25.25 0 0 1-.4.2l-1.45-1.087a.249.249 0 0 0-.3 0L5.4 15.7a.25.25 0 0 1-.4-.2Z" />
                         </svg>
-                        <div className="repo-list-item-text">
-                          <span className="repo-owner">{owner}</span>
-                          <span className="repo-separator">/</span>
-                          <span className="repo-name">{name}</span>
+                        <div className="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                          <span className="text-vscode-text-secondary">{owner}</span>
+                          <span className="text-[#555] mx-px">/</span>
+                          <span className={`font-medium ${isSelected ? 'text-[#58a6ff]' : 'text-vscode-text'}`}>{name}</span>
                         </div>
                         {isSelected && (
-                          <svg className="repo-list-item-check" viewBox="0 0 16 16" fill="currentColor">
+                          <svg className="shrink-0 w-4 h-4 text-vscode-accent" viewBox="0 0 16 16" fill="currentColor">
                             <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z" />
                           </svg>
                         )}
@@ -341,11 +340,12 @@ export function NewSessionModal({
               </div>
             </div>
 
-            <div className="form-field">
-              <label htmlFor="baseBranch">Base Branch</label>
+            <div className="mb-4 max-md:mb-3.5">
+              <label htmlFor="baseBranch" className="block text-[13px] font-medium text-[#ccc] mb-1.5 max-[480px]:text-xs">Base Branch</label>
               <input
                 id="baseBranch"
                 type="text"
+                className="w-full py-2.5 px-3 bg-vscode-bg border border-[#444] rounded text-vscode-text text-sm focus:outline-none focus:border-vscode-accent disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-vscode-text-muted max-md:py-3 max-md:text-base"
                 value={baseBranch}
                 onChange={(e) => setBaseBranch(e.target.value)}
                 placeholder="e.g., main"
@@ -353,11 +353,12 @@ export function NewSessionModal({
               />
             </div>
 
-            <div className="form-field">
-              <label htmlFor="workBranch">Work Branch</label>
+            <div className="mb-4 max-md:mb-3.5">
+              <label htmlFor="workBranch" className="block text-[13px] font-medium text-[#ccc] mb-1.5 max-[480px]:text-xs">Work Branch</label>
               <input
                 id="workBranch"
                 type="text"
+                className="w-full py-2.5 px-3 bg-vscode-bg border border-[#444] rounded text-vscode-text text-sm focus:outline-none focus:border-vscode-accent disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-vscode-text-muted max-md:py-3 max-md:text-base"
                 value={workBranch}
                 onChange={(e) => setWorkBranch(e.target.value)}
                 placeholder="e.g., feature/new-feature"
@@ -365,28 +366,29 @@ export function NewSessionModal({
               />
             </div>
 
-            <div className="form-field">
-              <label htmlFor="shell">Shell</label>
+            <div className="mb-4 max-md:mb-3.5">
+              <label htmlFor="shell" className="block text-[13px] font-medium text-[#ccc] mb-1.5 max-[480px]:text-xs">Shell</label>
               <input
                 id="shell"
                 type="text"
+                className="w-full py-2.5 px-3 bg-vscode-bg border border-[#444] rounded text-vscode-text text-sm focus:outline-none focus:border-vscode-accent disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-vscode-text-muted max-md:py-3 max-md:text-base"
                 value={shell}
                 onChange={(e) => setShell(e.target.value)}
                 placeholder="e.g., /bin/bash, /bin/zsh"
               />
             </div>
 
-            <div className="modal-actions">
+            <div className="flex justify-end gap-3 mt-6 max-md:flex-col-reverse max-md:gap-2.5">
               <button
                 type="button"
-                className="button button-secondary"
+                className="py-2.5 px-5 rounded font-medium text-sm cursor-pointer border-none bg-vscode-border-light text-vscode-text hover:bg-[#4a4a4a] disabled:opacity-50 disabled:cursor-not-allowed max-md:w-full max-md:py-3"
                 onClick={handleClose}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="button button-primary"
+                className="py-2.5 px-5 rounded font-medium text-sm cursor-pointer border-none bg-vscode-accent text-white hover:bg-vscode-accent-hover disabled:opacity-50 disabled:cursor-not-allowed max-md:w-full max-md:py-3"
                 disabled={!isFormValid}
               >
                 Create
@@ -400,37 +402,37 @@ export function NewSessionModal({
 
   // Creating view with terminal
   return (
-    <div className="modal-backdrop" onClick={handleBackdropClick}>
-      <div className="modal modal-creating">
-        <div className="modal-header">
-          <h2>Creating Session</h2>
-          <button className="modal-close-button" onClick={handleClose}>
+    <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[1000]" onClick={handleBackdropClick}>
+      <div className="bg-vscode-bg-secondary rounded-lg w-[520px] max-w-[90%] h-[360px] max-h-[80%] flex flex-col overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.4)] max-md:w-[95%] max-md:max-w-none max-md:h-[calc(100%-32px)] max-md:max-h-none">
+        <div className="flex justify-between items-center py-4 px-5 border-b border-vscode-border max-md:py-3 max-md:px-4">
+          <h2 className="m-0 text-lg font-semibold text-white max-md:text-base">Creating Session</h2>
+          <button className="bg-transparent border-none text-2xl text-vscode-text-secondary cursor-pointer p-0 leading-none hover:text-white" onClick={handleClose}>
             &times;
           </button>
         </div>
 
-        <div className="modal-creating-content">
+        <div className="flex-1 flex flex-col p-5 min-h-0 max-md:p-3">
           {createError && (
-            <div className="modal-error">
+            <div className="bg-vscode-error-bg text-[#ff6b6b] p-3 rounded mb-4 text-[13px]">
               {createError}
             </div>
           )}
 
-          <div className="session-log-terminal" ref={terminalContainerRef} />
+          <div className="flex-1 bg-vscode-bg border border-vscode-border rounded overflow-hidden min-h-0" ref={terminalContainerRef} />
 
-          <div className="modal-actions">
+          <div className="flex justify-between items-center gap-3 mt-4 max-md:flex-row max-md:flex-wrap">
             {createError ? (
               <>
                 <button
                   type="button"
-                  className="button button-secondary"
+                  className="py-2.5 px-5 rounded font-medium text-sm cursor-pointer border-none bg-vscode-border-light text-vscode-text hover:bg-[#4a4a4a] max-md:flex-1 max-md:min-w-[100px]"
                   onClick={handleBackToForm}
                 >
                   Back
                 </button>
                 <button
                   type="button"
-                  className="button button-primary"
+                  className="py-2.5 px-5 rounded font-medium text-sm cursor-pointer border-none bg-vscode-accent text-white hover:bg-vscode-accent-hover max-md:flex-1 max-md:min-w-[100px]"
                   onClick={handleClose}
                 >
                   Close
@@ -438,17 +440,17 @@ export function NewSessionModal({
               </>
             ) : createLoading ? (
               <>
-                <span className="creating-status">Creating session...</span>
+                <span className="text-vscode-text-secondary text-sm">Creating session...</span>
                 <button
                   type="button"
-                  className="button button-secondary"
+                  className="py-2.5 px-5 rounded font-medium text-sm cursor-pointer border-none bg-vscode-border-light text-vscode-text hover:bg-[#4a4a4a] max-md:flex-1 max-md:min-w-[100px]"
                   onClick={handleClose}
                 >
                   Cancel
                 </button>
               </>
             ) : createdSession ? (
-              <span className="creating-status creating-success">Session created successfully!</span>
+              <span className="text-[#4ec9b0] text-sm">Session created successfully!</span>
             ) : null}
           </div>
         </div>

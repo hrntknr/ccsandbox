@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Streamdown } from 'streamdown';
+import { code } from '@streamdown/code';
 import type { ClaudeMessage } from '@ccsandbox/shared';
 
 interface MessageListProps {
@@ -28,42 +30,42 @@ function ToolItem({ tool, result }: ToolItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const getStatus = () => {
-    if (!result) return { label: 'Running', className: 'claude-tool-status-running' };
-    if (result.isError) return { label: 'Error', className: 'claude-tool-status-error' };
-    return { label: 'Done', className: 'claude-tool-status-success' };
+    if (!result) return { label: 'Running', className: 'bg-claude-accent text-white' };
+    if (result.isError) return { label: 'Error', className: 'bg-claude-error text-white' };
+    return { label: 'Done', className: 'bg-claude-success text-white' };
   };
 
   const status = getStatus();
 
   return (
-    <div className="claude-tool-item">
+    <div className="bg-claude-bg-tertiary border border-claude-border rounded-lg mt-2 overflow-hidden">
       <div
-        className="claude-tool-header"
+        className="flex items-center gap-2 py-2.5 px-3 bg-claude-bg-hover cursor-pointer select-none hover:bg-claude-border"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <span className="claude-tool-icon">⚡</span>
-        <span className="claude-tool-name">{tool.name}</span>
-        <span className={`claude-tool-status ${status.className}`}>
+        <span className="text-claude-accent text-sm">⚡</span>
+        <span className="font-semibold text-[13px] text-claude-text-primary">{tool.name}</span>
+        <span className={`ml-auto text-[11px] py-0.5 px-2 rounded-[10px] font-medium ${status.className}`}>
           {status.label}
         </span>
-        <span className={`claude-tool-chevron ${isExpanded ? 'expanded' : ''}`}>
+        <span className={`text-claude-text-muted transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
           ▶
         </span>
       </div>
       {isExpanded && (
-        <div className="claude-tool-content">
-          <pre className="claude-tool-input">
+        <div className="border-t border-claude-border">
+          <pre className="font-mono text-xs m-0 p-3 overflow-x-auto text-claude-text-secondary bg-claude-code-bg max-h-[200px] overflow-y-auto">
             {JSON.stringify(tool.input, null, 2)}
           </pre>
           {result && (
-            <div className={`claude-tool-result ${result.isError ? 'claude-tool-result-error' : 'claude-tool-result-success'}`}>
-              <div className="claude-tool-result-header">
-                <span className="claude-tool-result-icon">
+            <div className={`bg-claude-code-bg border border-claude-border rounded-md overflow-hidden mt-2 ${result.isError ? '' : ''}`}>
+              <div className={`flex items-center gap-1.5 py-2 px-3 bg-claude-bg-tertiary text-xs text-claude-text-secondary ${result.isError ? 'text-claude-error' : 'text-claude-success'}`}>
+                <span className="text-xs">
                   {result.isError ? '✕' : '✓'}
                 </span>
                 <span>Output</span>
               </div>
-              <pre>{result.content}</pre>
+              <pre className={`font-mono text-xs m-0 p-3 overflow-x-auto max-h-[300px] overflow-y-auto ${result.isError ? 'text-claude-error' : 'text-claude-text-primary'}`}>{result.content}</pre>
             </div>
           )}
         </div>
@@ -132,10 +134,10 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
 
   if (messages.length === 0 && !isLoading && !streamingContent) {
     return (
-      <div className="claude-empty-state">
-        <div className="claude-empty-icon">✦</div>
-        <div className="claude-empty-title">Start a conversation</div>
-        <div className="claude-empty-description">
+      <div className="flex flex-col items-center justify-center h-full p-10 text-center">
+        <div className="text-5xl mb-4 opacity-50">✦</div>
+        <div className="text-lg font-semibold text-claude-text-primary mb-2">Start a conversation</div>
+        <div className="text-claude-text-muted text-sm max-w-[300px]">
           Ask Claude to help you with coding tasks, answer questions, or explore ideas.
         </div>
       </div>
@@ -143,7 +145,7 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
   }
 
   return (
-    <div className="claude-message-list">
+    <div className="flex flex-col gap-0">
       {groupedMessages.map((message, groupIndex) => {
         const isLastGroup = groupIndex === groupedMessages.length - 1;
         const showStreamingHere = isLastGroup && shouldAppendStreaming;
@@ -151,22 +153,22 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
         return (
           <div
             key={message.id}
-            className={`claude-message claude-message-${message.role}${showStreamingHere ? ' claude-message-streaming' : ''}`}
+            className={`py-4 px-6 border-b border-claude-border last:border-b-0 ${message.role === 'user' ? 'bg-transparent' : 'bg-claude-bg-secondary'}`}
           >
-            <div className="claude-message-header">
-              <div className="claude-message-avatar">
+            <div className="flex items-center gap-2 mb-2">
+              <div className={`w-6 h-6 rounded flex items-center justify-center text-xs font-semibold ${message.role === 'user' ? 'bg-claude-user-bg text-[#60a5fa]' : 'bg-claude-accent text-white'}`}>
                 {message.role === 'user' ? 'U' : '✦'}
               </div>
-              <span className="claude-message-role">
+              <span className="font-semibold text-[13px] text-claude-text-primary">
                 {message.role === 'user' ? 'You' : 'Claude'}
               </span>
               {showStreamingHere ? (
-                <span className="claude-message-loading">
-                  <span className="claude-spinner" />
+                <span className="inline-flex items-center gap-1.5 text-claude-accent text-xs font-medium ml-auto">
+                  <span className="inline-block animate-spinner-char">·</span>
                   typing
                 </span>
               ) : (
-                <span className="claude-message-time">
+                <span className="text-claude-text-muted text-xs ml-auto">
                   {new Date(message.timestamp).toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit',
@@ -179,13 +181,13 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
             {message.items.map((item, index) => {
               if (item.type === 'text') {
                 return (
-                  <div key={index} className="claude-message-content">
-                    <p className="claude-message-paragraph">{item.text}</p>
+                  <div key={index} className={`break-words leading-relaxed text-claude-text-primary prose prose-invert max-w-none ${index > 0 ? 'mt-3 pt-3 border-t border-dashed border-claude-border' : ''}`}>
+                    <Streamdown plugins={{ code }}>{item.text}</Streamdown>
                   </div>
                 );
               } else {
                 return (
-                  <div key={index} className="claude-tool-use">
+                  <div key={index} className="my-3">
                     <ToolItem tool={item.tool} result={item.result} />
                   </div>
                 );
@@ -194,8 +196,8 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
 
             {/* ストリーミング中のコンテンツ */}
             {showStreamingHere && (
-              <div className="claude-message-content">
-                <p className="claude-message-paragraph">{streamingContent}</p>
+              <div className="break-words leading-relaxed text-claude-text-primary prose prose-invert max-w-none">
+                <Streamdown plugins={{ code }} isAnimating>{streamingContent}</Streamdown>
               </div>
             )}
           </div>
@@ -204,28 +206,30 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
 
       {/* Thinking/Streaming state */}
       {isLoading && !streamingContent && (
-        <div className="claude-thinking">
-          <div className="claude-thinking-dots">
-            <div className="claude-thinking-dot" />
-            <div className="claude-thinking-dot" />
-            <div className="claude-thinking-dot" />
+        <div className="flex items-center gap-2 py-3 px-6 bg-claude-bg-secondary border-b border-claude-border">
+          <div className="flex gap-1">
+            <div className="w-1.5 h-1.5 bg-claude-accent rounded-full animate-bounce-dot" style={{ animationDelay: '-0.32s' }} />
+            <div className="w-1.5 h-1.5 bg-claude-accent rounded-full animate-bounce-dot" style={{ animationDelay: '-0.16s' }} />
+            <div className="w-1.5 h-1.5 bg-claude-accent rounded-full animate-bounce-dot" />
           </div>
-          <span className="claude-thinking-text">Claude is thinking...</span>
+          <span className="text-claude-text-muted text-[13px]">Claude is thinking...</span>
         </div>
       )}
 
       {/* Streaming message - 最後がアシスタントでない場合のみ別ブロックとして表示 */}
       {streamingContent && !shouldAppendStreaming && (
-        <div className="claude-message claude-message-assistant claude-message-streaming">
-          <div className="claude-message-header">
-            <div className="claude-message-avatar">✦</div>
-            <span className="claude-message-role">Claude</span>
-            <span className="claude-message-loading">
-              <span className="claude-spinner" />
+        <div className="py-4 px-6 border-b border-claude-border bg-claude-bg-secondary">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-6 h-6 rounded flex items-center justify-center text-xs font-semibold bg-claude-accent text-white">✦</div>
+            <span className="font-semibold text-[13px] text-claude-text-primary">Claude</span>
+            <span className="inline-flex items-center gap-1.5 text-claude-accent text-xs font-medium ml-auto">
+              <span className="inline-block animate-spinner-char">·</span>
               typing
             </span>
           </div>
-          <div className="claude-message-content">{streamingContent}</div>
+          <div className="break-words leading-relaxed text-claude-text-primary prose prose-invert max-w-none">
+            <Streamdown plugins={{ code }} isAnimating>{streamingContent}</Streamdown>
+          </div>
         </div>
       )}
     </div>

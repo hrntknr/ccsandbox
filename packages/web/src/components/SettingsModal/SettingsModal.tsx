@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { ClientConfig, UpdateConfigRequest } from '@ccsandbox/shared';
 import { useUpdateConfig } from '../../hooks';
-import './SettingsModal.css';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -104,85 +103,90 @@ export function SettingsModal({
   }
 
   return (
-    <div className="modal-backdrop" onClick={handleBackdropClick}>
-      <div className="modal settings-modal">
-        <div className="modal-header">
-          <h2>Settings</h2>
+    <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[1000]" onClick={handleBackdropClick}>
+      <div className="bg-vscode-bg-secondary rounded-lg w-[520px] max-w-[90%] max-h-[90%] overflow-y-auto shadow-[0_4px_20px_rgba(0,0,0,0.4)] max-md:w-[95%] max-md:max-w-none">
+        <div className="flex justify-between items-center py-4 px-5 border-b border-vscode-border max-md:py-3 max-md:px-4">
+          <h2 className="m-0 text-lg font-semibold text-white max-md:text-base">Settings</h2>
           {canClose && (
-            <button className="modal-close-button" onClick={onClose} disabled={loading}>
+            <button className="bg-transparent border-none text-2xl text-vscode-text-secondary cursor-pointer p-0 leading-none hover:text-white disabled:opacity-50" onClick={onClose} disabled={loading}>
               &times;
             </button>
           )}
         </div>
 
-        <form className="modal-form" onSubmit={handleSubmit}>
-          {error && <div className="modal-error">{error}</div>}
+        <form className="p-5 max-md:p-4" onSubmit={handleSubmit}>
+          {error && <div className="bg-vscode-error-bg text-[#ff6b6b] p-3 rounded mb-4 text-[13px]">{error}</div>}
 
           {/* GitHub Section */}
-          <div className="settings-section">
-            <h3 className="settings-section-title">GitHub</h3>
+          <div className="mb-6 max-md:mb-5">
+            <h3 className="text-sm font-semibold text-vscode-text-secondary uppercase tracking-wide m-0 mb-3 pb-2 border-b border-vscode-border max-md:text-[13px]">GitHub</h3>
 
-            <div className="form-field">
-              <label htmlFor="pat">Personal Access Token</label>
+            <div className="mb-4 max-md:mb-3.5">
+              <label htmlFor="pat" className="block text-[13px] font-medium text-[#ccc] mb-1.5">Personal Access Token</label>
               <input
                 id="pat"
                 type="password"
+                className="w-full py-2.5 px-3 bg-vscode-bg border border-[#444] rounded text-vscode-text text-sm focus:outline-none focus:border-vscode-accent disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-vscode-text-muted max-md:py-3 max-md:text-base"
                 value={pat}
                 onChange={(e) => setPat(e.target.value)}
                 placeholder={initialConfig?.hasPat ? '(configured - enter new value to change)' : 'ghp_xxxxxxxxxxxx'}
                 autoComplete="off"
               />
-              <div className="form-field-hint">
+              <div className="text-[11px] text-vscode-text-muted mt-1">
                 Required permissions: Contents (Read/Write)
               </div>
             </div>
 
-            <div className="form-field">
-              <label htmlFor="apiBase">API Base URL</label>
+            <div className="mb-4 max-md:mb-3.5">
+              <label htmlFor="apiBase" className="block text-[13px] font-medium text-[#ccc] mb-1.5">API Base URL</label>
               <input
                 id="apiBase"
                 type="text"
+                className="w-full py-2.5 px-3 bg-vscode-bg border border-[#444] rounded text-vscode-text text-sm focus:outline-none focus:border-vscode-accent disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-vscode-text-muted max-md:py-3 max-md:text-base"
                 value={apiBase}
                 onChange={(e) => setApiBase(e.target.value)}
                 placeholder="https://api.github.com"
               />
-              <div className="form-field-hint">
+              <div className="text-[11px] text-vscode-text-muted mt-1">
                 For GitHub Enterprise, use https://your-ghe-host/api/v3
               </div>
             </div>
           </div>
 
           {/* Dotfiles Section */}
-          <div className="settings-section">
-            <h3 className="settings-section-title">Dotfiles (Optional)</h3>
+          <div className="mb-6 max-md:mb-5">
+            <h3 className="text-sm font-semibold text-vscode-text-secondary uppercase tracking-wide m-0 mb-3 pb-2 border-b border-vscode-border max-md:text-[13px]">Dotfiles (Optional)</h3>
 
-            <div className="form-field">
-              <label htmlFor="dotfilesRepository">Repository (Optional)</label>
+            <div className="mb-4 max-md:mb-3.5">
+              <label htmlFor="dotfilesRepository" className="block text-[13px] font-medium text-[#ccc] mb-1.5">Repository (Optional)</label>
               <input
                 id="dotfilesRepository"
                 type="text"
+                className="w-full py-2.5 px-3 bg-vscode-bg border border-[#444] rounded text-vscode-text text-sm focus:outline-none focus:border-vscode-accent disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-vscode-text-muted max-md:py-3 max-md:text-base"
                 value={dotfilesRepository}
                 onChange={(e) => setDotfilesRepository(e.target.value)}
                 placeholder="e.g., https://github.com/user/dotfiles"
               />
             </div>
 
-            <div className="form-field">
-              <label htmlFor="dotfilesTargetPath">Target Path (Optional)</label>
+            <div className="mb-4 max-md:mb-3.5">
+              <label htmlFor="dotfilesTargetPath" className="block text-[13px] font-medium text-[#ccc] mb-1.5">Target Path (Optional)</label>
               <input
                 id="dotfilesTargetPath"
                 type="text"
+                className="w-full py-2.5 px-3 bg-vscode-bg border border-[#444] rounded text-vscode-text text-sm focus:outline-none focus:border-vscode-accent disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-vscode-text-muted max-md:py-3 max-md:text-base"
                 value={dotfilesTargetPath}
                 onChange={(e) => setDotfilesTargetPath(e.target.value)}
                 placeholder="e.g., ~/dotfiles"
               />
             </div>
 
-            <div className="form-field">
-              <label htmlFor="dotfilesInstallCommand">Install Command (Optional)</label>
+            <div className="mb-4 max-md:mb-3.5">
+              <label htmlFor="dotfilesInstallCommand" className="block text-[13px] font-medium text-[#ccc] mb-1.5">Install Command (Optional)</label>
               <input
                 id="dotfilesInstallCommand"
                 type="text"
+                className="w-full py-2.5 px-3 bg-vscode-bg border border-[#444] rounded text-vscode-text text-sm focus:outline-none focus:border-vscode-accent disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-vscode-text-muted max-md:py-3 max-md:text-base"
                 value={dotfilesInstallCommand}
                 onChange={(e) => setDotfilesInstallCommand(e.target.value)}
                 placeholder="e.g., ./install.sh"
@@ -191,14 +195,15 @@ export function SettingsModal({
           </div>
 
           {/* Terminal Section */}
-          <div className="settings-section">
-            <h3 className="settings-section-title">Terminal</h3>
+          <div className="mb-0">
+            <h3 className="text-sm font-semibold text-vscode-text-secondary uppercase tracking-wide m-0 mb-3 pb-2 border-b border-vscode-border max-md:text-[13px]">Terminal</h3>
 
-            <div className="form-field">
-              <label htmlFor="defaultShell">Default Shell</label>
+            <div className="mb-4 max-md:mb-3.5">
+              <label htmlFor="defaultShell" className="block text-[13px] font-medium text-[#ccc] mb-1.5">Default Shell</label>
               <input
                 id="defaultShell"
                 type="text"
+                className="w-full py-2.5 px-3 bg-vscode-bg border border-[#444] rounded text-vscode-text text-sm focus:outline-none focus:border-vscode-accent disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-vscode-text-muted max-md:py-3 max-md:text-base"
                 value={defaultShell}
                 onChange={(e) => setDefaultShell(e.target.value)}
                 placeholder="bash"
@@ -206,11 +211,11 @@ export function SettingsModal({
             </div>
           </div>
 
-          <div className="modal-actions">
+          <div className="flex justify-end gap-3 mt-6 max-md:flex-col-reverse max-md:gap-2.5">
             {canClose && (
               <button
                 type="button"
-                className="button button-secondary"
+                className="py-2.5 px-5 rounded font-medium text-sm cursor-pointer border-none bg-vscode-border-light text-vscode-text hover:bg-[#4a4a4a] disabled:opacity-50 disabled:cursor-not-allowed max-md:w-full max-md:py-3"
                 onClick={onClose}
                 disabled={loading}
               >
@@ -219,7 +224,7 @@ export function SettingsModal({
             )}
             <button
               type="submit"
-              className="button button-primary"
+              className="py-2.5 px-5 rounded font-medium text-sm cursor-pointer border-none bg-vscode-accent text-white hover:bg-vscode-accent-hover disabled:opacity-50 disabled:cursor-not-allowed max-md:w-full max-md:py-3"
               disabled={loading || (requirePat && !pat && !initialConfig?.hasPat)}
             >
               {loading ? 'Saving...' : 'Save'}

@@ -2,7 +2,6 @@ import { useEffect, useRef, useCallback } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
-import './Terminal.css';
 
 interface TerminalProps {
   tabId: string;
@@ -177,7 +176,7 @@ export function Terminal({
   return (
     <div
       ref={containerRef}
-      className={`terminal-wrapper ${isActive ? 'terminal-active' : 'terminal-hidden'}`}
+      className={`w-full h-full absolute inset-0 ${isActive ? 'visible z-[1]' : 'invisible z-0'}`}
     />
   );
 }
