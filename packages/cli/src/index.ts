@@ -4,38 +4,27 @@ import os from 'node:os';
 import path from 'node:path';
 
 interface CliOptions {
-  pat: string;
   apiBase: string;
   repoDir: string;
   listen: string;
   port: string;
   devcontainerCli?: string;
-  dotfilesRepository?: string;
-  dotfilesTargetPath?: string;
-  dotfilesInstallCommand?: string;
-  defaultShell?: string;
 }
 
 const DEFAULT_REPO_DIR = path.join(os.homedir(), '.ccsandbox');
 const DEFAULT_LISTEN = '127.0.0.1';
 const DEFAULT_PORT = '3000';
 const DEFAULT_API_BASE = 'https://api.github.com';
-const DEFAULT_SHELL = 'bash';
 
 program
   .name('ccsandbox')
   .description('CLI for starting the ccsandbox Web UI server')
   .version('0.0.0')
-  .requiredOption('--pat <token>', 'GitHub Personal Access Token (required)')
   .option('--api-base <url>', 'GitHub API Base URL', DEFAULT_API_BASE)
   .option('--repo-dir <path>', 'Workspace root directory', DEFAULT_REPO_DIR)
   .option('--listen <host>', 'Bind host', DEFAULT_LISTEN)
   .option('--port <port>', 'Listen port', DEFAULT_PORT)
   .option('--devcontainer-cli <path>', 'Path to devcontainer CLI')
-  .option('--dotfiles-repository <url>', 'Dotfiles repository URL')
-  .option('--dotfiles-target-path <path>', 'Dotfiles target path')
-  .option('--dotfiles-install-command <command>', 'Dotfiles install command')
-  .option('--default-shell <shell>', 'Default shell for new sessions (e.g., /bin/bash, /bin/zsh)', DEFAULT_SHELL)
   .action(async (options: CliOptions) => {
     const { startServer } = await import('@ccsandbox/server');
 
@@ -47,16 +36,11 @@ program
 
     try {
       await startServer({
-        pat: options.pat,
         apiBase: options.apiBase,
         repoDir: options.repoDir,
         listen: options.listen,
         port,
         devcontainerCli: options.devcontainerCli,
-        dotfilesRepository: options.dotfilesRepository,
-        dotfilesTargetPath: options.dotfilesTargetPath,
-        dotfilesInstallCommand: options.dotfilesInstallCommand,
-        defaultShell: options.defaultShell,
         serveStatic: true,
       });
     } catch (err) {

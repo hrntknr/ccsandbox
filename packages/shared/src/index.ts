@@ -26,6 +26,8 @@ export type {
   TerminalResizePayload,
   SessionStatePayload,
   ErrorPayload,
+  EditableConfig,
+  UpdateConfigRequest,
   ClientConfig,
 } from './types/api.js';
 

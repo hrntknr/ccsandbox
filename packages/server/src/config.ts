@@ -4,8 +4,8 @@
  */
 
 export interface ServerConfig {
-  /** GitHub Personal Access Token */
-  pat: string;
+  /** GitHub Personal Access Token (optional, can be set via Web UI) */
+  pat?: string;
   /** GitHub API Base URL */
   apiBase: string;
   /** Workspace root directory */
@@ -52,4 +52,15 @@ export function getConfig(): ServerConfig {
  */
 export function hasConfig(): boolean {
   return config !== null;
+}
+
+/**
+ * Update the server configuration.
+ * Merges provided updates with existing configuration.
+ */
+export function updateConfig(updates: Partial<ServerConfig>): void {
+  if (!config) {
+    throw new Error('Server configuration has not been initialized');
+  }
+  Object.assign(config, updates);
 }
