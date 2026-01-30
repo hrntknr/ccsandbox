@@ -138,6 +138,8 @@ export class TerminalManager extends EventEmitter {
       'exec',
       '--workspace-folder',
       workspacePath,
+      '--remote-env',
+      'TERM=xterm-256color',
       shell,
     ], {
       name: 'xterm-256color',

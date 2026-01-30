@@ -165,6 +165,8 @@ describe('TerminalManager', () => {
           'exec',
           '--workspace-folder',
           '/workspaces/test-project',
+          '--remote-env',
+          'TERM=xterm-256color',
           'bash',
         ],
         expect.objectContaining({
