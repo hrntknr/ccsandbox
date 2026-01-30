@@ -25,7 +25,7 @@ npm run dev -w=@ccsandbox/server  # サーバーのみ開発モード
 npm run dev -w=@ccsandbox/web     # Webのみ開発モード
 
 # 実行
-npm start -- --pat <token> --api-base https://api.github.com
+npm start
 ```
 
 ## Architecture
@@ -67,10 +67,10 @@ Conventional Commits形式: `feat(scope):`, `fix(scope):`, `refactor(scope):`, `
 ## CLI Options
 
 ```
---pat <token>              GitHub PAT (必須)
---api-base <url>           GitHub API URL (default: https://api.github.com)
 --repo-dir <path>          ワークスペースルート (default: ~/.ccsandbox)
 --listen <host>            バインドホスト (default: 127.0.0.1)
 --port <port>              ポート (default: 3000)
 --devcontainer-cli <path>  devcontainer CLIパス
 ```
+
+GitHub PAT と API Base URL は Web UI の Settings から設定。
