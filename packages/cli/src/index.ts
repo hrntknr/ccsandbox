@@ -13,12 +13,14 @@ interface CliOptions {
   dotfilesRepository?: string;
   dotfilesTargetPath?: string;
   dotfilesInstallCommand?: string;
+  defaultShell?: string;
 }
 
 const DEFAULT_REPO_DIR = path.join(os.homedir(), '.ccsandbox');
 const DEFAULT_LISTEN = '127.0.0.1';
 const DEFAULT_PORT = '3000';
 const DEFAULT_API_BASE = 'https://api.github.com';
+const DEFAULT_SHELL = 'bash';
 
 program
   .name('ccsandbox')
@@ -33,6 +35,7 @@ program
   .option('--dotfiles-repository <url>', 'Dotfiles repository URL')
   .option('--dotfiles-target-path <path>', 'Dotfiles target path')
   .option('--dotfiles-install-command <command>', 'Dotfiles install command')
+  .option('--default-shell <shell>', 'Default shell for new sessions (e.g., /bin/bash, /bin/zsh)', DEFAULT_SHELL)
   .action(async (options: CliOptions) => {
     const { startServer } = await import('@ccsandbox/server');
 
@@ -53,6 +56,7 @@ program
         dotfilesRepository: options.dotfilesRepository,
         dotfilesTargetPath: options.dotfilesTargetPath,
         dotfilesInstallCommand: options.dotfilesInstallCommand,
+        defaultShell: options.defaultShell,
         serveStatic: true,
       });
     } catch (err) {
