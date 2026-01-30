@@ -54,6 +54,16 @@ router.post(
       return;
     }
 
+    // Check if PAT is configured
+    if (!config.pat) {
+      const response: ApiResponse<null> = {
+        success: false,
+        error: 'GitHub PAT is not configured. Please configure it in Settings.',
+      };
+      res.status(401).json(response);
+      return;
+    }
+
     try {
       // Step 1: Create session record
       const session = await store.create({
@@ -69,7 +79,7 @@ router.post(
         await cloneRepository({
           apiBase: config.apiBase,
           repo: body.repo,
-          pat: config.pat,
+          pat: config.pat!,
           workspacePath: session.workspacePath,
           baseBranch: body.baseBranch,
           workBranch: body.workBranch,

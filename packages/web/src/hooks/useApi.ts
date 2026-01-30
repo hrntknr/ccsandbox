@@ -7,6 +7,7 @@ import type {
   SessionResponse,
   CreateSessionRequest,
   ClientConfig,
+  UpdateConfigRequest,
 } from '@ccsandbox/shared';
 
 
@@ -212,4 +213,34 @@ export function useClientConfig(): UseApiReturn<ClientConfig> {
   }, []);
 
   return { ...state, execute, reset };
+}
+
+export function useUpdateConfig(): {
+  updateConfig: (request: UpdateConfigRequest) => Promise<ClientConfig | null>;
+  loading: boolean;
+  error: string | null;
+} {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const updateConfig = useCallback(async (request: UpdateConfigRequest): Promise<ClientConfig | null> => {
+    setLoading(true);
+    setError(null);
+
+    const response = await fetchApi<{ config: ClientConfig }>('/config', {
+      method: 'PUT',
+      body: JSON.stringify(request),
+    });
+
+    setLoading(false);
+
+    if (response.success && response.data) {
+      return response.data.config;
+    } else {
+      setError(response.error || 'Failed to update config');
+      return null;
+    }
+  }, []);
+
+  return { updateConfig, loading, error };
 }

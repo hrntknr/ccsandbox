@@ -1,0 +1,55 @@
+.settings-modal {
+  width: 520px;
+  max-height: 90%;
+  overflow-y: auto;
+}
+
+.settings-notice {
+  background-color: #1b3c4b;
+  color: #4eb8c9;
+  padding: 12px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.settings-section {
+  margin-bottom: 24px;
+}
+
+.settings-section:last-of-type {
+  margin-bottom: 0;
+}
+
+.settings-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 12px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #333;
+}
+
+.form-field-hint {
+  font-size: 11px;
+  color: #666;
+  margin-top: 4px;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .settings-modal {
+    width: 95%;
+    max-width: none;
+  }
+
+  .settings-section {
+    margin-bottom: 20px;
+  }
+
+  .settings-section-title {
+    font-size: 13px;
+  }
+}

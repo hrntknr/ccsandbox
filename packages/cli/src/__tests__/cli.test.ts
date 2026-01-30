@@ -27,7 +27,6 @@ describe('CLI', () => {
     it('should display help information', () => {
       const result = runCli('--help');
       expect(result.stdout).toContain('ccsandbox');
-      expect(result.stdout).toContain('--pat <token>');
       expect(result.stdout).toContain('--api-base <url>');
       expect(result.stdout).toContain('--repo-dir <path>');
       expect(result.stdout).toContain('--listen <host>');
@@ -43,13 +42,7 @@ describe('CLI', () => {
     });
   });
 
-  describe('required options', () => {
-    it('should error when --pat is missing', () => {
-      const result = runCli('--api-base https://api.github.com --port 0');
-      expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain('--pat');
-    });
-
+  describe('default options', () => {
     it('should use default api-base when not specified', () => {
       // --api-base has a default value of https://api.github.com
       // So this should not error for missing api-base
