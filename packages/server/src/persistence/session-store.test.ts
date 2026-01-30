@@ -16,7 +16,8 @@ describe('SessionStore', () => {
     // Create a unique temp directory for each test
     testDir = join(tmpdir(), `ccsandbox-test-${Date.now()}-${Math.random()}`);
     await mkdir(testDir, { recursive: true });
-    store = new SessionStore(testDir);
+    // configDir and repoDir are both testDir for testing
+    store = new SessionStore(testDir, testDir);
   });
 
   afterEach(async () => {
@@ -136,7 +137,7 @@ describe('SessionStore', () => {
         workBranch: 'test',
       });
 
-      const filePath = join(testDir, '.ccsandbox', 'sessions.json');
+      const filePath = join(testDir, 'sessions.json');
       const content = await readFile(filePath, 'utf-8');
       const data = JSON.parse(content) as { sessions: unknown[] };
       expect(data.sessions).toHaveLength(1);

@@ -8,7 +8,9 @@ export interface ServerConfig {
   pat?: string;
   /** GitHub API Base URL */
   apiBase: string;
-  /** Workspace root directory */
+  /** Configuration directory (sessions.json, config.json) */
+  configDir: string;
+  /** Workspace root directory for cloned repositories */
   repoDir: string;
   /** Bind host */
   listen: string;

@@ -36,7 +36,8 @@ describe('GitHub API routes', () => {
     setConfig({
       pat: 'test-pat',
       apiBase: 'https://api.github.com',
-      repoDir: '/tmp/test',
+      configDir: '/tmp/test',
+      repoDir: '/tmp/test/repo',
       listen: '127.0.0.1',
       port: 0,
     });

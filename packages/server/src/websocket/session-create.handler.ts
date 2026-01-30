@@ -67,7 +67,7 @@ export function createSessionCreateHandler(ws: WebSocket): SessionCreateHandler 
     isCreating = true;
 
     const config = getConfig();
-    const sessionStore = getSessionStore(config.repoDir);
+    const sessionStore = getSessionStore(config.configDir, config.repoDir);
 
     const { title, repo, baseBranch, workBranch, shell } = message;
 

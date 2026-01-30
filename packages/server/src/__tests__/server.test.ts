@@ -1,21 +1,36 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach } from 'vitest';
+import { mkdir, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { startServer, type ServerInstance } from '../index.js';
+import { resetConfigStore } from '../persistence/config-store.js';
+import { resetSessionStore } from '../persistence/session-store.js';
 
 describe('startServer', () => {
   let serverInstance: ServerInstance | null = null;
+  let testDir: string;
+
+  beforeEach(async () => {
+    testDir = join(tmpdir(), `ccsandbox-server-test-${Date.now()}-${Math.random()}`);
+    await mkdir(testDir, { recursive: true });
+    resetConfigStore();
+    resetSessionStore();
+  });
 
   afterEach(async () => {
     if (serverInstance) {
       await serverInstance.close();
       serverInstance = null;
     }
+    resetConfigStore();
+    resetSessionStore();
+    await rm(testDir, { recursive: true, force: true });
   });
 
   it('should start server on specified port', async () => {
     serverInstance = await startServer({
-      pat: 'test-pat',
-      apiBase: 'https://api.github.com',
-      repoDir: '/tmp/.ccsandbox',
+      configDir: testDir,
+      repoDir: join(testDir, 'repo'),
       listen: '127.0.0.1',
       port: 0, // Use any available port
     });
@@ -27,9 +42,8 @@ describe('startServer', () => {
 
   it('should respond to health check after start', async () => {
     serverInstance = await startServer({
-      pat: 'test-pat',
-      apiBase: 'https://api.github.com',
-      repoDir: '/tmp/.ccsandbox',
+      configDir: testDir,
+      repoDir: join(testDir, 'repo'),
       listen: '127.0.0.1',
       port: 0,
     });
@@ -43,9 +57,8 @@ describe('startServer', () => {
 
   it('should close server gracefully', async () => {
     serverInstance = await startServer({
-      pat: 'test-pat',
-      apiBase: 'https://api.github.com',
-      repoDir: '/tmp/.ccsandbox',
+      configDir: testDir,
+      repoDir: join(testDir, 'repo'),
       listen: '127.0.0.1',
       port: 0,
     });

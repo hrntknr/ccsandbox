@@ -52,6 +52,7 @@ describe('sessions routes', () => {
     config = {
       pat: 'test-pat',
       apiBase: 'https://api.github.com',
+      configDir: testDir,
       repoDir: testDir,
       listen: '127.0.0.1',
       port: 3000,

@@ -186,7 +186,7 @@ export function setupWebSocketServer(server: http.Server): WebSocketServerInstan
 
   // Setup session sync manager and store event listeners
   const config = getConfig();
-  const sessionStore = getSessionStore(config.repoDir);
+  const sessionStore = getSessionStore(config.configDir, config.repoDir);
   const sessionSyncManager = getSessionSyncManager();
 
   // Forward session store events to sync manager
