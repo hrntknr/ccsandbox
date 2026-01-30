@@ -128,7 +128,7 @@ describe('createTerminalHandler', () => {
     it('should send error if session not running', async () => {
       mockSessionStore.get.mockResolvedValue({
         sessionId: testSessionId,
-        state: 'READY',
+        state: 'STOPPED',
         workspacePath: '/workspaces/test-project',
       });
 
