@@ -90,7 +90,7 @@ export function createTerminalHandler(
   ): Promise<void> {
     try {
       const config = getConfig();
-      const sessionStore = new SessionStore(config.repoDir);
+      const sessionStore = new SessionStore(config.configDir, config.repoDir);
 
       // Get session and validate
       const session = await sessionStore.get(sessionId);
@@ -137,7 +137,7 @@ export function createTerminalHandler(
 
     try {
       const config = getConfig();
-      const sessionStore = new SessionStore(config.repoDir);
+      const sessionStore = new SessionStore(config.configDir, config.repoDir);
       const session = await sessionStore.get(sessionId);
 
       if (session.state !== 'RUNNING') {
