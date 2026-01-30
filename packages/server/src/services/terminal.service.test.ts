@@ -1,46 +1,82 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { spawn, ChildProcess } from 'node:child_process';
-import { EventEmitter, Readable, Writable } from 'node:stream';
+import { spawn } from 'node:child_process';
+import { EventEmitter, Readable } from 'node:stream';
+import type { ChildProcess } from 'node:child_process';
 import {
   TerminalManager,
   getTerminalManager,
   resetTerminalManager,
 } from './terminal.service.js';
 
-// Mock child_process
+// Mock child_process (still used for shell detection)
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
 }));
 
+// Mock node-pty
+vi.mock('@lydell/node-pty', () => ({
+  spawn: vi.fn(),
+}));
+
+import * as pty from '@lydell/node-pty';
+
+// Helper to create a mock IPty object
+function createMockPty() {
+  const dataCallbacks: Array<(data: string) => void> = [];
+  const exitCallbacks: Array<(e: { exitCode: number; signal?: number }) => void> = [];
+
+  return {
+    pid: 12345,
+    cols: 80,
+    rows: 24,
+    process: 'bash',
+    onData: vi.fn((callback: (data: string) => void) => {
+      dataCallbacks.push(callback);
+      return { dispose: vi.fn() };
+    }),
+    onExit: vi.fn((callback: (e: { exitCode: number; signal?: number }) => void) => {
+      exitCallbacks.push(callback);
+      return { dispose: vi.fn() };
+    }),
+    resize: vi.fn(),
+    clear: vi.fn(),
+    write: vi.fn(),
+    kill: vi.fn(),
+    pause: vi.fn(),
+    resume: vi.fn(),
+    // Helper methods for testing
+    _emitData(data: string) {
+      for (const cb of dataCallbacks) {
+        cb(data);
+      }
+    },
+    _emitExit(exitCode: number, signal?: number) {
+      for (const cb of exitCallbacks) {
+        cb({ exitCode, signal });
+      }
+    },
+  };
+}
+
 describe('TerminalManager', () => {
   let terminalManager: TerminalManager;
-  let mockProcess: ChildProcess;
-  let mockStdin: Writable;
-  let mockStdout: Readable;
-  let mockStderr: Readable;
+  let mockPty: ReturnType<typeof createMockPty>;
+  let mockDetectProcess: ChildProcess;
 
   beforeEach(() => {
     terminalManager = new TerminalManager();
+    mockPty = createMockPty();
 
-    // Create mock streams
-    mockStdin = new Writable({
-      write(chunk, encoding, callback) {
-        callback();
-        return true;
-      },
-    });
-    mockStdout = new Readable({ read() {} });
-    mockStderr = new Readable({ read() {} });
+    // Create mock process for shell detection
+    mockDetectProcess = new EventEmitter() as ChildProcess;
+    mockDetectProcess.stdout = new Readable({ read() {} });
+    mockDetectProcess.stderr = new Readable({ read() {} });
 
-    // Create mock process
-    mockProcess = new EventEmitter() as ChildProcess;
-    mockProcess.stdin = mockStdin;
-    mockProcess.stdout = mockStdout;
-    mockProcess.stderr = mockStderr;
-    mockProcess.kill = vi.fn().mockReturnValue(true);
+    // Mock pty.spawn to return our mock PTY
+    vi.mocked(pty.spawn).mockReturnValue(mockPty as unknown as ReturnType<typeof pty.spawn>);
 
-    // Mock spawn to return our mock process
-    vi.mocked(spawn).mockReturnValue(mockProcess);
+    // Mock child_process spawn for shell detection
+    vi.mocked(spawn).mockReturnValue(mockDetectProcess);
   });
 
   afterEach(() => {
@@ -50,22 +86,13 @@ describe('TerminalManager', () => {
 
   describe('create', () => {
     it('should create a new terminal with default options', async () => {
-      // Mock shell detection
-      const detectProcess = new EventEmitter() as ChildProcess;
-      detectProcess.stdout = new Readable({ read() {} });
-      detectProcess.stderr = new Readable({ read() {} });
-
-      vi.mocked(spawn).mockReturnValueOnce(detectProcess);
-
       const createPromise = terminalManager.create({
         sessionId: 'session-1',
         workspacePath: '/workspaces/test-project',
       });
 
       // Simulate bash detection failure -> fallback to sh
-      detectProcess.emit('close', 1);
-
-      vi.mocked(spawn).mockReturnValueOnce(mockProcess);
+      mockDetectProcess.emit('close', 1);
 
       const tabId = await createPromise;
 
@@ -74,7 +101,6 @@ describe('TerminalManager', () => {
     });
 
     it('should create a terminal with specified tabId', async () => {
-      // Skip shell detection by providing shell
       const tabId = await terminalManager.create({
         sessionId: 'session-1',
         workspacePath: '/workspaces/test-project',
@@ -86,7 +112,7 @@ describe('TerminalManager', () => {
       expect(terminalManager.get('my-tab-id')).toBeDefined();
     });
 
-    it('should emit data events from stdout', async () => {
+    it('should emit data events from PTY', async () => {
       const dataHandler = vi.fn();
       terminalManager.on('data', dataHandler);
 
@@ -97,30 +123,13 @@ describe('TerminalManager', () => {
         shell: 'bash',
       });
 
-      // Simulate stdout data using emit
-      mockStdout.emit('data', Buffer.from('Hello World'));
+      // Simulate PTY data
+      mockPty._emitData('Hello World');
 
       expect(dataHandler).toHaveBeenCalledWith('tab-1', 'Hello World');
     });
 
-    it('should emit data events from stderr', async () => {
-      const dataHandler = vi.fn();
-      terminalManager.on('data', dataHandler);
-
-      await terminalManager.create({
-        sessionId: 'session-1',
-        workspacePath: '/workspaces/test-project',
-        tabId: 'tab-1',
-        shell: 'bash',
-      });
-
-      // Simulate stderr data using emit
-      mockStderr.emit('data', Buffer.from('Error message'));
-
-      expect(dataHandler).toHaveBeenCalledWith('tab-1', 'Error message');
-    });
-
-    it('should emit exit event when process closes', async () => {
+    it('should emit exit event when PTY exits', async () => {
       const exitHandler = vi.fn();
       terminalManager.on('exit', exitHandler);
 
@@ -133,33 +142,14 @@ describe('TerminalManager', () => {
 
       expect(terminalManager.size).toBe(1);
 
-      // Simulate process exit
-      mockProcess.emit('close', 0);
+      // Simulate PTY exit
+      mockPty._emitExit(0);
 
       expect(exitHandler).toHaveBeenCalledWith('tab-1', 0);
       expect(terminalManager.size).toBe(0);
     });
 
-    it('should emit error event on process error', async () => {
-      const errorHandler = vi.fn();
-      terminalManager.on('error', errorHandler);
-
-      await terminalManager.create({
-        sessionId: 'session-1',
-        workspacePath: '/workspaces/test-project',
-        tabId: 'tab-1',
-        shell: 'bash',
-      });
-
-      // Simulate process error
-      const testError = new Error('Process failed');
-      mockProcess.emit('error', testError);
-
-      expect(errorHandler).toHaveBeenCalledWith('tab-1', testError);
-      expect(terminalManager.size).toBe(0);
-    });
-
-    it('should use devcontainer exec command', async () => {
+    it('should use devcontainer exec command via node-pty', async () => {
       await terminalManager.create({
         sessionId: 'session-1',
         workspacePath: '/workspaces/test-project',
@@ -168,17 +158,19 @@ describe('TerminalManager', () => {
         devcontainerCliPath: '/usr/local/bin/devcontainer',
       });
 
-      // Check that spawn was called with script wrapper and devcontainer exec command
-      expect(spawn).toHaveBeenCalledWith(
-        'script',
+      // Check that pty.spawn was called with devcontainer exec command
+      expect(pty.spawn).toHaveBeenCalledWith(
+        '/usr/local/bin/devcontainer',
         [
-          '-q',
-          '-c',
-          '/usr/local/bin/devcontainer exec --workspace-folder "/workspaces/test-project" bash',
-          '/dev/null',
+          'exec',
+          '--workspace-folder',
+          '/workspaces/test-project',
+          'bash',
         ],
         expect.objectContaining({
-          stdio: ['pipe', 'pipe', 'pipe'],
+          name: 'xterm-256color',
+          cols: 80,
+          rows: 24,
           env: expect.objectContaining({
             TERM: 'xterm-256color',
           }),
@@ -188,9 +180,7 @@ describe('TerminalManager', () => {
   });
 
   describe('write', () => {
-    it('should write data to terminal stdin', async () => {
-      const writeSpy = vi.spyOn(mockStdin, 'write');
-
+    it('should write data to PTY', async () => {
       await terminalManager.create({
         sessionId: 'session-1',
         workspacePath: '/workspaces/test-project',
@@ -201,7 +191,7 @@ describe('TerminalManager', () => {
       const result = terminalManager.write('tab-1', 'ls -la\n');
 
       expect(result).toBe(true);
-      expect(writeSpy).toHaveBeenCalledWith('ls -la\n');
+      expect(mockPty.write).toHaveBeenCalledWith('ls -la\n');
     });
 
     it('should return false for non-existent terminal', () => {
@@ -211,7 +201,7 @@ describe('TerminalManager', () => {
   });
 
   describe('resize', () => {
-    it('should update terminal dimensions', async () => {
+    it('should update terminal dimensions and call pty.resize', async () => {
       await terminalManager.create({
         sessionId: 'session-1',
         workspacePath: '/workspaces/test-project',
@@ -227,6 +217,7 @@ describe('TerminalManager', () => {
       const terminal = terminalManager.get('tab-1');
       expect(terminal?.cols).toBe(120);
       expect(terminal?.rows).toBe(40);
+      expect(mockPty.resize).toHaveBeenCalledWith(120, 40);
     });
 
     it('should return false for non-existent terminal', () => {
@@ -236,7 +227,7 @@ describe('TerminalManager', () => {
   });
 
   describe('kill', () => {
-    it('should kill terminal process', async () => {
+    it('should kill terminal PTY', async () => {
       await terminalManager.create({
         sessionId: 'session-1',
         workspacePath: '/workspaces/test-project',
@@ -249,7 +240,7 @@ describe('TerminalManager', () => {
       const result = terminalManager.kill('tab-1');
 
       expect(result).toBe(true);
-      expect(mockProcess.kill).toHaveBeenCalledWith('SIGTERM');
+      expect(mockPty.kill).toHaveBeenCalled();
       expect(terminalManager.size).toBe(0);
     });
 
@@ -268,13 +259,9 @@ describe('TerminalManager', () => {
         shell: 'bash',
       });
 
-      // Create second mock process
-      const mockProcess2 = new EventEmitter() as ChildProcess;
-      mockProcess2.stdin = new Writable({ write(_, __, cb) { cb(); return true; } });
-      mockProcess2.stdout = new Readable({ read() {} });
-      mockProcess2.stderr = new Readable({ read() {} });
-      mockProcess2.kill = vi.fn();
-      vi.mocked(spawn).mockReturnValueOnce(mockProcess2);
+      // Create second mock PTY
+      const mockPty2 = createMockPty();
+      vi.mocked(pty.spawn).mockReturnValueOnce(mockPty2 as unknown as ReturnType<typeof pty.spawn>);
 
       await terminalManager.create({
         sessionId: 'session-1',
@@ -284,12 +271,8 @@ describe('TerminalManager', () => {
       });
 
       // Create terminal for different session
-      const mockProcess3 = new EventEmitter() as ChildProcess;
-      mockProcess3.stdin = new Writable({ write(_, __, cb) { cb(); return true; } });
-      mockProcess3.stdout = new Readable({ read() {} });
-      mockProcess3.stderr = new Readable({ read() {} });
-      mockProcess3.kill = vi.fn();
-      vi.mocked(spawn).mockReturnValueOnce(mockProcess3);
+      const mockPty3 = createMockPty();
+      vi.mocked(pty.spawn).mockReturnValueOnce(mockPty3 as unknown as ReturnType<typeof pty.spawn>);
 
       await terminalManager.create({
         sessionId: 'session-2',
@@ -313,12 +296,8 @@ describe('TerminalManager', () => {
         shell: 'bash',
       });
 
-      const mockProcess2 = new EventEmitter() as ChildProcess;
-      mockProcess2.stdin = new Writable({ write(_, __, cb) { cb(); return true; } });
-      mockProcess2.stdout = new Readable({ read() {} });
-      mockProcess2.stderr = new Readable({ read() {} });
-      mockProcess2.kill = vi.fn();
-      vi.mocked(spawn).mockReturnValueOnce(mockProcess2);
+      const mockPty2 = createMockPty();
+      vi.mocked(pty.spawn).mockReturnValueOnce(mockPty2 as unknown as ReturnType<typeof pty.spawn>);
 
       await terminalManager.create({
         sessionId: 'session-1',
@@ -344,12 +323,8 @@ describe('TerminalManager', () => {
         shell: 'bash',
       });
 
-      const mockProcess2 = new EventEmitter() as ChildProcess;
-      mockProcess2.stdin = new Writable({ write(_, __, cb) { cb(); return true; } });
-      mockProcess2.stdout = new Readable({ read() {} });
-      mockProcess2.stderr = new Readable({ read() {} });
-      mockProcess2.kill = vi.fn();
-      vi.mocked(spawn).mockReturnValueOnce(mockProcess2);
+      const mockPty2 = createMockPty();
+      vi.mocked(pty.spawn).mockReturnValueOnce(mockPty2 as unknown as ReturnType<typeof pty.spawn>);
 
       await terminalManager.create({
         sessionId: 'session-2',
@@ -424,12 +399,8 @@ describe('workspacePath validation', () => {
   });
 
   it('should accept valid absolute workspacePath', async () => {
-    const mockProcess = new EventEmitter() as ChildProcess;
-    mockProcess.stdin = new Writable({ write(_, __, cb) { cb(); return true; } });
-    mockProcess.stdout = new Readable({ read() {} });
-    mockProcess.stderr = new Readable({ read() {} });
-    mockProcess.kill = vi.fn();
-    vi.mocked(spawn).mockReturnValue(mockProcess);
+    const mockPty = createMockPty();
+    vi.mocked(pty.spawn).mockReturnValue(mockPty as unknown as ReturnType<typeof pty.spawn>);
 
     const tabId = await terminalManager.create({
       sessionId: 'session-1',

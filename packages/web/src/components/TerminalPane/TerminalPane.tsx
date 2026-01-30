@@ -30,6 +30,7 @@ export function TerminalPane({ session }: TerminalPaneProps) {
     onOutput,
     onHistory,
     onExit,
+    onResizeSync,
     onOwnTabAdded,
   } = useTerminalWebSocket(sessionId);
 
@@ -199,6 +200,7 @@ export function TerminalPane({ session }: TerminalPaneProps) {
               onOutput={onOutput}
               onHistory={onHistory}
               onExit={onExit}
+              onResizeSync={onResizeSync}
               closeTab={closeTab}
             />
           ))
