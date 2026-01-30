@@ -7,6 +7,7 @@ import type {
   ClaudeEvent,
   ClaudeMessage,
   ClaudePendingPermission,
+  ClaudePermissionMode,
 } from '@ccsandbox/shared';
 
 /**
@@ -37,6 +38,7 @@ export interface ClaudeInstance {
   pendingPermissions: Map<string, ClaudePendingPermission>;
   isProcessing: boolean;
   currentStreamingMessage: ClaudeMessage | null;
+  permissionMode: ClaudePermissionMode;
 }
 
 /**
@@ -56,6 +58,7 @@ export interface CreateClaudeOptions {
   workspacePath: string;
   devcontainerCliPath?: string;
   tabId?: string;
+  permissionMode?: ClaudePermissionMode;
 }
 
 /**
@@ -77,6 +80,7 @@ export class ClaudeManager extends EventEmitter {
       workspacePath,
       devcontainerCliPath = 'devcontainer',
       tabId = uuidv4(),
+      permissionMode = 'default',
     } = options;
 
     if (!isValidWorkspacePath(workspacePath)) {
@@ -95,6 +99,7 @@ export class ClaudeManager extends EventEmitter {
       pendingPermissions: new Map(),
       isProcessing: false,
       currentStreamingMessage: null,
+      permissionMode,
     };
 
     this.instances.set(tabId, instance);
@@ -129,6 +134,11 @@ export class ClaudeManager extends EventEmitter {
       '--permission-prompt-tool',
       'stdio',
     ];
+
+    // Add permission mode option
+    if (instance.permissionMode !== 'default') {
+      args.push('--permission-mode', instance.permissionMode);
+    }
 
     const proc = spawn(cliPath, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -348,6 +358,39 @@ export class ClaudeManager extends EventEmitter {
    */
   get(tabId: string): ClaudeInstance | undefined {
     return this.instances.get(tabId);
+  }
+
+  /**
+   * Set permission mode and restart Claude process if changed
+   */
+  async setPermissionMode(
+    tabId: string,
+    permissionMode: ClaudePermissionMode,
+    devcontainerCliPath = 'devcontainer'
+  ): Promise<boolean> {
+    const instance = this.instances.get(tabId);
+    if (!instance) {
+      return false;
+    }
+
+    // No change needed
+    if (instance.permissionMode === permissionMode) {
+      return true;
+    }
+
+    // Kill existing process
+    if (instance.process) {
+      instance.process.kill('SIGTERM');
+      instance.process = null;
+    }
+
+    // Update mode
+    instance.permissionMode = permissionMode;
+
+    // Restart process with new mode
+    await this.startClaudeProcess(instance, devcontainerCliPath);
+
+    return true;
   }
 
   /**
