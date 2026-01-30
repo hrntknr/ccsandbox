@@ -521,6 +521,10 @@
   color: var(--claude-text-muted);
 }
 
+.claude-input-footer > .permission-mode-selector {
+  margin-right: auto;
+}
+
 .claude-input-submit {
   padding: 6px 14px;
   background-color: var(--claude-accent);
