@@ -144,22 +144,27 @@ export function TerminalPane({ session }: TerminalPaneProps) {
                   <span className="terminal-tab-icon">&#9672;</span>
                 )}
                 {tab.isEditing ? (
-                  <input
-                    type="text"
-                    className="terminal-tab-input"
-                    value={editingTitle}
-                    onChange={(e) => setEditingTitle(e.target.value)}
-                    onBlur={() => handleFinishEdit(tab.tabId)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleFinishEdit(tab.tabId);
-                      } else if (e.key === 'Escape') {
-                        handleCancelEdit();
-                      }
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      handleFinishEdit(tab.tabId);
                     }}
-                    autoFocus
                     onClick={(e) => e.stopPropagation()}
-                  />
+                  >
+                    <input
+                      type="text"
+                      className="terminal-tab-input"
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      onBlur={() => handleFinishEdit(tab.tabId)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') {
+                          handleCancelEdit();
+                        }
+                      }}
+                      autoFocus
+                    />
+                  </form>
                 ) : (
                   <span
                     className="terminal-tab-title"
