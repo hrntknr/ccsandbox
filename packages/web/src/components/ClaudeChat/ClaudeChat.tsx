@@ -9,7 +9,6 @@ import type {
 import { MessageList } from './MessageList';
 import { InputForm } from './InputForm';
 import { PermissionDialog } from './PermissionDialog';
-import './ClaudeChat.css';
 
 interface ClaudeChatProps {
   tabId: string;
@@ -175,8 +174,8 @@ export function ClaudeChat({
   );
 
   return (
-    <div className={`claude-chat ${isActive ? 'claude-chat-active' : 'claude-chat-hidden'}`}>
-      <div className="claude-chat-messages">
+    <div className={`flex-col h-full bg-claude-bg-primary text-claude-text-primary font-sans text-sm leading-normal ${isActive ? 'flex' : 'hidden'}`}>
+      <div className="flex-1 overflow-y-auto py-4 scrollbar-thin">
         <MessageList
           messages={messages}
           streamingContent={streamingContent}
