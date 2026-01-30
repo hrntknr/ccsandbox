@@ -388,6 +388,37 @@ export async function removeContainer(containerId: string, force = false): Promi
 }
 
 /**
+ * Waits for a Docker container to be ready to accept commands.
+ *
+ * @param containerId - Container ID or name
+ * @param timeoutMs - Timeout in milliseconds (default: 10000)
+ * @throws InvalidContainerIdError if container ID is invalid
+ * @throws DockerOperationError if container does not become ready within timeout
+ */
+export async function waitForContainerReady(
+  containerId: string,
+  timeoutMs = 10000
+): Promise<void> {
+  if (!isValidContainerId(containerId)) {
+    throw new InvalidContainerIdError(containerId);
+  }
+
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeoutMs) {
+    const result = await execCommand('docker', ['exec', containerId, 'true']);
+    if (result.exitCode === 0) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new DockerOperationError(
+    'wait-ready',
+    null,
+    `Container did not become ready within ${timeoutMs}ms`
+  );
+}
+
+/**
  * Checks if a Docker container is running.
  *
  * @param containerId - Container ID or name

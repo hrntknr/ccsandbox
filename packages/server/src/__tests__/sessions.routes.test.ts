@@ -32,6 +32,7 @@ vi.mock('../services/devcontainer.service.js', async () => {
     startDevcontainer: vi.fn(),
     removeContainer: vi.fn(),
     isContainerRunning: vi.fn(),
+    waitForContainerReady: vi.fn(),
   };
 });
 
