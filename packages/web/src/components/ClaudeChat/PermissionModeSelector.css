@@ -1,0 +1,55 @@
+/* Permission Mode Selector */
+.permission-mode-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.permission-mode-chip {
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid var(--claude-border);
+  border-radius: 14px;
+  background-color: transparent;
+  color: var(--claude-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.permission-mode-chip:hover {
+  border-color: var(--claude-text-secondary);
+  color: var(--claude-text-secondary);
+  background-color: var(--claude-bg-hover);
+}
+
+.permission-mode-chip.active {
+  border-color: var(--claude-accent);
+  color: var(--claude-accent);
+  background-color: rgba(217, 119, 6, 0.1);
+}
+
+.permission-mode-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Mode-specific colors */
+.permission-mode-chip.mode-default.active {
+  border-color: var(--claude-accent);
+  color: var(--claude-accent);
+  background-color: rgba(217, 119, 6, 0.1);
+}
+
+.permission-mode-chip.mode-plan.active {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.permission-mode-chip.mode-bypassPermissions.active {
+  border-color: var(--claude-success);
+  color: var(--claude-success);
+  background-color: rgba(34, 197, 94, 0.1);
+}
