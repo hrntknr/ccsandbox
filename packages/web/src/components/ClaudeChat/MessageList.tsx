@@ -7,17 +7,21 @@ interface MessageListProps {
   isLoading: boolean;
 }
 
+interface ToolInfo {
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+}
+
+interface ToolResult {
+  toolUseId: string;
+  content: string;
+  isError?: boolean;
+}
+
 interface ToolItemProps {
-  tool: {
-    id: string;
-    name: string;
-    input: Record<string, unknown>;
-  };
-  result?: {
-    toolUseId: string;
-    content: string;
-    isError?: boolean;
-  };
+  tool: ToolInfo;
+  result?: ToolResult;
 }
 
 function ToolItem({ tool, result }: ToolItemProps) {
@@ -68,7 +72,64 @@ function ToolItem({ tool, result }: ToolItemProps) {
   );
 }
 
+// 順序を保持するためのアイテム型
+type ContentItem =
+  | { type: 'text'; text: string }
+  | { type: 'tool'; tool: ToolInfo; result?: ToolResult };
+
+interface GroupedMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  items: ContentItem[];
+  timestamp: string;
+}
+
+function groupConsecutiveMessages(messages: ClaudeMessage[]): GroupedMessage[] {
+  const grouped: GroupedMessage[] = [];
+
+  for (const message of messages) {
+    const last = grouped[grouped.length - 1];
+
+    // メッセージからアイテムを作成（順序を保持）
+    const items: ContentItem[] = [];
+
+    // テキストコンテンツ
+    if (message.content.trim()) {
+      items.push({ type: 'text', text: message.content });
+    }
+
+    // ツール使用（テキストの後に追加）
+    if (message.toolUse) {
+      for (const tool of message.toolUse) {
+        const result = message.toolResults?.find((r) => r.toolUseId === tool.id);
+        items.push({ type: 'tool', tool, result });
+      }
+    }
+
+    if (last && last.role === message.role) {
+      // 連続した同じロールのメッセージを結合
+      last.items.push(...items);
+      last.timestamp = message.timestamp;
+    } else {
+      grouped.push({
+        id: message.id,
+        role: message.role,
+        items,
+        timestamp: message.timestamp,
+      });
+    }
+  }
+
+  return grouped;
+}
+
 export function MessageList({ messages, streamingContent, isLoading }: MessageListProps) {
+  const groupedMessages = groupConsecutiveMessages(messages);
+
+  // ストリーミング中のコンテンツを最後のアシスタントメッセージに結合するかどうか
+  const lastGroup = groupedMessages[groupedMessages.length - 1];
+  const shouldAppendStreaming = streamingContent && lastGroup?.role === 'assistant';
+
   if (messages.length === 0 && !isLoading && !streamingContent) {
     return (
       <div className="claude-empty-state">
@@ -83,38 +144,63 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
 
   return (
     <div className="claude-message-list">
-      {messages.map((message) => (
-        <div
-          key={message.id}
-          className={`claude-message claude-message-${message.role}`}
-        >
-          <div className="claude-message-header">
-            <div className="claude-message-avatar">
-              {message.role === 'user' ? 'U' : '✦'}
+      {groupedMessages.map((message, groupIndex) => {
+        const isLastGroup = groupIndex === groupedMessages.length - 1;
+        const showStreamingHere = isLastGroup && shouldAppendStreaming;
+
+        return (
+          <div
+            key={message.id}
+            className={`claude-message claude-message-${message.role}${showStreamingHere ? ' claude-message-streaming' : ''}`}
+          >
+            <div className="claude-message-header">
+              <div className="claude-message-avatar">
+                {message.role === 'user' ? 'U' : '✦'}
+              </div>
+              <span className="claude-message-role">
+                {message.role === 'user' ? 'You' : 'Claude'}
+              </span>
+              {showStreamingHere ? (
+                <span className="claude-message-loading">
+                  <span className="claude-spinner" />
+                  typing
+                </span>
+              ) : (
+                <span className="claude-message-time">
+                  {new Date(message.timestamp).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+              )}
             </div>
-            <span className="claude-message-role">
-              {message.role === 'user' ? 'You' : 'Claude'}
-            </span>
-            <span className="claude-message-time">
-              {new Date(message.timestamp).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </span>
-          </div>
-          <div className="claude-message-content">{message.content}</div>
-          {message.toolUse && message.toolUse.length > 0 && (
-            <div className="claude-tool-use">
-              {message.toolUse.map((tool) => {
-                const result = message.toolResults?.find(
-                  (r) => r.toolUseId === tool.id
+
+            {/* アイテムを順序通りに表示 */}
+            {message.items.map((item, index) => {
+              if (item.type === 'text') {
+                return (
+                  <div key={index} className="claude-message-content">
+                    <p className="claude-message-paragraph">{item.text}</p>
+                  </div>
                 );
-                return <ToolItem key={tool.id} tool={tool} result={result} />;
-              })}
-            </div>
-          )}
-        </div>
-      ))}
+              } else {
+                return (
+                  <div key={index} className="claude-tool-use">
+                    <ToolItem tool={item.tool} result={item.result} />
+                  </div>
+                );
+              }
+            })}
+
+            {/* ストリーミング中のコンテンツ */}
+            {showStreamingHere && (
+              <div className="claude-message-content">
+                <p className="claude-message-paragraph">{streamingContent}</p>
+              </div>
+            )}
+          </div>
+        );
+      })}
 
       {/* Thinking/Streaming state */}
       {isLoading && !streamingContent && (
@@ -128,8 +214,8 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
         </div>
       )}
 
-      {/* Streaming message */}
-      {streamingContent && (
+      {/* Streaming message - 最後がアシスタントでない場合のみ別ブロックとして表示 */}
+      {streamingContent && !shouldAppendStreaming && (
         <div className="claude-message claude-message-assistant claude-message-streaming">
           <div className="claude-message-header">
             <div className="claude-message-avatar">✦</div>
