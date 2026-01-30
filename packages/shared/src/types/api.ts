@@ -68,8 +68,38 @@ export interface ErrorPayload {
 }
 
 /**
+ * Editable configuration (stored in config.json)
+ */
+export interface EditableConfig {
+  pat?: string;
+  apiBase?: string;
+  dotfilesRepository?: string;
+  dotfilesTargetPath?: string;
+  dotfilesInstallCommand?: string;
+  defaultShell?: string;
+}
+
+/**
+ * Request to update configuration
+ */
+export interface UpdateConfigRequest {
+  pat?: string;
+  apiBase?: string;
+  dotfilesRepository?: string;
+  dotfilesTargetPath?: string;
+  dotfilesInstallCommand?: string;
+  defaultShell?: string;
+}
+
+/**
  * Client-safe configuration exposed via API
+ * (PAT is exposed only as hasPat boolean for security)
  */
 export interface ClientConfig {
+  hasPat: boolean;
+  apiBase: string;
+  dotfilesRepository?: string;
+  dotfilesTargetPath?: string;
+  dotfilesInstallCommand?: string;
   defaultShell?: string;
 }

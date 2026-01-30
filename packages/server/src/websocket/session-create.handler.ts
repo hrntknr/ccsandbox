@@ -78,6 +78,13 @@ export function createSessionCreateHandler(ws: WebSocket): SessionCreateHandler 
       return;
     }
 
+    // Check if PAT is configured
+    if (!config.pat) {
+      sendError(ws, 'GitHub PAT is not configured. Please configure it in Settings.');
+      isCreating = false;
+      return;
+    }
+
     const sessionTitle = title || `${repo.split('/').pop()} - ${workBranch}`;
     let session: Session | null = null;
 
@@ -100,7 +107,7 @@ export function createSessionCreateHandler(ws: WebSocket): SessionCreateHandler 
         await cloneRepository({
           apiBase: config.apiBase,
           repo,
-          pat: config.pat,
+          pat: config.pat!,
           workspacePath: session.workspacePath,
           baseBranch,
           workBranch,
