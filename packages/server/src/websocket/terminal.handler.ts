@@ -1,6 +1,6 @@
 import { WebSocket } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
-import type { TerminalClientMessage, TerminalServerMessage, TerminalTab, TabType } from '@ccsandbox/shared';
+import type { TerminalClientMessage, TerminalServerMessage, TerminalTab, TabType, ClaudePermissionMode } from '@ccsandbox/shared';
 import { getTerminalManager } from '../services/terminal.service.js';
 import { getClaudeManager } from '../services/claude.service.js';
 import { SessionStore } from '../persistence/session-store.js';
@@ -447,7 +447,7 @@ export function createTerminalHandler(
   /**
    * Handle claude-message - send a message to Claude
    */
-  function handleClaudeMessage(content: string): void {
+  async function handleClaudeMessage(content: string, permissionMode?: ClaudePermissionMode): Promise<void> {
     if (!currentTabId || !currentSessionId) {
       sendError(ws, 'Not attached to a Claude tab');
       return;
@@ -457,6 +457,12 @@ export function createTerminalHandler(
     if (!instance) {
       sendError(ws, 'Claude instance not found');
       return;
+    }
+
+    // Update permission mode if changed
+    if (permissionMode && permissionMode !== instance.permissionMode) {
+      const config = getConfig();
+      await claudeManager.setPermissionMode(currentTabId, permissionMode, config.devcontainerCli);
     }
 
     if (!claudeManager.sendMessage(currentTabId, content)) {
@@ -569,7 +575,10 @@ export function createTerminalHandler(
         break;
 
       case 'claude-message':
-        handleClaudeMessage(message.content);
+        handleClaudeMessage(message.content, message.permissionMode).catch((error) => {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to send Claude message';
+          sendError(ws, errorMessage);
+        });
         break;
 
       case 'claude-permission-response':

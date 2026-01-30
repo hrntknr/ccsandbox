@@ -14,6 +14,7 @@ export type {
   ClaudeEvent,
   ClaudeMessage,
   ClaudePendingPermission,
+  ClaudePermissionMode,
   ClaudePermissionRequest,
   ClaudeResultEvent,
   ClaudeStreamEvent,

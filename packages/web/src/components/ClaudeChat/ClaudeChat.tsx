@@ -4,6 +4,7 @@ import type {
   ClaudeEvent,
   ClaudeMessage,
   ClaudePendingPermission,
+  ClaudePermissionMode,
 } from '@ccsandbox/shared';
 import { MessageList } from './MessageList';
 import { InputForm } from './InputForm';
@@ -13,7 +14,7 @@ import './ClaudeChat.css';
 interface ClaudeChatProps {
   tabId: string;
   isActive: boolean;
-  sendClaudeMessage: (content: string) => void;
+  sendClaudeMessage: (content: string, permissionMode: ClaudePermissionMode) => void;
   respondToPermission: (requestId: string, permission: 'allow' | 'deny') => void;
   onClaudeEvent: (
     tabId: string,
@@ -151,7 +152,7 @@ export function ClaudeChat({
   }, [messages, streamingContent, isActive]);
 
   const handleSubmit = useCallback(
-    (content: string) => {
+    (content: string, permissionMode: ClaudePermissionMode) => {
       // Add user message to UI immediately
       const userMessage: ClaudeMessage = {
         id: uuidv4(),
@@ -160,7 +161,7 @@ export function ClaudeChat({
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, userMessage]);
-      sendClaudeMessage(content);
+      sendClaudeMessage(content, permissionMode);
     },
     [sendClaudeMessage]
   );
