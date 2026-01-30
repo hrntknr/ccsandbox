@@ -1,12 +1,15 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import type { ClaudePermissionMode } from '@ccsandbox/shared';
+import { PermissionModeSelector } from './PermissionModeSelector';
 
 interface InputFormProps {
-  onSubmit: (content: string) => void;
+  onSubmit: (content: string, permissionMode: ClaudePermissionMode) => void;
   disabled: boolean;
 }
 
 export function InputForm({ onSubmit, disabled }: InputFormProps) {
   const [input, setInput] = useState('');
+  const [permissionMode, setPermissionMode] = useState<ClaudePermissionMode>('default');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea
@@ -23,11 +26,11 @@ export function InputForm({ onSubmit, disabled }: InputFormProps) {
       e?.preventDefault();
       const trimmed = input.trim();
       if (trimmed && !disabled) {
-        onSubmit(trimmed);
+        onSubmit(trimmed, permissionMode);
         setInput('');
       }
     },
-    [input, disabled, onSubmit]
+    [input, disabled, onSubmit, permissionMode]
   );
 
   const handleKeyDown = useCallback(
@@ -54,9 +57,11 @@ export function InputForm({ onSubmit, disabled }: InputFormProps) {
           rows={1}
         />
         <div className="claude-input-footer">
-          <span className="claude-input-hint">
-            Enter to send · Shift+Enter for new line
-          </span>
+          <PermissionModeSelector
+            value={permissionMode}
+            onChange={setPermissionMode}
+            disabled={disabled}
+          />
           <button
             type="submit"
             className="claude-input-submit"

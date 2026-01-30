@@ -3,6 +3,14 @@
  */
 
 /**
+ * Permission mode for Claude CLI
+ * - 'default': Normal mode with permission prompts
+ * - 'plan': Plan mode (no code edits)
+ * - 'bypassPermissions': Auto mode (bypass permission prompts)
+ */
+export type ClaudePermissionMode = 'default' | 'plan' | 'bypassPermissions';
+
+/**
  * Stream event types from Claude CLI stdout
  */
 export interface ClaudeStreamEventBase {

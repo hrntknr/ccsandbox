@@ -1,5 +1,5 @@
 import type { Session, TabType, TerminalTab } from './session.js';
-import type { ClaudeEvent, ClaudeMessage, ClaudePendingPermission } from './claude.js';
+import type { ClaudeEvent, ClaudeMessage, ClaudePendingPermission, ClaudePermissionMode } from './claude.js';
 
 /**
  * Terminal WebSocket message types
@@ -19,7 +19,7 @@ export type TerminalClientMessage =
   | { type: 'resize'; cols: number; rows: number }
   | { type: 'detach' }
   // Claude-specific messages
-  | { type: 'claude-message'; content: string }
+  | { type: 'claude-message'; content: string; permissionMode?: ClaudePermissionMode }
   | {
       type: 'claude-permission-response';
       requestId: string;

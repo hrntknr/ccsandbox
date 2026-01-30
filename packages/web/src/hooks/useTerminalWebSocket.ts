@@ -8,6 +8,7 @@ import type {
   ClaudeEvent,
   ClaudeMessage,
   ClaudePendingPermission,
+  ClaudePermissionMode,
 } from '@ccsandbox/shared';
 
 interface OutputCallback {
@@ -61,7 +62,7 @@ export interface UseTerminalWebSocketReturn {
   onResizeSync: (tabId: string, callback: ResizeSyncCallback) => () => void;
   onOwnTabAdded: (callback: (tab: TerminalTab) => void) => () => void;
   // Claude-specific
-  sendClaudeMessage: (content: string) => void;
+  sendClaudeMessage: (content: string, permissionMode?: ClaudePermissionMode) => void;
   respondToPermission: (requestId: string, permission: 'allow' | 'deny') => void;
   onClaudeEvent: (tabId: string, callback: ClaudeEventCallback) => () => void;
   onClaudeHistory: (tabId: string, callback: ClaudeHistoryCallback) => () => void;
@@ -403,8 +404,8 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
 
   // Claude-specific functions
   const sendClaudeMessage = useCallback(
-    (content: string) => {
-      sendMessage({ type: 'claude-message', content });
+    (content: string, permissionMode?: ClaudePermissionMode) => {
+      sendMessage({ type: 'claude-message', content, permissionMode });
     },
     [sendMessage]
   );
