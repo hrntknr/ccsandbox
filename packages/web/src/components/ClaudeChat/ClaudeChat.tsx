@@ -174,8 +174,8 @@ export function ClaudeChat({
   );
 
   return (
-    <div className={`flex-col h-full bg-claude-bg-primary text-claude-text-primary font-sans text-sm leading-normal ${isActive ? 'flex' : 'hidden'}`}>
-      <div className="flex-1 overflow-y-auto py-4 scrollbar-thin">
+    <div className={`relative h-full bg-claude-bg-primary text-claude-text-primary font-sans text-sm leading-normal ${isActive ? 'flex flex-col' : 'hidden'}`}>
+      <div className="flex-1 overflow-y-auto py-4 pb-32 scrollbar-thin">
         <MessageList
           messages={messages}
           streamingContent={streamingContent}
@@ -191,11 +191,15 @@ export function ClaudeChat({
         />
       )}
 
-      <InputForm
-        onSubmit={handleSubmit}
-        disabled={isLoading || pendingPermissions.length > 0}
-        isActive={isActive}
-      />
+      <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 pt-6 bg-gradient-to-t from-claude-bg-primary via-claude-bg-primary to-transparent pointer-events-none">
+        <div className="pointer-events-auto max-w-3xl mx-auto">
+          <InputForm
+            onSubmit={handleSubmit}
+            disabled={isLoading || pendingPermissions.length > 0}
+            isActive={isActive}
+          />
+        </div>
+      </div>
     </div>
   );
 }

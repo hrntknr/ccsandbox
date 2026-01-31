@@ -109,7 +109,15 @@ export function SessionList({
             onClick={() => onSelectSession(session.sessionId)}
           >
             <div className="flex justify-between items-start mb-1">
-              <div className="text-sm font-medium text-white flex-1 overflow-hidden text-ellipsis whitespace-nowrap max-md:text-[13px]">{session.title || 'Untitled'}</div>
+              <div className="text-sm font-medium text-white flex-1 overflow-hidden text-ellipsis whitespace-nowrap max-md:text-[13px] flex items-center gap-2">
+                <span className="overflow-hidden text-ellipsis">{session.title || 'Untitled'}</span>
+                {session.hasPendingPermissions && (
+                  <span className="shrink-0 inline-flex items-center gap-1 text-[10px] text-claude-warning bg-claude-warning/20 px-1.5 py-0.5 rounded animate-pulse">
+                    <span>⚠</span>
+                    <span className="max-md:hidden">Waiting</span>
+                  </span>
+                )}
+              </div>
               <div className="relative ml-2 shrink-0" ref={openMenuId === session.sessionId ? menuRef : null}>
                 <button
                   className="bg-transparent border-none text-vscode-text-muted cursor-pointer p-1 w-6 h-6 flex items-center justify-center rounded-[3px] hover:bg-white/10 hover:text-vscode-text"
