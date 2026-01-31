@@ -32,7 +32,7 @@ interface ClaudeChatProps {
   ) => () => void;
   onClaudeHistory: (
     tabId: string,
-    callback: (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[]) => void
+    callback: (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[], todos: TodoItem[]) => void
   ) => () => void;
   onClaudePermissionResolved: (
     tabId: string,
@@ -170,10 +170,11 @@ export function ClaudeChat({
 
   // Handle history on attach
   useEffect(() => {
-    return onClaudeHistory(tabId, (history, permissions) => {
+    return onClaudeHistory(tabId, (history, permissions, historyTodos) => {
       if (!historyLoadedRef.current) {
         setMessages(history);
         setPendingPermissions(permissions);
+        setTodos(historyTodos);
         historyLoadedRef.current = true;
       }
     });
