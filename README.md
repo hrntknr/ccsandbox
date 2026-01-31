@@ -40,7 +40,7 @@ npm start -- --port 8080 --listen 0.0.0.0
 |--------|-------------|---------|
 | `--config-dir <path>` | Configuration directory | `~/.ccsandbox` |
 | `--repo-dir <path>` | Repository directory | `~/.ccsandbox/repo` |
-| `--listen <host>` | Bind host | `127.0.0.1` |
+| `--listen <host>` | Bind host | `0.0.0.0` |
 | `--port <port>` | Port | `3000` |
 | `--devcontainer-cli <path>` | devcontainer CLI path | - |
 

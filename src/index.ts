@@ -1,4 +1,5 @@
 import http from 'node:http';
+import os from 'node:os';
 import { mkdir } from 'node:fs/promises';
 import { createApp, type CreateAppOptions } from './app.js';
 import { setConfig, type ServerConfig } from './config.js';
@@ -46,6 +47,38 @@ export interface ServerInstance {
   port: number;
   /** Close the server */
   close: () => Promise<void>;
+}
+
+/**
+ * Get all network interface IP addresses for access URLs.
+ * When listening on 0.0.0.0, returns all available IPv4 addresses.
+ * Otherwise, returns only the specified host.
+ */
+function getAccessUrls(host: string, port: number, token: string): string[] {
+  const urls: string[] = [];
+
+  if (host === '0.0.0.0') {
+    // Add localhost first
+    urls.push(`http://localhost:${port}/?token=${token}`);
+
+    // Get all network interface addresses
+    const interfaces = os.networkInterfaces();
+    for (const [, addrs] of Object.entries(interfaces)) {
+      if (!addrs) continue;
+      for (const addr of addrs) {
+        // Only include IPv4 addresses, exclude loopback
+        if (addr.family === 'IPv4' && !addr.internal) {
+          urls.push(`http://${addr.address}:${port}/?token=${token}`);
+        }
+      }
+    }
+  } else if (host === '127.0.0.1' || host === 'localhost') {
+    urls.push(`http://localhost:${port}/?token=${token}`);
+  } else {
+    urls.push(`http://${host}:${port}/?token=${token}`);
+  }
+
+  return urls;
 }
 
 /**
@@ -113,8 +146,11 @@ export async function startServer(options: StartServerOptions): Promise<ServerIn
       // Always print authentication URL
       if (persistedConfig.authToken) {
         console.log('');
-        console.log('Authentication URL:');
-        console.log(`  http://${options.listen}:${actualPort}/?token=${persistedConfig.authToken}`);
+        console.log('Access URLs (with authentication token):');
+        const urls = getAccessUrls(options.listen, actualPort, persistedConfig.authToken);
+        for (const url of urls) {
+          console.log(`  ${url}`);
+        }
       }
 
       // Start background repository cache refresh (only if PAT is configured)

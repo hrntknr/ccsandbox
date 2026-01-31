@@ -14,7 +14,7 @@ interface CliOptions {
 
 const DEFAULT_CONFIG_DIR = path.join(os.homedir(), '.ccsandbox');
 const DEFAULT_REPO_DIR = path.join(os.homedir(), '.ccsandbox', 'repo');
-const DEFAULT_LISTEN = '127.0.0.1';
+const DEFAULT_LISTEN = '0.0.0.0';
 const DEFAULT_PORT = '3000';
 
 program
