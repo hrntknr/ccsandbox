@@ -132,6 +132,8 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
   // ストリーミング中のコンテンツを最後のアシスタントメッセージに結合するかどうか
   const lastGroup = groupedMessages[groupedMessages.length - 1];
   const shouldAppendStreaming = streamingContent && lastGroup?.role === 'assistant';
+  // 新しいストリーミングブロックが表示されるかどうか（最後がassistantでない場合）
+  const hasNewStreamingBlock = streamingContent && !shouldAppendStreaming;
 
   if (messages.length === 0 && !isLoading && !streamingContent) {
     return (
@@ -151,10 +153,13 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
         const isLastGroup = groupIndex === groupedMessages.length - 1;
         const showStreamingHere = isLastGroup && shouldAppendStreaming;
 
+        // streaming blockがある場合、最後のブロックは下ボーダーなし（点線のみで区切る）
+        const showBottomBorder = !(isLastGroup && hasNewStreamingBlock);
+
         return (
           <div
             key={message.id}
-            className={`py-4 px-6 border-b border-claude-border last:border-b-0 ${message.role === 'user' ? 'bg-transparent' : 'bg-claude-bg-secondary'}`}
+            className={`py-4 px-6 ${showBottomBorder ? 'border-b border-claude-border last:border-b-0' : ''} ${message.role === 'user' ? 'bg-transparent' : 'bg-claude-bg-secondary'}`}
           >
             <div className="flex items-center gap-2 mb-2">
               <div className={`w-6 h-6 rounded flex items-center justify-center text-xs font-semibold ${message.role === 'user' ? 'bg-claude-user-bg text-[#60a5fa]' : 'bg-claude-accent text-white'}`}>
@@ -197,7 +202,7 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
 
             {/* ストリーミング中のコンテンツ */}
             {showStreamingHere && (
-              <div className="break-words leading-relaxed text-claude-text-primary prose prose-invert max-w-none">
+              <div className={`break-words leading-relaxed text-claude-text-primary prose prose-invert max-w-none ${message.items.length > 0 ? 'mt-3 pt-3 border-t border-dashed border-claude-border' : ''}`}>
                 <Streamdown plugins={{ code }} isAnimating>{streamingContent}</Streamdown>
               </div>
             )}
@@ -219,7 +224,7 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
 
       {/* Streaming message - 最後がアシスタントでない場合のみ別ブロックとして表示 */}
       {streamingContent && !shouldAppendStreaming && (
-        <div className="py-4 px-6 border-b border-claude-border bg-claude-bg-secondary">
+        <div className="py-4 px-6 border-t border-dashed border-claude-border bg-claude-bg-secondary">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-6 h-6 rounded flex items-center justify-center text-xs font-semibold bg-claude-accent text-white">✦</div>
             <span className="font-semibold text-[13px] text-claude-text-primary">Claude</span>
