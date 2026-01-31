@@ -344,11 +344,16 @@ export class ClaudeManager extends EventEmitter {
 
   /**
    * Respond to a permission request
+   * @param tabId - The tab ID
+   * @param requestId - The permission request ID
+   * @param permission - 'allow' or 'deny'
+   * @param answers - For AskUserQuestion tool: map of question text to selected answer(s)
    */
   respondToPermission(
     tabId: string,
     requestId: string,
-    permission: 'allow' | 'deny'
+    permission: 'allow' | 'deny',
+    answers?: Record<string, string>
   ): boolean {
     const instance = this.instances.get(tabId);
     if (!instance?.process?.stdin?.writable) {
@@ -356,6 +361,17 @@ export class ClaudeManager extends EventEmitter {
     }
 
     const pendingRequest = instance.pendingPermissions.get(requestId);
+
+    // Build updatedInput for allow response
+    let updatedInput: Record<string, unknown> = pendingRequest?.input ?? {};
+
+    // For AskUserQuestion, include answers in updatedInput
+    if (permission === 'allow' && answers && pendingRequest?.toolName === 'AskUserQuestion') {
+      updatedInput = {
+        ...updatedInput,
+        answers,
+      };
+    }
 
     // Build response in the correct format for Claude CLI
     const response = {
@@ -367,7 +383,7 @@ export class ClaudeManager extends EventEmitter {
           permission === 'allow'
             ? {
                 behavior: 'allow',
-                updatedInput: pendingRequest?.input ?? {},
+                updatedInput,
               }
             : {
                 behavior: 'deny',

@@ -8,6 +8,9 @@ export type {
 } from './types/session.js';
 
 export type {
+  AskUserQuestion,
+  AskUserQuestionInput,
+  AskUserQuestionOption,
   ClaudeAssistantEvent,
   ClaudeContentBlock,
   ClaudeControlRequestEvent,
