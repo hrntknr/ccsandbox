@@ -443,21 +443,45 @@ claude -p --allowedTools "Bash(git:*)" "git statusを実行して"
 
 ##### パーミッション応答（フロントエンド→CLI）
 
-フロントエンドはstdinに`control`タイプのメッセージで応答します。
+フロントエンドはstdinに`control_response`タイプのメッセージで応答します。
 
 ```json
 {
-  "type": "control",
-  "subtype": "permission_response",
-  "request_id": "8269fddc-2f13-4582-ae73-2efaee2525ec",
-  "permission": "allow"
+  "type": "control_response",
+  "response": {
+    "subtype": "success",
+    "request_id": "8269fddc-2f13-4582-ae73-2efaee2525ec",
+    "response": {
+      "behavior": "allow",
+      "updatedInput": {
+        "file_path": "/workspaces/ccsandbox/test.txt",
+        "content": "hello\n"
+      }
+    }
+  }
 }
 ```
 
-| permission値 | 説明 |
-|-------------|------|
-| `allow` | 許可 |
-| `deny` | 拒否 |
+| behavior値 | 説明 |
+|-----------|------|
+| `allow` | 許可（`updatedInput`でツール入力を渡す） |
+| `deny` | 拒否（`message`で拒否理由を渡す） |
+
+##### 拒否時の応答形式
+
+```json
+{
+  "type": "control_response",
+  "response": {
+    "subtype": "success",
+    "request_id": "8269fddc-2f13-4582-ae73-2efaee2525ec",
+    "response": {
+      "behavior": "deny",
+      "message": "ユーザーが操作を拒否しました"
+    }
+  }
+}
+```
 
 ##### 完全なフロー例
 
@@ -466,7 +490,7 @@ claude -p --allowedTools "Bash(git:*)" "git statusを実行して"
 [CLI]      → {"type":"system","subtype":"init",...}
 [CLI]      → {"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_xxx","name":"Write",...}]}}
 [CLI]      → {"type":"control_request","request_id":"req_123","request":{"subtype":"can_use_tool",...}}
-[Frontend] → {"type":"control","subtype":"permission_response","request_id":"req_123","permission":"allow"}
+[Frontend] → {"type":"control_response","response":{"subtype":"success","request_id":"req_123","response":{"behavior":"allow","updatedInput":{...}}}}
 [CLI]      → {"type":"user","message":{"content":[{"type":"tool_result",...}]}}
 [CLI]      → {"type":"assistant","message":{"content":[{"type":"text","text":"ファイルを作成しました"}]}}
 [CLI]      → {"type":"result","subtype":"success",...}
