@@ -137,8 +137,10 @@ export class ClaudeManager extends EventEmitter {
 
   /**
    * Start the Claude CLI process
+   * @param instance - The Claude instance
+   * @param resume - If true, use --resume instead of --session-id to resume existing session
    */
-  private async startClaudeProcess(instance: ClaudeInstance): Promise<void> {
+  private async startClaudeProcess(instance: ClaudeInstance, resume = false): Promise<void> {
     const args = [
       'exec',
       '--workspace-folder',
@@ -157,11 +159,16 @@ export class ClaudeManager extends EventEmitter {
       }
     }
 
+    args.push('claude', '-p');
+
+    // Use --resume for resuming existing session, --session-id for new session
+    if (resume) {
+      args.push('--resume', instance.claudeSessionId);
+    } else {
+      args.push('--session-id', instance.claudeSessionId);
+    }
+
     args.push(
-      'claude',
-      '-p',
-      '--session-id',
-      instance.claudeSessionId,
       '--input-format',
       'stream-json',
       '--output-format',
@@ -474,8 +481,8 @@ export class ClaudeManager extends EventEmitter {
     // Update mode
     instance.permissionMode = permissionMode;
 
-    // Restart process with new mode
-    await this.startClaudeProcess(instance);
+    // Restart process with new mode, using --resume to continue existing session
+    await this.startClaudeProcess(instance, true);
 
     return true;
   }
