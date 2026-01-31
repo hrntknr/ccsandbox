@@ -5,12 +5,20 @@ import { PermissionModeSelector } from './PermissionModeSelector';
 interface InputFormProps {
   onSubmit: (content: string, permissionMode: ClaudePermissionMode) => void;
   disabled: boolean;
+  isActive: boolean;
 }
 
-export function InputForm({ onSubmit, disabled }: InputFormProps) {
+export function InputForm({ onSubmit, disabled, isActive }: InputFormProps) {
   const [input, setInput] = useState('');
   const [permissionMode, setPermissionMode] = useState<ClaudePermissionMode>('default');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-focus when tab becomes active
+  useEffect(() => {
+    if (isActive && !disabled) {
+      textareaRef.current?.focus();
+    }
+  }, [isActive, disabled]);
 
   // Auto-resize textarea
   useEffect(() => {

@@ -194,6 +194,7 @@ export function ClaudeChat({
       <InputForm
         onSubmit={handleSubmit}
         disabled={isLoading || pendingPermissions.length > 0}
+        isActive={isActive}
       />
     </div>
   );
