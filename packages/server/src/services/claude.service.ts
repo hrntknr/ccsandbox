@@ -42,6 +42,14 @@ export interface ClaudeInstance {
 }
 
 /**
+ * Processing stats for a session's Claude instances
+ */
+export interface ClaudeProcessingStats {
+  running: number; // isProcessing === true のClaude tabの数
+  total: number; // セッション内の全Claude tabの数
+}
+
+/**
  * Events emitted by ClaudeManager
  */
 export interface ClaudeManagerEvents {
@@ -49,6 +57,7 @@ export interface ClaudeManagerEvents {
   exit: (tabId: string, code: number) => void;
   error: (tabId: string, error: Error) => void;
   pendingPermissionsChanged: (sessionId: string, hasPending: boolean) => void;
+  processingStateChanged: (sessionId: string, stats: ClaudeProcessingStats) => void;
 }
 
 /**
@@ -104,6 +113,9 @@ export class ClaudeManager extends EventEmitter {
     };
 
     this.instances.set(tabId, instance);
+
+    // Emit processing state changed (total increased)
+    this.emit('processingStateChanged', sessionId, this.getProcessingStatsForSession(sessionId));
 
     // Start persistent Claude process
     await this.startClaudeProcess(instance, devcontainerCliPath);
@@ -170,9 +182,15 @@ export class ClaudeManager extends EventEmitter {
     });
 
     proc.on('close', (code) => {
+      const wasProcessing = instance.isProcessing;
       instance.process = null;
       instance.isProcessing = false;
       this.emit('exit', instance.tabId, code ?? 0);
+
+      // Emit processing state changed if it was processing
+      if (wasProcessing) {
+        this.emit('processingStateChanged', instance.sessionId, this.getProcessingStatsForSession(instance.sessionId));
+      }
     });
 
     proc.on('error', (err) => {
@@ -203,6 +221,9 @@ export class ClaudeManager extends EventEmitter {
     // Track processing state
     if (event.type === 'system' && event.subtype === 'init') {
       instance.isProcessing = true;
+
+      // Emit processing state changed
+      this.emit('processingStateChanged', instance.sessionId, this.getProcessingStatsForSession(instance.sessionId));
 
       // Start a new streaming message
       instance.currentStreamingMessage = {
@@ -285,6 +306,9 @@ export class ClaudeManager extends EventEmitter {
     if (event.type === 'result') {
       instance.isProcessing = false;
       instance.currentStreamingMessage = null;
+
+      // Emit processing state changed
+      this.emit('processingStateChanged', instance.sessionId, this.getProcessingStatsForSession(instance.sessionId));
     }
 
     // Emit event to connection manager
@@ -435,6 +459,15 @@ export class ClaudeManager extends EventEmitter {
   }
 
   /**
+   * Get processing stats for a session's Claude instances
+   */
+  getProcessingStatsForSession(sessionId: string): ClaudeProcessingStats {
+    const instances = this.getBySession(sessionId);
+    const running = instances.filter((i) => i.isProcessing).length;
+    return { running, total: instances.length };
+  }
+
+  /**
    * Kill a Claude instance
    */
   kill(tabId: string): boolean {
@@ -443,10 +476,16 @@ export class ClaudeManager extends EventEmitter {
       return false;
     }
 
+    const sessionId = instance.sessionId;
+
     if (instance.process) {
       instance.process.kill('SIGTERM');
     }
     this.instances.delete(tabId);
+
+    // Emit processing state changed (total decreased)
+    this.emit('processingStateChanged', sessionId, this.getProcessingStatsForSession(sessionId));
+
     return true;
   }
 
