@@ -1,7 +1,6 @@
 {
   "name": "ccsandbox",
   "version": "0.0.0",
-  "private": true,
   "type": "module",
   "bin": {
     "ccsandbox": "./dist/cli.js"
