@@ -24,6 +24,7 @@ export interface Session {
   containerId?: string;
   containerName?: string;
   shell?: string;
+  hasPendingPermissions?: boolean;
 }
 
 /**
