@@ -1,11 +1,23 @@
 import { WebSocket } from 'ws';
+import { join } from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
-import type { TerminalClientMessage, TerminalServerMessage, TerminalTab, TabType, ClaudePermissionMode } from '../shared/index.js';
+import type { TerminalClientMessage, TerminalServerMessage, TerminalTab, TabType, ClaudePermissionMode, Session } from '../shared/index.js';
 import { getTerminalManager } from '../services/terminal.service.js';
 import { getClaudeManager } from '../services/claude.service.js';
 import { SessionStore } from '../persistence/session-store.js';
 import { getConfig } from '../config.js';
 import type { ConnectionManager } from './connection-manager.js';
+
+/**
+ * Get the devcontainer config path for a session.
+ * Returns undefined if the session uses project's devcontainer.
+ */
+function getSessionConfigPath(session: Session, configDir: string): string | undefined {
+  if (session.devcontainerSource?.type === 'template') {
+    return join(configDir, 'sessions', session.sessionId, 'devcontainer', 'devcontainer.json');
+  }
+  return undefined;
+}
 
 // Validation constants
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -175,6 +187,7 @@ export function createTerminalHandler(
           workspacePath: session.workspacePath,
           devcontainerCliPath: config.devcontainerCli,
           tabId,
+          configPath: getSessionConfigPath(session, config.configDir),
           remoteEnv: config.pat ? [`GITHUB_TOKEN=${config.pat}`] : undefined,
         }).then(() => {
           connectionManager.updateTab(sessionId, tabId, {
@@ -202,6 +215,7 @@ export function createTerminalHandler(
           tabId,
           shell: session.shell,
           remoteEnv: config.pat ? [`GITHUB_TOKEN=${config.pat}`] : undefined,
+          configPath: getSessionConfigPath(session, config.configDir),
         }).then(() => {
           const terminal = terminalManager.get(tabId);
           connectionManager.updateTab(sessionId, tabId, {
@@ -463,8 +477,7 @@ export function createTerminalHandler(
 
     // Update permission mode if changed
     if (permissionMode && permissionMode !== instance.permissionMode) {
-      const config = getConfig();
-      await claudeManager.setPermissionMode(currentTabId, permissionMode, config.devcontainerCli);
+      await claudeManager.setPermissionMode(currentTabId, permissionMode);
     }
 
     if (!claudeManager.sendMessage(currentTabId, content)) {

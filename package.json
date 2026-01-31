@@ -15,7 +15,7 @@
   ],
   "scripts": {
     "build": "concurrently -n server,web -c yellow,green \"npm:build:server\" \"npm:build:web\"",
-    "build:server": "esbuild src/cli.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/cli.js",
+    "build:server": "esbuild src/cli.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/cli.js && rm -rf dist/templates && cp -r src/templates dist/templates",
     "build:web": "npm run build --prefix web",
     "clean": "rm -rf dist web/dist",
     "typecheck": "tsc --noEmit",

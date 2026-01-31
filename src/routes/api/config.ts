@@ -1,17 +1,32 @@
 import { Router } from 'express';
-import type { ApiResponse, ClientConfig, UpdateConfigRequest } from '../../shared/index.js';
+import type { ApiResponse, ClientConfig, UpdateConfigRequest, DevcontainerTemplate } from '../../shared/index.js';
 import { getConfig, updateConfig } from '../../config.js';
 import { getConfigStore } from '../../persistence/config-store.js';
 import { startBackgroundRefresh, stopBackgroundRefresh } from '../../services/github.service.js';
 import { hashPassword } from '../../utils/auth.js';
+import { listTemplates } from '../../services/template.service.js';
+
+// Cache for templates (loaded once at startup, refreshed on demand)
+let templatesCache: DevcontainerTemplate[] | null = null;
 
 const router = Router();
 
 /**
+ * Get cached templates or load them.
+ */
+async function getTemplates(): Promise<DevcontainerTemplate[]> {
+  if (!templatesCache) {
+    templatesCache = await listTemplates();
+  }
+  return templatesCache;
+}
+
+/**
  * Build ClientConfig from server config (PAT is exposed only as hasPat boolean)
  */
-function buildClientConfig(): ClientConfig {
+async function buildClientConfig(): Promise<ClientConfig> {
   const config = getConfig();
+  const templates = await getTemplates();
   return {
     hasPat: Boolean(config.pat),
     apiBase: config.apiBase,
@@ -20,6 +35,7 @@ function buildClientConfig(): ClientConfig {
     dotfilesInstallCommand: config.dotfilesInstallCommand,
     defaultShell: config.defaultShell,
     hasAuthPassword: Boolean(config.authPasswordHash),
+    templates,
   };
 }
 
@@ -27,13 +43,22 @@ function buildClientConfig(): ClientConfig {
  * GET /api/config
  * Returns client-safe configuration options
  */
-router.get('/', (_req, res) => {
-  const clientConfig = buildClientConfig();
-  const response: ApiResponse<{ config: ClientConfig }> = {
-    success: true,
-    data: { config: clientConfig },
-  };
-  res.json(response);
+router.get('/', async (_req, res) => {
+  try {
+    const clientConfig = await buildClientConfig();
+    const response: ApiResponse<{ config: ClientConfig }> = {
+      success: true,
+      data: { config: clientConfig },
+    };
+    res.json(response);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to get config';
+    const response: ApiResponse<never> = {
+      success: false,
+      error: message,
+    };
+    res.status(500).json(response);
+  }
 });
 
 /**
@@ -86,7 +111,7 @@ router.put('/', async (req, res) => {
       }
     }
 
-    const clientConfig = buildClientConfig();
+    const clientConfig = await buildClientConfig();
     const response: ApiResponse<{ config: ClientConfig }> = {
       success: true,
       data: { config: clientConfig },

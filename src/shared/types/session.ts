@@ -1,3 +1,5 @@
+import type { DevcontainerSource } from './template.js';
+
 export type SessionState = 'STOPPED' | 'RUNNING' | 'ERROR';
 
 export type TabType = 'shell' | 'claude';
@@ -31,6 +33,8 @@ export interface Session {
   shell?: string;
   hasPendingPermissions?: boolean;
   claudeStats?: ClaudeStats;
+  /** Source of devcontainer configuration */
+  devcontainerSource?: DevcontainerSource;
 }
 
 /**

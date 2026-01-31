@@ -1,9 +1,9 @@
 import { EventEmitter } from 'node:events';
-import { mkdir, readFile, writeFile, stat } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, stat, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
-import type { Session, SessionState } from '../shared/index.js';
+import type { Session, SessionState, DevcontainerSource } from '../shared/index.js';
 import { generateWorkspacePath } from '../shared/index.js';
 
 /**
@@ -23,6 +23,8 @@ export interface CreateSessionOptions {
   baseBranch: string;
   workBranch: string;
   shell?: string;
+  /** Source of devcontainer configuration */
+  devcontainerSource?: DevcontainerSource;
 }
 
 /**
@@ -248,6 +250,7 @@ export class SessionStore extends EventEmitter {
         state: 'STOPPED',
         createdAt: new Date().toISOString(),
         shell: options.shell,
+        devcontainerSource: options.devcontainerSource,
       };
 
       sessions.push(session);
@@ -306,6 +309,7 @@ export class SessionStore extends EventEmitter {
 
   /**
    * Deletes a session by ID.
+   * Also cleans up the session directory (configDir/sessions/<sessionId>).
    *
    * @throws SessionNotFoundError if session does not exist
    */
@@ -319,6 +323,14 @@ export class SessionStore extends EventEmitter {
 
       sessions.splice(index, 1);
       await this.writeSessions(sessions);
+
+      // Clean up session directory
+      const sessionDir = join(this.configDir, 'sessions', sessionId);
+      try {
+        await rm(sessionDir, { recursive: true, force: true });
+      } catch {
+        // Ignore errors if directory doesn't exist
+      }
 
       this.emit('deleted', sessionId);
     });

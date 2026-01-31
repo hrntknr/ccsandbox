@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import type { Session, SessionCreateClientMessage, SessionCreateServerMessage } from '@shared/index.js';
+import type { Session, SessionCreateClientMessage, SessionCreateServerMessage, DevcontainerSource } from '@shared/index.js';
 
 export interface SessionCreateRequest {
   title?: string;
@@ -7,6 +7,8 @@ export interface SessionCreateRequest {
   baseBranch: string;
   workBranch: string;
   shell?: string;
+  /** Source of devcontainer configuration (default: { type: 'project' }) */
+  devcontainerSource?: DevcontainerSource;
 }
 
 export interface UseSessionCreateReturn {
@@ -91,6 +93,7 @@ export function useSessionCreate(): UseSessionCreateReturn {
         baseBranch: request.baseBranch,
         workBranch: request.workBranch,
         shell: request.shell,
+        devcontainerSource: request.devcontainerSource,
       };
       ws.send(JSON.stringify(message));
     };
