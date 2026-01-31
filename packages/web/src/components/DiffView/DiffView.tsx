@@ -42,11 +42,15 @@ export function DiffView({ sessionId, onClose }: DiffViewProps) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-8"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-8"
+      style={{ animation: 'overlay-in 0.2s ease-out' }}
       onClick={handleBackdropClick}
     >
       {/* Modal container */}
-      <div className="bg-vscode-bg border border-vscode-border rounded-lg shadow-2xl flex flex-col w-full max-w-5xl max-h-[80vh] overflow-hidden">
+      <div
+        className="bg-vscode-bg border border-vscode-border rounded-2xl shadow-2xl shadow-black/40 flex flex-col w-full max-w-5xl max-h-[80vh] min-h-[400px] overflow-hidden"
+        style={{ animation: 'modal-in 0.2s ease-out' }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-vscode-bg-secondary border-b border-vscode-border shrink-0">
           <div className="flex items-center gap-4">
