@@ -176,7 +176,7 @@ export function TerminalPane({ session }: TerminalPaneProps) {
                   </span>
                 )}
                 <button
-                  className="bg-transparent border-none text-vscode-text-secondary text-sm cursor-pointer p-0 leading-none w-4 h-4 flex items-center justify-center rounded-sm hover:bg-white/10 hover:text-white max-[480px]:hidden max-[480px]:[.terminal-tab.active_&]:flex"
+                  className={`bg-transparent border-none text-vscode-text-secondary text-sm cursor-pointer p-0 leading-none w-4 h-4 flex items-center justify-center rounded-sm hover:bg-white/10 hover:text-white ${activeTabId === tab.tabId ? '' : 'max-[480px]:hidden'}`}
                   onClick={(e) => handleCloseTab(tab.tabId, e)}
                 >
                   &times;
