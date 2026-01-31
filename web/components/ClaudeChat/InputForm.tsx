@@ -70,7 +70,7 @@ export function InputForm({ onSubmit, disabled, isActive }: InputFormProps) {
       <div className="flex-1 relative bg-claude-bg-secondary/95 backdrop-blur-sm border border-claude-border rounded-2xl shadow-lg shadow-black/20 transition-colors focus-within:border-claude-accent">
         <textarea
           ref={textareaRef}
-          className="w-full bg-transparent border-none py-3 px-3.5 text-claude-text-primary font-sans text-sm resize-none min-h-[44px] max-h-[200px] leading-normal focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-claude-text-muted"
+          className="w-full bg-transparent border-none pt-3 pb-2 px-3.5 text-claude-text-primary font-sans text-base resize-none min-h-[44px] max-h-[200px] leading-normal focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-claude-text-muted"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
