@@ -134,6 +134,8 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
   const shouldAppendStreaming = streamingContent && lastGroup?.role === 'assistant';
   // Whether a new streaming block is shown (when last message is not assistant)
   const hasNewStreamingBlock = streamingContent && !shouldAppendStreaming;
+  // Whether thinking block is shown
+  const hasThinkingBlock = isLoading && !streamingContent;
 
   if (messages.length === 0 && !isLoading && !streamingContent) {
     return (
@@ -153,8 +155,8 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
         const isLastGroup = groupIndex === groupedMessages.length - 1;
         const showStreamingHere = isLastGroup && shouldAppendStreaming;
 
-        // If there's a streaming block, the last block has no bottom border (separated by dashed line only)
-        const showBottomBorder = !(isLastGroup && hasNewStreamingBlock);
+        // If there's a streaming or thinking block, the last block has no bottom border
+        const showBottomBorder = !(isLastGroup && (hasNewStreamingBlock || hasThinkingBlock));
 
         return (
           <div
@@ -212,7 +214,7 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
 
       {/* Thinking/Streaming state */}
       {isLoading && !streamingContent && (
-        <div className="flex items-center gap-2 py-3 px-6 bg-claude-bg-secondary border-b border-claude-border">
+        <div className="flex items-center gap-2 py-3 px-6 bg-claude-bg-secondary border-t border-claude-border">
           <div className="flex gap-1">
             <div className="w-1.5 h-1.5 bg-claude-accent rounded-full animate-bounce-dot" style={{ animationDelay: '-0.32s' }} />
             <div className="w-1.5 h-1.5 bg-claude-accent rounded-full animate-bounce-dot" style={{ animationDelay: '-0.16s' }} />
@@ -224,7 +226,7 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
 
       {/* Streaming message - shown as separate block only when last message is not assistant */}
       {streamingContent && !shouldAppendStreaming && (
-        <div className="py-4 px-6 border-t border-dashed border-claude-border bg-claude-bg-secondary">
+        <div className="py-4 px-6 border-t border-claude-border bg-claude-bg-secondary">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-6 h-6 rounded flex items-center justify-center text-xs font-semibold bg-claude-accent text-white">✦</div>
             <span className="font-semibold text-[13px] text-claude-text-primary">Claude</span>
