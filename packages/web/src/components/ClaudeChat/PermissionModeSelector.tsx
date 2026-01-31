@@ -8,18 +8,24 @@ interface PermissionModeSelectorProps {
 
 const modes: { value: ClaudePermissionMode; label: string }[] = [
   { value: 'default', label: 'Default' },
-  { value: 'plan', label: 'Plan' },
-  { value: 'bypassPermissions', label: 'Auto' },
+  { value: 'acceptEdits', label: '⏵⏵ accept edits on' },
+  { value: 'plan', label: '⏸ plan mode on' },
+  { value: 'bypassPermissions', label: '⏵⏵ bypass permissions on' },
 ];
 
 function getModeActiveClasses(mode: ClaudePermissionMode): string {
   switch (mode) {
     case 'default':
-      return 'border-claude-accent text-claude-accent bg-[rgba(217,119,6,0.1)]';
+      return 'border-claude-text-secondary text-claude-text-secondary bg-transparent';
+    case 'acceptEdits':
+      // Purple
+      return 'border-[#a855f7] text-[#a855f7] bg-[rgba(168,85,247,0.1)]';
     case 'plan':
-      return 'border-[#3b82f6] text-[#3b82f6] bg-[rgba(59,130,246,0.1)]';
+      // Deep green
+      return 'border-[#059669] text-[#059669] bg-[rgba(5,150,105,0.1)]';
     case 'bypassPermissions':
-      return 'border-claude-success text-claude-success bg-[rgba(34,197,94,0.1)]';
+      // Red
+      return 'border-[#ef4444] text-[#ef4444] bg-[rgba(239,68,68,0.1)]';
     default:
       return '';
   }
