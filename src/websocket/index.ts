@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
-import type { TerminalClientMessage, SessionCreateClientMessage } from '../shared/index.js';
+import type { TerminalClientMessage, SessionCreateClientMessage, Session } from '../shared/index.js';
 import { createTerminalHandler } from './terminal.handler.js';
 import { createSessionCreateHandler } from './session-create.handler.js';
 import { getConnectionManager, resetConnectionManager } from './connection-manager.js';
@@ -211,17 +211,21 @@ export function setupWebSocketServer(server: http.Server): WebSocketServerInstan
   const sessionSyncManager = getSessionSyncManager();
 
   // Forward session store events to sync manager
-  sessionStore.on('created', (session) => {
+  const onCreated = (session: Session) => {
     sessionSyncManager.broadcastCreated(session);
-  });
+  };
 
-  sessionStore.on('updated', (session) => {
+  const onUpdated = (session: Session) => {
     sessionSyncManager.broadcastUpdated(session);
-  });
+  };
 
-  sessionStore.on('deleted', (sessionId) => {
+  const onDeleted = (sessionId: string) => {
     sessionSyncManager.broadcastDeleted(sessionId);
-  });
+  };
+
+  sessionStore.on('created', onCreated);
+  sessionStore.on('updated', onUpdated);
+  sessionStore.on('deleted', onDeleted);
 
   // Handle session sync connections
   sessionsSyncWss.on('connection', (ws: WebSocket) => {
@@ -279,6 +283,11 @@ export function setupWebSocketServer(server: http.Server): WebSocketServerInstan
         client.close();
       });
       sessionsSyncWss.close();
+
+      // Remove session store listeners
+      sessionStore.off('created', onCreated);
+      sessionStore.off('updated', onUpdated);
+      sessionStore.off('deleted', onDeleted);
 
       // Reset managers
       resetConnectionManager();
