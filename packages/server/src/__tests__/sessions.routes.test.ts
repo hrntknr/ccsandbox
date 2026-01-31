@@ -9,7 +9,7 @@ import { setConfig, type ServerConfig } from '../config.js';
 import * as gitService from '../services/git.service.js';
 import * as devcontainerService from '../services/devcontainer.service.js';
 
-// Mock git and devcontainer services
+// Mock git, github, and devcontainer services
 vi.mock('../services/git.service.js', () => ({
   cloneRepository: vi.fn(),
   GitOperationError: class GitOperationError extends Error {
@@ -22,6 +22,10 @@ vi.mock('../services/git.service.js', () => ({
       this.name = 'GitOperationError';
     }
   },
+}));
+
+vi.mock('../services/github.service.js', () => ({
+  getAuthenticatedUsername: vi.fn().mockResolvedValue('test-user'),
 }));
 
 vi.mock('../services/devcontainer.service.js', async () => {
