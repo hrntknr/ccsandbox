@@ -39,6 +39,7 @@ export interface ClaudeInstance {
   isProcessing: boolean;
   currentStreamingMessage: ClaudeMessage | null;
   permissionMode: ClaudePermissionMode;
+  remoteEnv?: string[];
 }
 
 /**
@@ -69,6 +70,7 @@ export interface CreateClaudeOptions {
   devcontainerCliPath?: string;
   tabId?: string;
   permissionMode?: ClaudePermissionMode;
+  remoteEnv?: string[];
 }
 
 /**
@@ -91,6 +93,7 @@ export class ClaudeManager extends EventEmitter {
       devcontainerCliPath = 'devcontainer',
       tabId = uuidv4(),
       permissionMode = 'default',
+      remoteEnv,
     } = options;
 
     if (!isValidWorkspacePath(workspacePath)) {
@@ -110,6 +113,7 @@ export class ClaudeManager extends EventEmitter {
       isProcessing: false,
       currentStreamingMessage: null,
       permissionMode,
+      remoteEnv,
     };
 
     this.instances.set(tabId, instance);
@@ -134,6 +138,16 @@ export class ClaudeManager extends EventEmitter {
       'exec',
       '--workspace-folder',
       instance.workspacePath,
+    ];
+
+    // Add remote environment variables (e.g., GITHUB_TOKEN)
+    if (instance.remoteEnv) {
+      for (const env of instance.remoteEnv) {
+        args.push('--remote-env', env);
+      }
+    }
+
+    args.push(
       'claude',
       '-p',
       '--session-id',
@@ -146,7 +160,7 @@ export class ClaudeManager extends EventEmitter {
       '--include-partial-messages',
       '--permission-prompt-tool',
       'stdio',
-    ];
+    );
 
     // Add permission mode option
     if (instance.permissionMode !== 'default') {
