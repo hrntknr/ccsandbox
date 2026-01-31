@@ -25,6 +25,7 @@ interface ClaudeChatProps {
     permission: 'allow' | 'deny',
     answers?: Record<string, string>
   ) => void;
+  changePermissionMode: (mode: ClaudePermissionMode) => void;
   onClaudeEvent: (
     tabId: string,
     callback: (event: ClaudeEvent) => void
@@ -33,6 +34,14 @@ interface ClaudeChatProps {
     tabId: string,
     callback: (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[]) => void
   ) => () => void;
+  onClaudePermissionResolved: (
+    tabId: string,
+    callback: (requestId: string) => void
+  ) => () => void;
+  onClaudeUserMessage: (
+    tabId: string,
+    callback: (message: ClaudeMessage) => void
+  ) => () => void;
 }
 
 export function ClaudeChat({
@@ -40,8 +49,11 @@ export function ClaudeChat({
   isActive,
   sendClaudeMessage,
   respondToPermission,
+  changePermissionMode,
   onClaudeEvent,
   onClaudeHistory,
+  onClaudePermissionResolved,
+  onClaudeUserMessage,
 }: ClaudeChatProps) {
   const [messages, setMessages] = useState<ClaudeMessage[]>([]);
   const [pendingPermissions, setPendingPermissions] = useState<ClaudePendingPermission[]>([]);
@@ -167,6 +179,20 @@ export function ClaudeChat({
     });
   }, [tabId, onClaudeHistory]);
 
+  // Handle permission resolved from other clients (multi-tab sync)
+  useEffect(() => {
+    return onClaudePermissionResolved(tabId, (requestId) => {
+      setPendingPermissions((prev) => prev.filter((p) => p.requestId !== requestId));
+    });
+  }, [tabId, onClaudePermissionResolved]);
+
+  // Handle user messages from other clients (multi-tab sync)
+  useEffect(() => {
+    return onClaudeUserMessage(tabId, (message) => {
+      setMessages((prev) => [...prev, message]);
+    });
+  }, [tabId, onClaudeUserMessage]);
+
   // Track bottom area height for scroll spacer
   useEffect(() => {
     const bottomArea = bottomAreaRef.current;
@@ -244,6 +270,7 @@ export function ClaudeChat({
           <PermissionDialog
             permission={permission}
             onResponse={handlePermissionResponse}
+            onChangePermissionMode={changePermissionMode}
           />
         );
       })()}

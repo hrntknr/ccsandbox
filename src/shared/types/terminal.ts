@@ -27,7 +27,8 @@ export type TerminalClientMessage =
       permission: 'allow' | 'deny';
       /** Answers for AskUserQuestion tool (key: question text, value: selected label(s)) */
       answers?: Record<string, string>;
-    };
+    }
+  | { type: 'claude-change-permission-mode'; permissionMode: ClaudePermissionMode };
 
 /**
  * Messages sent from server to client
@@ -51,7 +52,9 @@ export type TerminalServerMessage =
       tabId: string;
       messages: ClaudeMessage[];
       pendingPermissions: ClaudePendingPermission[];
-    };
+    }
+  | { type: 'claude-permission-resolved'; tabId: string; requestId: string }
+  | { type: 'claude-user-message'; tabId: string; message: ClaudeMessage };
 
 /**
  * Session creation WebSocket message types

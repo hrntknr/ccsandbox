@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs/promises';
-import type { Dirent } from 'node:fs';
+import type { Dirent, Stats } from 'node:fs';
 import {
   listTemplates,
   getTemplateById,
@@ -13,12 +13,18 @@ import {
 vi.mock('node:fs/promises');
 
 // Helper to create mock Dirent
-function mockDirent(name: string, isDir: boolean): Dirent<string> {
+function mockDirent(name: string, isDir: boolean): Dirent {
   return {
     name,
     isDirectory: () => isDir,
     isFile: () => !isDir,
-  } as Dirent<string>;
+  } as Dirent;
+}
+
+// Helper to mock readdir with Dirent array
+function mockReaddir(entries: Dirent[]): void {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vi.mocked(fs.readdir).mockResolvedValue(entries as any);
 }
 
 describe('template.service', () => {
@@ -26,7 +32,7 @@ describe('template.service', () => {
     vi.resetAllMocks();
     resetTemplatesDir();
     // Mock stat to make the builtin templates directory exist
-    vi.mocked(fs.stat).mockResolvedValue({} as fs.Stats);
+    vi.mocked(fs.stat).mockResolvedValue({} as Stats);
   });
 
   afterEach(() => {
@@ -66,7 +72,7 @@ describe('template.service', () => {
     });
 
     it('should return templates from valid directories', async () => {
-      vi.mocked(fs.readdir).mockResolvedValue([
+      mockReaddir([
         mockDirent('ubuntu', true),
         mockDirent('node', true),
         mockDirent('README.md', false),
@@ -99,7 +105,7 @@ describe('template.service', () => {
     });
 
     it('should skip directories with invalid IDs', async () => {
-      vi.mocked(fs.readdir).mockResolvedValue([
+      mockReaddir([
         mockDirent('valid-id', true),
         mockDirent('invalid id', true),
         mockDirent('../escape', true),
@@ -114,7 +120,7 @@ describe('template.service', () => {
     });
 
     it('should skip directories without devcontainer.json', async () => {
-      vi.mocked(fs.readdir).mockResolvedValue([
+      mockReaddir([
         mockDirent('with-config', true),
         mockDirent('without-config', true),
       ]);
@@ -134,7 +140,7 @@ describe('template.service', () => {
     });
 
     it('should use folder name if name is not in config', async () => {
-      vi.mocked(fs.readdir).mockResolvedValue([
+      mockReaddir([
         mockDirent('my-template', true),
       ]);
 
@@ -152,7 +158,7 @@ describe('template.service', () => {
 
   describe('getTemplateById', () => {
     it('should return template if found', async () => {
-      vi.mocked(fs.readdir).mockResolvedValue([
+      mockReaddir([
         mockDirent('ubuntu', true),
       ]);
 

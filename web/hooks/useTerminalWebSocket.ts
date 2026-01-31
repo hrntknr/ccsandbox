@@ -47,6 +47,24 @@ interface ClaudeHistorySubscription {
   callback: ClaudeHistoryCallback;
 }
 
+interface ClaudePermissionResolvedCallback {
+  (requestId: string): void;
+}
+
+interface ClaudePermissionResolvedSubscription {
+  tabId: string;
+  callback: ClaudePermissionResolvedCallback;
+}
+
+interface ClaudeUserMessageCallback {
+  (message: ClaudeMessage): void;
+}
+
+interface ClaudeUserMessageSubscription {
+  tabId: string;
+  callback: ClaudeUserMessageCallback;
+}
+
 export interface UseTerminalWebSocketReturn {
   isConnected: boolean;
   tabs: TerminalTab[];
@@ -74,8 +92,14 @@ export interface UseTerminalWebSocketReturn {
     permission: 'allow' | 'deny',
     answers?: Record<string, string>
   ) => void;
+  /**
+   * Change permission mode for the current Claude tab
+   */
+  changePermissionMode: (permissionMode: ClaudePermissionMode) => void;
   onClaudeEvent: (tabId: string, callback: ClaudeEventCallback) => () => void;
   onClaudeHistory: (tabId: string, callback: ClaudeHistoryCallback) => () => void;
+  onClaudePermissionResolved: (tabId: string, callback: ClaudePermissionResolvedCallback) => () => void;
+  onClaudeUserMessage: (tabId: string, callback: ClaudeUserMessageCallback) => () => void;
 }
 
 export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSocketReturn {
@@ -92,6 +116,8 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
   const ownTabAddedSubscriptionsRef = useRef<((tab: TerminalTab) => void)[]>([]);
   const claudeEventSubscriptionsRef = useRef<ClaudeEventSubscription[]>([]);
   const claudeHistorySubscriptionsRef = useRef<ClaudeHistorySubscription[]>([]);
+  const claudePermissionResolvedSubscriptionsRef = useRef<ClaudePermissionResolvedSubscription[]>([]);
+  const claudeUserMessageSubscriptionsRef = useRef<ClaudeUserMessageSubscription[]>([]);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sendMessage = useCallback((message: TerminalClientMessage) => {
@@ -195,6 +221,22 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
           }
           break;
 
+        case 'claude-permission-resolved':
+          for (const sub of claudePermissionResolvedSubscriptionsRef.current) {
+            if (sub.tabId === message.tabId) {
+              sub.callback(message.requestId);
+            }
+          }
+          break;
+
+        case 'claude-user-message':
+          for (const sub of claudeUserMessageSubscriptionsRef.current) {
+            if (sub.tabId === message.tabId) {
+              sub.callback(message.message);
+            }
+          }
+          break;
+
         case 'error':
           console.error('Terminal WebSocket error:', message.message);
           break;
@@ -226,6 +268,8 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     resizeSyncSubscriptionsRef.current = [];
     claudeEventSubscriptionsRef.current = [];
     claudeHistorySubscriptionsRef.current = [];
+    claudePermissionResolvedSubscriptionsRef.current = [];
+    claudeUserMessageSubscriptionsRef.current = [];
   }, []);
 
   // Connect to WebSocket and join session
@@ -427,6 +471,13 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     [sendMessage]
   );
 
+  const changePermissionMode = useCallback(
+    (permissionMode: ClaudePermissionMode) => {
+      sendMessage({ type: 'claude-change-permission-mode', permissionMode });
+    },
+    [sendMessage]
+  );
+
   const onClaudeEvent = useCallback(
     (tabId: string, callback: ClaudeEventCallback): (() => void) => {
       const subscription = { tabId, callback };
@@ -455,6 +506,34 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     []
   );
 
+  const onClaudePermissionResolved = useCallback(
+    (tabId: string, callback: ClaudePermissionResolvedCallback): (() => void) => {
+      const subscription = { tabId, callback };
+      claudePermissionResolvedSubscriptionsRef.current.push(subscription);
+
+      return () => {
+        claudePermissionResolvedSubscriptionsRef.current = claudePermissionResolvedSubscriptionsRef.current.filter(
+          (s) => s !== subscription
+        );
+      };
+    },
+    []
+  );
+
+  const onClaudeUserMessage = useCallback(
+    (tabId: string, callback: ClaudeUserMessageCallback): (() => void) => {
+      const subscription = { tabId, callback };
+      claudeUserMessageSubscriptionsRef.current.push(subscription);
+
+      return () => {
+        claudeUserMessageSubscriptionsRef.current = claudeUserMessageSubscriptionsRef.current.filter(
+          (s) => s !== subscription
+        );
+      };
+    },
+    []
+  );
+
   return {
     isConnected,
     tabs,
@@ -472,7 +551,10 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     // Claude-specific
     sendClaudeMessage,
     respondToPermission,
+    changePermissionMode,
     onClaudeEvent,
     onClaudeHistory,
+    onClaudePermissionResolved,
+    onClaudeUserMessage,
   };
 }
