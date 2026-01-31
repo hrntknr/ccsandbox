@@ -64,8 +64,6 @@ export function startContainerHealthCheck(): void {
   // Clear existing timer if any
   stopContainerHealthCheck();
 
-  console.log('[container-health] Starting container health check (interval: 15s)');
-
   // Run initial check immediately
   checkContainerHealth().catch((err) => {
     console.error('[container-health] Initial health check failed:', err);
