@@ -33,14 +33,28 @@ export function InputForm({ onSubmit, disabled }: InputFormProps) {
     [input, disabled, onSubmit, permissionMode]
   );
 
+  const cyclePermissionMode = useCallback((reverse: boolean) => {
+    const modes: ClaudePermissionMode[] = ['default', 'acceptEdits', 'plan', 'bypassPermissions'];
+    const currentIndex = modes.indexOf(permissionMode);
+    const nextIndex = reverse
+      ? (currentIndex - 1 + modes.length) % modes.length
+      : (currentIndex + 1) % modes.length;
+    setPermissionMode(modes[nextIndex]!);
+  }, [permissionMode]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        cyclePermissionMode(e.shiftKey);
+        return;
+      }
       if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
         e.preventDefault();
         handleSubmit();
       }
     },
-    [handleSubmit]
+    [handleSubmit, cyclePermissionMode]
   );
 
   return (
