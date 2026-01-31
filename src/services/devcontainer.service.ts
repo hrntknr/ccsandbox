@@ -205,24 +205,32 @@ export interface GitCredentialConfig {
   username: string;
   /** Config directory for storing gitconfig files (e.g., ~/.ccsandbox) */
   configDir: string;
+  /** Session ID for organizing files under sessions/<sessionId>/ */
+  sessionId: string;
 }
 
 /** Path inside container where gitconfig will be copied */
 const CONTAINER_GITCONFIG_PATH = '/etc/ccsandbox/gitconfig';
 
-/** Subdirectory within configDir for storing credential files */
-const CREDENTIAL_SUBDIR = 'credentials';
+/**
+ * Get the session directory path.
+ */
+export function getSessionDir(configDir: string, sessionId: string): string {
+  return join(configDir, 'sessions', sessionId);
+}
 
 /**
  * Creates a gitconfig file with credential settings for the specified host.
  *
  * @param configDir - Base config directory (e.g., ~/.ccsandbox)
+ * @param sessionId - Session ID
  * @param apiBase - GitHub API base URL
  * @param username - GitHub username
  * @returns Path to the created gitconfig file
  */
 async function createGitConfigFile(
   configDir: string,
+  sessionId: string,
   apiBase: string,
   username: string
 ): Promise<string> {
@@ -234,13 +242,12 @@ async function createGitConfigFile(
 \thelper = "!f() { echo password=$GITHUB_TOKEN; }; f"
 `;
 
-  const credentialDir = join(configDir, CREDENTIAL_SUBDIR);
+  const sessionDir = getSessionDir(configDir, sessionId);
 
-  // Ensure the credentials directory exists
-  await mkdir(credentialDir, { recursive: true, mode: 0o700 });
+  // Ensure the session directory exists
+  await mkdir(sessionDir, { recursive: true, mode: 0o700 });
 
-  const suffix = randomBytes(8).toString('hex');
-  const gitconfigPath = join(credentialDir, `gitconfig-${suffix}`);
+  const gitconfigPath = join(sessionDir, 'gitconfig');
 
   await writeFile(gitconfigPath, gitconfigContent, { mode: 0o600 });
 
@@ -265,6 +272,8 @@ export interface StartDevcontainerOptions {
   dotfilesInstallCommand?: string;
   /** Git credential configuration to inject into container */
   gitCredential?: GitCredentialConfig;
+  /** External devcontainer config path (for templates) */
+  configPath?: string;
 }
 
 /**
@@ -293,10 +302,11 @@ export async function startDevcontainer(
     dotfilesTargetPath,
     dotfilesInstallCommand,
     gitCredential,
+    configPath,
   } = options;
 
-  // Verify devcontainer config exists
-  if (!(await hasDevcontainerConfig(workspacePath))) {
+  // Verify devcontainer config exists (skip if external configPath is provided)
+  if (!configPath && !(await hasDevcontainerConfig(workspacePath))) {
     throw new DevcontainerConfigNotFoundError(workspacePath);
   }
 
@@ -309,6 +319,7 @@ export async function startDevcontainer(
   if (gitCredential) {
     gitconfigPath = await createGitConfigFile(
       gitCredential.configDir,
+      gitCredential.sessionId,
       gitCredential.apiBase,
       gitCredential.username
     );
@@ -317,6 +328,9 @@ export async function startDevcontainer(
 
   // Build devcontainer up arguments
   const args = ['up', '--workspace-folder', workspacePath];
+  if (configPath) {
+    args.push('--config', configPath);
+  }
   if (dotfilesRepository) {
     args.push('--dotfiles-repository', dotfilesRepository);
   }

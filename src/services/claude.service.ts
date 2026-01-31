@@ -39,6 +39,9 @@ export interface ClaudeInstance {
   isProcessing: boolean;
   currentStreamingMessage: ClaudeMessage | null;
   permissionMode: ClaudePermissionMode;
+  devcontainerCliPath: string;
+  /** Path to devcontainer.json config (for template-based sessions) */
+  configPath?: string;
   remoteEnv?: string[];
 }
 
@@ -70,6 +73,8 @@ export interface CreateClaudeOptions {
   devcontainerCliPath?: string;
   tabId?: string;
   permissionMode?: ClaudePermissionMode;
+  /** Path to devcontainer.json config (for template-based sessions) */
+  configPath?: string;
   remoteEnv?: string[];
 }
 
@@ -93,6 +98,7 @@ export class ClaudeManager extends EventEmitter {
       devcontainerCliPath = 'devcontainer',
       tabId = uuidv4(),
       permissionMode = 'default',
+      configPath,
       remoteEnv,
     } = options;
 
@@ -113,6 +119,8 @@ export class ClaudeManager extends EventEmitter {
       isProcessing: false,
       currentStreamingMessage: null,
       permissionMode,
+      devcontainerCliPath,
+      configPath,
       remoteEnv,
     };
 
@@ -122,7 +130,7 @@ export class ClaudeManager extends EventEmitter {
     this.emit('processingStateChanged', sessionId, this.getProcessingStatsForSession(sessionId));
 
     // Start persistent Claude process
-    await this.startClaudeProcess(instance, devcontainerCliPath);
+    await this.startClaudeProcess(instance);
 
     return tabId;
   }
@@ -130,15 +138,17 @@ export class ClaudeManager extends EventEmitter {
   /**
    * Start the Claude CLI process
    */
-  private async startClaudeProcess(
-    instance: ClaudeInstance,
-    cliPath: string
-  ): Promise<void> {
+  private async startClaudeProcess(instance: ClaudeInstance): Promise<void> {
     const args = [
       'exec',
       '--workspace-folder',
       instance.workspacePath,
     ];
+
+    // Add config path for template-based sessions
+    if (instance.configPath) {
+      args.push('--config', instance.configPath);
+    }
 
     // Add remote environment variables (e.g., GITHUB_TOKEN)
     if (instance.remoteEnv) {
@@ -167,7 +177,7 @@ export class ClaudeManager extends EventEmitter {
       args.push('--permission-mode', instance.permissionMode);
     }
 
-    const proc = spawn(cliPath, args, {
+    const proc = spawn(instance.devcontainerCliPath, args, {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
@@ -443,8 +453,7 @@ export class ClaudeManager extends EventEmitter {
    */
   async setPermissionMode(
     tabId: string,
-    permissionMode: ClaudePermissionMode,
-    devcontainerCliPath = 'devcontainer'
+    permissionMode: ClaudePermissionMode
   ): Promise<boolean> {
     const instance = this.instances.get(tabId);
     if (!instance) {
@@ -466,7 +475,7 @@ export class ClaudeManager extends EventEmitter {
     instance.permissionMode = permissionMode;
 
     // Restart process with new mode
-    await this.startClaudeProcess(instance, devcontainerCliPath);
+    await this.startClaudeProcess(instance);
 
     return true;
   }

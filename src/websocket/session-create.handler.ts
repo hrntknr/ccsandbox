@@ -1,5 +1,5 @@
 import { WebSocket } from 'ws';
-import type { SessionCreateClientMessage, SessionCreateServerMessage, Session } from '../shared/index.js';
+import type { SessionCreateClientMessage, SessionCreateServerMessage, Session, DevcontainerSource } from '../shared/index.js';
 import { getSessionStore, WorkspaceExistsError } from '../persistence/session-store.js';
 import { cloneRepository, GitOperationError } from '../services/git.service.js';
 import { getAuthenticatedUsername } from '../services/github.service.js';
@@ -9,6 +9,7 @@ import {
   DevcontainerConfigNotFoundError,
   DevcontainerCliError,
 } from '../services/devcontainer.service.js';
+import { copyTemplateToSession, TemplateNotFoundError } from '../services/template.service.js';
 import { getConfig } from '../config.js';
 
 /**
@@ -72,7 +73,7 @@ export function createSessionCreateHandler(ws: WebSocket): SessionCreateHandler 
     const config = getConfig();
     const sessionStore = getSessionStore(config.configDir, config.repoDir);
 
-    const { title, repo, baseBranch, workBranch, shell } = message;
+    const { title, repo, baseBranch, workBranch, shell, devcontainerSource } = message;
 
     // Validate required fields
     if (!repo || !baseBranch || !workBranch) {
@@ -92,6 +93,9 @@ export function createSessionCreateHandler(ws: WebSocket): SessionCreateHandler 
     let session: Session | null = null;
 
     try {
+      // Determine effective devcontainer source
+      const effectiveSource: DevcontainerSource = devcontainerSource ?? { type: 'project' };
+
       // Step 1: Create session record
       sendLog(ws, `Creating session: ${sessionTitle}\n`);
       session = await sessionStore.create({
@@ -101,6 +105,7 @@ export function createSessionCreateHandler(ws: WebSocket): SessionCreateHandler 
         baseBranch,
         workBranch,
         shell,
+        devcontainerSource: effectiveSource,
       });
       sendLog(ws, `Session created with ID: ${session.sessionId}\n\n`);
 
@@ -124,14 +129,25 @@ export function createSessionCreateHandler(ws: WebSocket): SessionCreateHandler 
 
       sendLog(ws, `\n`);
 
-      // Step 3: Check for devcontainer config
-      sendLog(ws, `=== Checking devcontainer config ===\n`);
-      const hasConfig = await hasDevcontainerConfig(session.workspacePath);
-      if (!hasConfig) {
-        await sessionStore.update(session.sessionId, { state: 'ERROR' });
-        throw new DevcontainerConfigNotFoundError(session.workspacePath);
+      // Step 3: Resolve devcontainer config
+      let templateConfigPath: string | undefined;
+      if (effectiveSource.type === 'project') {
+        sendLog(ws, `=== Checking devcontainer config ===\n`);
+        const hasConfig = await hasDevcontainerConfig(session.workspacePath);
+        if (!hasConfig) {
+          await sessionStore.update(session.sessionId, { state: 'ERROR' });
+          throw new DevcontainerConfigNotFoundError(session.workspacePath);
+        }
+        sendLog(ws, `Found .devcontainer configuration\n\n`);
+      } else {
+        sendLog(ws, `=== Using template: ${effectiveSource.templateId} ===\n`);
+        templateConfigPath = await copyTemplateToSession(
+          effectiveSource.templateId,
+          config.configDir,
+          session.sessionId
+        );
+        sendLog(ws, `Template copied to session directory\n\n`);
       }
-      sendLog(ws, `Found .devcontainer configuration\n\n`);
 
       // Step 4: Get GitHub username for credential
       sendLog(ws, `=== Fetching GitHub username ===\n`);
@@ -153,7 +169,9 @@ export function createSessionCreateHandler(ws: WebSocket): SessionCreateHandler 
             pat: config.pat!,
             username,
             configDir: config.configDir,
+            sessionId: session.sessionId,
           },
+          configPath: templateConfigPath,
         });
 
         // Update session with container info
@@ -179,6 +197,8 @@ export function createSessionCreateHandler(ws: WebSocket): SessionCreateHandler 
         errorMessage = `Git ${error.operation} failed: ${error.stderr}`;
       } else if (error instanceof DevcontainerConfigNotFoundError) {
         errorMessage = 'Repository does not contain a .devcontainer configuration';
+      } else if (error instanceof TemplateNotFoundError) {
+        errorMessage = `Template not found: ${error.templateId}`;
       } else if (error instanceof DevcontainerCliError) {
         errorMessage = `Devcontainer CLI failed: ${error.message}`;
       } else if (error instanceof Error) {

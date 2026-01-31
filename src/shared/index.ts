@@ -29,6 +29,11 @@ export type {
 export type { Repository } from './types/github.js';
 
 export type {
+  DevcontainerSource,
+  DevcontainerTemplate,
+} from './types/template.js';
+
+export type {
   ContainerInfo,
   DevcontainerUpResult,
 } from './types/container.js';

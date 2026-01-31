@@ -71,6 +71,8 @@ export interface CreateTerminalOptions {
   rows?: number;
   /** Additional remote environment variables (name=value format) */
   remoteEnv?: string[];
+  /** Path to devcontainer.json config (for template-based sessions) */
+  configPath?: string;
 }
 
 /**
@@ -86,13 +88,19 @@ export class TerminalManager extends EventEmitter {
   /**
    * Check if bash is available in a container via devcontainer exec
    */
-  private async detectShell(workspacePath: string, cliPath: string): Promise<string> {
+  private async detectShell(workspacePath: string, cliPath: string, configPath?: string): Promise<string> {
     if (!isValidWorkspacePath(workspacePath)) {
       throw new Error('Invalid workspace path');
     }
 
+    const args = ['exec', '--workspace-folder', workspacePath];
+    if (configPath) {
+      args.push('--config', configPath);
+    }
+    args.push('which', 'bash');
+
     return new Promise((resolve) => {
-      const check = spawn(cliPath, ['exec', '--workspace-folder', workspacePath, 'which', 'bash'], {
+      const check = spawn(cliPath, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
@@ -126,6 +134,7 @@ export class TerminalManager extends EventEmitter {
       tabId = uuidv4(),
       cols = 80,
       rows = 24,
+      configPath,
     } = options;
 
     // Validate workspacePath to prevent path traversal attacks
@@ -134,24 +143,23 @@ export class TerminalManager extends EventEmitter {
     }
 
     // Detect shell if not specified
-    const shell = options.shell ?? await this.detectShell(workspacePath, devcontainerCliPath);
+    const shell = options.shell ?? await this.detectShell(workspacePath, devcontainerCliPath, configPath);
 
-    // Build remote-env arguments
-    const remoteEnvArgs: string[] = ['--remote-env', 'TERM=xterm-256color'];
+    // Build exec arguments
+    const execArgs: string[] = ['exec', '--workspace-folder', workspacePath];
+    if (configPath) {
+      execArgs.push('--config', configPath);
+    }
+    execArgs.push('--remote-env', 'TERM=xterm-256color');
     if (options.remoteEnv) {
       for (const env of options.remoteEnv) {
-        remoteEnvArgs.push('--remote-env', env);
+        execArgs.push('--remote-env', env);
       }
     }
+    execArgs.push(shell);
 
     // Spawn devcontainer exec with node-pty for real PTY support
-    const ptyProcess = pty.spawn(devcontainerCliPath, [
-      'exec',
-      '--workspace-folder',
-      workspacePath,
-      ...remoteEnvArgs,
-      shell,
-    ], {
+    const ptyProcess = pty.spawn(devcontainerCliPath, execArgs, {
       name: 'xterm-256color',
       cols,
       rows,

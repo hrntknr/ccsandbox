@@ -1,4 +1,5 @@
 import type { Session } from './session.js';
+import type { DevcontainerTemplate } from './template.js';
 
 // API Request types
 export interface CreateSessionRequest {
@@ -110,6 +111,8 @@ export interface ClientConfig {
   defaultShell?: string;
   /** Whether a password has been set for authentication */
   hasAuthPassword: boolean;
+  /** Available devcontainer templates */
+  templates: DevcontainerTemplate[];
 }
 
 // Diff types

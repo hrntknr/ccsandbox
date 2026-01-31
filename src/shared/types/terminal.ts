@@ -1,5 +1,6 @@
 import type { Session, TabType, TerminalTab } from './session.js';
 import type { ClaudeEvent, ClaudeMessage, ClaudePendingPermission, ClaudePermissionMode } from './claude.js';
+import type { DevcontainerSource } from './template.js';
 
 /**
  * Terminal WebSocket message types
@@ -66,6 +67,8 @@ export type SessionCreateClientMessage = {
   baseBranch: string;
   workBranch: string;
   shell?: string;
+  /** Source of devcontainer configuration (default: { type: 'project' }) */
+  devcontainerSource?: DevcontainerSource;
 };
 
 /**
