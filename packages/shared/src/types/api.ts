@@ -103,3 +103,40 @@ export interface ClientConfig {
   dotfilesInstallCommand?: string;
   defaultShell?: string;
 }
+
+// Diff types
+export interface DiffStats {
+  insertions: number;
+  deletions: number;
+  filesChanged: number;
+}
+
+export interface DiffLine {
+  type: 'context' | 'add' | 'delete';
+  content: string;
+}
+
+export interface DiffHunk {
+  oldStart: number;
+  oldLines: number;
+  newStart: number;
+  newLines: number;
+  lines: DiffLine[];
+}
+
+export interface FileDiff {
+  path: string;
+  status: 'added' | 'modified' | 'deleted' | 'renamed';
+  insertions: number;
+  deletions: number;
+  hunks: DiffHunk[];
+}
+
+export interface DiffStatsResponse {
+  stats: DiffStats;
+}
+
+export interface DiffDetailResponse {
+  files: FileDiff[];
+  stats: DiffStats;
+}
