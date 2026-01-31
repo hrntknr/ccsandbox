@@ -10,49 +10,42 @@ ccsandboxはGitHubリポジトリ用のセッションベース開発環境マ�
 
 ```bash
 # ビルド
-npm run build          # 全パッケージをビルド
+npm run build          # サーバーとWebをビルド
 npm run clean          # distディレクトリを削除
 npm run typecheck      # 型チェックのみ
 
-# テスト
+# テスト (ビルド不要)
 npm test               # 全テスト実行
 npm run test:watch     # ウォッチモード
-npm test -w=@ccsandbox/server  # 特定パッケージのテスト
 
 # 開発
-npm run dev            # 開発モードでCLI起動
-npm run dev -w=@ccsandbox/server  # サーバーのみ開発モード
-npm run dev -w=@ccsandbox/web     # Webのみ開発モード
+npm run dev            # サーバーとWebを並列起動
 
-# 実行
+# 実行 (ビルド後)
 npm start
 ```
 
 ## Architecture
 
-TypeScript monorepo (npm workspaces) with 4 packages:
-
 ```
-packages/
-├── cli/      # CLIエントリーポイント (commander)
-├── server/   # Express.js + WebSocket バックエンド
-├── web/      # React + Vite フロントエンド (xterm.js)
-└── shared/   # 共有型定義
+src/                   # バックエンド (CLI + Server)
+├── cli.ts             # CLIエントリーポイント (commander)
+├── index.ts           # サーバーエントリーポイント
+├── app.ts             # Express.js アプリケーション
+├── routes/            # REST API (`/api/github`, `/api/sessions`)
+├── services/          # ビジネスロジック (git, GitHub, devcontainer, terminal)
+├── persistence/       # JSONベースのセッション永続化
+├── websocket/         # WebSocket (ターミナルI/O, セッション同期)
+├── shared/            # 共有型定義
+└── __tests__/         # テスト
+
+web/                   # フロントエンド (React + Vite)
+├── App.tsx            # メインコンポーネント
+├── components/        # React UI (SessionList, TerminalPane, Terminal, NewSessionModal)
+└── hooks/             # カスタムフック (useApi, useSessionSync, useTerminalWebSocket)
 ```
 
 **データフロー**: CLI → Server (Express + WebSocket) ↔ Web (React) → Services → Persistence (JSON: ~/.ccsandbox/)
-
-### Server Structure
-
-- `routes/` - REST API (`/api/github`, `/api/sessions`)
-- `services/` - ビジネスロジック (git, GitHub, devcontainer, terminal)
-- `persistence/` - JSONベースのセッション永続化
-- `ws/` - WebSocket (ターミナルI/O, セッション同期)
-
-### Web Structure
-
-- `components/` - React UI (SessionList, TerminalPane, Terminal, NewSessionModal)
-- `hooks/` - カスタムフック (useApi, useSessionSync, useTerminalWebSocket)
 
 ## TypeScript Configuration
 
