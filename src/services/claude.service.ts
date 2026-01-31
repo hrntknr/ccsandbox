@@ -8,6 +8,7 @@ import type {
   ClaudeMessage,
   ClaudePendingPermission,
   ClaudePermissionMode,
+  TodoItem,
 } from '../shared/index.js';
 
 /**
@@ -43,6 +44,8 @@ export interface ClaudeInstance {
   /** Path to devcontainer.json config (for template-based sessions) */
   configPath?: string;
   remoteEnv?: string[];
+  /** Current todo list from TodoWrite tool */
+  todos: TodoItem[];
 }
 
 /**
@@ -122,6 +125,7 @@ export class ClaudeManager extends EventEmitter {
       devcontainerCliPath,
       configPath,
       remoteEnv,
+      todos: [],
     };
 
     this.instances.set(tabId, instance);
@@ -282,9 +286,9 @@ export class ClaudeManager extends EventEmitter {
         .map((c) => c.text ?? '')
         .join('');
 
-      // Extract tool use
+      // Extract tool use (filter out TodoWrite as it's handled separately)
       const toolUse = event.message.content
-        .filter((c) => c.type === 'tool_use')
+        .filter((c) => c.type === 'tool_use' && c.name !== 'TodoWrite')
         .map((c) => ({
           id: c.id ?? '',
           name: c.name ?? '',
@@ -316,8 +320,17 @@ export class ClaudeManager extends EventEmitter {
 
     // Handle user messages (tool results)
     if (event.type === 'user') {
+      // Check for TodoWrite tool_use_result
+      const rawResult = event.tool_use_result as unknown;
+      if (rawResult && typeof rawResult === 'object' && 'newTodos' in rawResult) {
+        const todoResult = rawResult as { newTodos: TodoItem[] };
+        instance.todos = todoResult.newTodos;
+      }
+
+      // Filter out TodoWrite tool results (they contain "Todos have been modified successfully")
       const toolResults = event.message.content
         .filter((c) => c.type === 'tool_result')
+        .filter((c) => !c.content?.includes('Todos have been modified successfully'))
         .map((c) => ({
           toolUseId: c.tool_use_id ?? '',
           content: c.content ?? '',
@@ -448,6 +461,13 @@ export class ClaudeManager extends EventEmitter {
   getPendingPermissions(tabId: string): ClaudePendingPermission[] {
     const instance = this.instances.get(tabId);
     return instance ? Array.from(instance.pendingPermissions.values()) : [];
+  }
+
+  /**
+   * Get todos for a Claude instance
+   */
+  getTodos(tabId: string): TodoItem[] {
+    return this.instances.get(tabId)?.todos ?? [];
   }
 
   /**

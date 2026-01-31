@@ -9,6 +9,7 @@ import type {
   ClaudeMessage,
   ClaudePendingPermission,
   ClaudePermissionMode,
+  TodoItem,
 } from '@shared/index.js';
 
 interface OutputCallback {
@@ -34,7 +35,7 @@ interface ClaudeEventCallback {
 }
 
 interface ClaudeHistoryCallback {
-  (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[]): void;
+  (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[], todos: TodoItem[]): void;
 }
 
 interface ClaudeEventSubscription {
@@ -216,7 +217,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
         case 'claude-history':
           for (const sub of claudeHistorySubscriptionsRef.current) {
             if (sub.tabId === message.tabId) {
-              sub.callback(message.messages, message.pendingPermissions);
+              sub.callback(message.messages, message.pendingPermissions, message.todos);
             }
           }
           break;

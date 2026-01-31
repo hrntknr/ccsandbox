@@ -1,5 +1,5 @@
 import type { Session, TabType, TerminalTab } from './session.js';
-import type { ClaudeEvent, ClaudeMessage, ClaudePendingPermission, ClaudePermissionMode } from './claude.js';
+import type { ClaudeEvent, ClaudeMessage, ClaudePendingPermission, ClaudePermissionMode, TodoItem } from './claude.js';
 import type { DevcontainerSource } from './template.js';
 
 /**
@@ -52,6 +52,7 @@ export type TerminalServerMessage =
       tabId: string;
       messages: ClaudeMessage[];
       pendingPermissions: ClaudePendingPermission[];
+      todos: TodoItem[];
     }
   | { type: 'claude-permission-resolved'; tabId: string; requestId: string }
   | { type: 'claude-user-message'; tabId: string; message: ClaudeMessage };
