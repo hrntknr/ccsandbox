@@ -10,6 +10,7 @@ import {
   WorkspaceExistsError,
 } from '../../persistence/session-store.js';
 import { cloneRepository, GitOperationError } from '../../services/git.service.js';
+import { getAuthenticatedUsername } from '../../services/github.service.js';
 import {
   hasDevcontainerConfig,
   startDevcontainer,
@@ -101,7 +102,10 @@ router.post(
         throw new DevcontainerConfigNotFoundError(session.workspacePath);
       }
 
-      // Step 4: Start devcontainer
+      // Step 4: Get GitHub username
+      const username = await getAuthenticatedUsername(config.pat!, config.apiBase);
+
+      // Step 5: Start devcontainer
       try {
         const containerInfo = await startDevcontainer({
           workspacePath: session.workspacePath,
@@ -109,6 +113,12 @@ router.post(
           dotfilesRepository: config.dotfilesRepository,
           dotfilesTargetPath: config.dotfilesTargetPath,
           dotfilesInstallCommand: config.dotfilesInstallCommand,
+          gitCredential: {
+            apiBase: config.apiBase,
+            pat: config.pat!,
+            username,
+            configDir: config.configDir,
+          },
         });
 
         // Update session with container info
@@ -297,6 +307,11 @@ router.post(
     try {
       const session = await store.get(id);
 
+      // Get GitHub username if PAT is configured
+      const username = config.pat
+        ? await getAuthenticatedUsername(config.pat, config.apiBase)
+        : undefined;
+
       // devcontainer up is idempotent - it starts stopped containers or reuses running ones
       const containerInfo = await startDevcontainer({
         workspacePath: session.workspacePath,
@@ -304,6 +319,9 @@ router.post(
         dotfilesRepository: config.dotfilesRepository,
         dotfilesTargetPath: config.dotfilesTargetPath,
         dotfilesInstallCommand: config.dotfilesInstallCommand,
+        gitCredential: config.pat && username
+          ? { apiBase: config.apiBase, pat: config.pat, username, configDir: config.configDir }
+          : undefined,
       });
 
       const updatedSession = await store.update(id, {

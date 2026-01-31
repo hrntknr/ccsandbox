@@ -2,6 +2,7 @@ import { WebSocket } from 'ws';
 import type { SessionCreateClientMessage, SessionCreateServerMessage, Session } from '@ccsandbox/shared';
 import { getSessionStore, WorkspaceExistsError } from '../persistence/session-store.js';
 import { cloneRepository, GitOperationError } from '../services/git.service.js';
+import { getAuthenticatedUsername } from '../services/github.service.js';
 import {
   hasDevcontainerConfig,
   startDevcontainer,
@@ -132,7 +133,12 @@ export function createSessionCreateHandler(ws: WebSocket): SessionCreateHandler 
       }
       sendLog(ws, `Found .devcontainer configuration\n\n`);
 
-      // Step 4: Start devcontainer
+      // Step 4: Get GitHub username for credential
+      sendLog(ws, `=== Fetching GitHub username ===\n`);
+      const username = await getAuthenticatedUsername(config.pat!, config.apiBase);
+      sendLog(ws, `GitHub user: ${username}\n\n`);
+
+      // Step 5: Start devcontainer
       sendLog(ws, `=== Starting devcontainer ===\n`);
       try {
         const containerInfo = await startDevcontainer({
@@ -142,6 +148,12 @@ export function createSessionCreateHandler(ws: WebSocket): SessionCreateHandler 
           dotfilesRepository: config.dotfilesRepository,
           dotfilesTargetPath: config.dotfilesTargetPath,
           dotfilesInstallCommand: config.dotfilesInstallCommand,
+          gitCredential: {
+            apiBase: config.apiBase,
+            pat: config.pat!,
+            username,
+            configDir: config.configDir,
+          },
         });
 
         // Update session with container info
