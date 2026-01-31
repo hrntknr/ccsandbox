@@ -8,6 +8,10 @@ import type {
   CreateSessionRequest,
   ClientConfig,
   UpdateConfigRequest,
+  DiffStats,
+  DiffStatsResponse,
+  DiffDetailResponse,
+  FileDiff,
 } from '@ccsandbox/shared';
 
 
@@ -301,4 +305,71 @@ export function useUpdateConfig(): {
   }, []);
 
   return { updateConfig, loading, error };
+}
+
+export function useDiffStats(sessionId: string | null): UseApiReturn<DiffStats> {
+  const [state, setState] = useState<UseApiState<DiffStats>>({
+    data: null,
+    loading: false,
+    error: null,
+  });
+
+  const execute = useCallback(async (): Promise<DiffStats | null> => {
+    if (!sessionId) {
+      setState({ data: null, loading: false, error: null });
+      return null;
+    }
+
+    setState((prev) => ({ ...prev, loading: true, error: null }));
+
+    const response = await fetchApi<DiffStatsResponse>(`/sessions/${sessionId}/diff/stats`);
+
+    if (response.success && response.data) {
+      setState({ data: response.data.stats, loading: false, error: null });
+      return response.data.stats;
+    } else {
+      setState({ data: null, loading: false, error: response.error || 'Unknown error' });
+      return null;
+    }
+  }, [sessionId]);
+
+  const reset = useCallback(() => {
+    setState({ data: null, loading: false, error: null });
+  }, []);
+
+  return { ...state, execute, reset };
+}
+
+export function useDiffDetail(sessionId: string | null): UseApiReturn<{ files: FileDiff[]; stats: DiffStats }> {
+  const [state, setState] = useState<UseApiState<{ files: FileDiff[]; stats: DiffStats }>>({
+    data: null,
+    loading: false,
+    error: null,
+  });
+
+  const execute = useCallback(async (): Promise<{ files: FileDiff[]; stats: DiffStats } | null> => {
+    if (!sessionId) {
+      setState({ data: null, loading: false, error: null });
+      return null;
+    }
+
+    setState((prev) => ({ ...prev, loading: true, error: null }));
+
+    const response = await fetchApi<DiffDetailResponse>(`/sessions/${sessionId}/diff`);
+
+    if (response.success && response.data) {
+      const result = { files: response.data.files, stats: response.data.stats };
+      setState({ data: result, loading: false, error: null });
+      return result;
+    } else {
+      setState({ data: null, loading: false, error: response.error || 'Unknown error' });
+      return null;
+    }
+  }, [sessionId]);
+
+  const reset = useCallback(() => {
+    setState({ data: null, loading: false, error: null });
+  }, []);
+
+  return { ...state, execute, reset };
 }
