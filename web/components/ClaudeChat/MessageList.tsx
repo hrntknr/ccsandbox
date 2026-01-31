@@ -75,7 +75,7 @@ function ToolItem({ tool, result }: ToolItemProps) {
   );
 }
 
-// 順序を保持するためのアイテム型
+// Item type for preserving order
 type ContentItem =
   | { type: 'text'; text: string }
   | { type: 'tool'; tool: ToolInfo; result?: ToolResult };
@@ -93,15 +93,15 @@ function groupConsecutiveMessages(messages: ClaudeMessage[]): GroupedMessage[] {
   for (const message of messages) {
     const last = grouped[grouped.length - 1];
 
-    // メッセージからアイテムを作成（順序を保持）
+    // Create items from message (preserving order)
     const items: ContentItem[] = [];
 
-    // テキストコンテンツ
+    // Text content
     if (message.content.trim()) {
       items.push({ type: 'text', text: message.content });
     }
 
-    // ツール使用（テキストの後に追加）
+    // Tool use (added after text)
     if (message.toolUse) {
       for (const tool of message.toolUse) {
         const result = message.toolResults?.find((r) => r.toolUseId === tool.id);
@@ -110,7 +110,7 @@ function groupConsecutiveMessages(messages: ClaudeMessage[]): GroupedMessage[] {
     }
 
     if (last && last.role === message.role) {
-      // 連続した同じロールのメッセージを結合
+      // Merge consecutive messages with the same role
       last.items.push(...items);
       last.timestamp = message.timestamp;
     } else {
@@ -129,10 +129,10 @@ function groupConsecutiveMessages(messages: ClaudeMessage[]): GroupedMessage[] {
 export function MessageList({ messages, streamingContent, isLoading }: MessageListProps) {
   const groupedMessages = groupConsecutiveMessages(messages);
 
-  // ストリーミング中のコンテンツを最後のアシスタントメッセージに結合するかどうか
+  // Whether to append streaming content to the last assistant message
   const lastGroup = groupedMessages[groupedMessages.length - 1];
   const shouldAppendStreaming = streamingContent && lastGroup?.role === 'assistant';
-  // 新しいストリーミングブロックが表示されるかどうか（最後がassistantでない場合）
+  // Whether a new streaming block is shown (when last message is not assistant)
   const hasNewStreamingBlock = streamingContent && !shouldAppendStreaming;
 
   if (messages.length === 0 && !isLoading && !streamingContent) {
@@ -153,7 +153,7 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
         const isLastGroup = groupIndex === groupedMessages.length - 1;
         const showStreamingHere = isLastGroup && shouldAppendStreaming;
 
-        // streaming blockがある場合、最後のブロックは下ボーダーなし（点線のみで区切る）
+        // If there's a streaming block, the last block has no bottom border (separated by dashed line only)
         const showBottomBorder = !(isLastGroup && hasNewStreamingBlock);
 
         return (
@@ -183,7 +183,7 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
               )}
             </div>
 
-            {/* アイテムを順序通りに表示 */}
+            {/* Display items in order */}
             {message.items.map((item, index) => {
               if (item.type === 'text') {
                 return (
@@ -200,7 +200,7 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
               }
             })}
 
-            {/* ストリーミング中のコンテンツ */}
+            {/* Streaming content */}
             {showStreamingHere && (
               <div className={`break-words leading-relaxed text-claude-text-primary prose prose-invert max-w-none ${message.items.length > 0 ? 'mt-3 pt-3 border-t border-dashed border-claude-border' : ''}`}>
                 <Streamdown plugins={{ code }} isAnimating>{streamingContent}</Streamdown>
@@ -222,7 +222,7 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
         </div>
       )}
 
-      {/* Streaming message - 最後がアシスタントでない場合のみ別ブロックとして表示 */}
+      {/* Streaming message - shown as separate block only when last message is not assistant */}
       {streamingContent && !shouldAppendStreaming && (
         <div className="py-4 px-6 border-t border-dashed border-claude-border bg-claude-bg-secondary">
           <div className="flex items-center gap-2 mb-2">
