@@ -473,14 +473,21 @@ export function createTerminalHandler(
 
   /**
    * Handle claude-permission-response - respond to a permission request
+   * @param requestId - The permission request ID
+   * @param permission - 'allow' or 'deny'
+   * @param answers - For AskUserQuestion tool: map of question text to selected answer(s)
    */
-  function handleClaudePermissionResponse(requestId: string, permission: 'allow' | 'deny'): void {
+  function handleClaudePermissionResponse(
+    requestId: string,
+    permission: 'allow' | 'deny',
+    answers?: Record<string, string>
+  ): void {
     if (!currentTabId) {
       sendError(ws, 'Not attached to a Claude tab');
       return;
     }
 
-    if (!claudeManager.respondToPermission(currentTabId, requestId, permission)) {
+    if (!claudeManager.respondToPermission(currentTabId, requestId, permission, answers)) {
       sendError(ws, 'Failed to respond to permission request');
     }
   }
@@ -587,7 +594,7 @@ export function createTerminalHandler(
           sendError(ws, 'Invalid requestId format');
           return;
         }
-        handleClaudePermissionResponse(message.requestId, message.permission);
+        handleClaudePermissionResponse(message.requestId, message.permission, message.answers);
         break;
 
       default:

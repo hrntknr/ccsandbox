@@ -24,6 +24,8 @@ export type TerminalClientMessage =
       type: 'claude-permission-response';
       requestId: string;
       permission: 'allow' | 'deny';
+      /** Answers for AskUserQuestion tool (key: question text, value: selected label(s)) */
+      answers?: Record<string, string>;
     };
 
 /**
