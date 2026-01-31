@@ -6,11 +6,11 @@ interface PermissionModeSelectorProps {
   disabled?: boolean;
 }
 
-const modes: { value: ClaudePermissionMode; label: string }[] = [
-  { value: 'default', label: 'Default' },
-  { value: 'acceptEdits', label: '⏵⏵ accept edits on' },
-  { value: 'plan', label: '⏸ plan mode on' },
-  { value: 'bypassPermissions', label: '⏵⏵ bypass permissions on' },
+const modes: { value: ClaudePermissionMode; label: string; shortLabel: string }[] = [
+  { value: 'default', label: 'Default', shortLabel: 'Default' },
+  { value: 'acceptEdits', label: '⏵⏵ accept edits on', shortLabel: '⏵⏵ edits' },
+  { value: 'plan', label: '⏸ plan mode on', shortLabel: '⏸ plan' },
+  { value: 'bypassPermissions', label: '⏵⏵ bypass permissions on', shortLabel: '⏵⏵ bypass' },
 ];
 
 function getModeActiveClasses(mode: ClaudePermissionMode): string {
@@ -31,24 +31,61 @@ function getModeActiveClasses(mode: ClaudePermissionMode): string {
   }
 }
 
+function getModeSelectColor(mode: ClaudePermissionMode): string {
+  switch (mode) {
+    case 'acceptEdits':
+      return '#a855f7';
+    case 'plan':
+      return '#059669';
+    case 'bypassPermissions':
+      return '#ef4444';
+    default:
+      return '';
+  }
+}
+
 export function PermissionModeSelector({
   value,
   onChange,
   disabled = false,
 }: PermissionModeSelectorProps) {
+  const selectColor = getModeSelectColor(value);
+
   return (
-    <div className="flex items-center gap-1.5">
-      {modes.map((mode) => (
-        <button
-          key={mode.value}
-          type="button"
-          className={`py-1 px-2.5 text-[11px] font-medium border rounded-[14px] bg-transparent text-claude-text-muted cursor-pointer transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${value === mode.value ? getModeActiveClasses(mode.value) : 'border-claude-border hover:text-claude-text-secondary hover:bg-claude-bg-hover'}`}
-          onClick={() => onChange(mode.value)}
-          disabled={disabled}
-        >
-          {mode.label}
-        </button>
-      ))}
-    </div>
+    <>
+      {/* Desktop: Button group */}
+      <div className="hidden sm:flex items-center gap-1.5">
+        {modes.map((mode) => (
+          <button
+            key={mode.value}
+            type="button"
+            className={`py-1 px-2.5 text-[11px] font-medium border rounded-[14px] bg-transparent text-claude-text-muted cursor-pointer transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${value === mode.value ? getModeActiveClasses(mode.value) : 'border-claude-border hover:text-claude-text-secondary hover:bg-claude-bg-hover'}`}
+            onClick={() => onChange(mode.value)}
+            disabled={disabled}
+          >
+            {mode.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Mobile: Dropdown */}
+      <select
+        className="sm:hidden py-1 px-2 text-[11px] font-medium border rounded-[14px] bg-claude-bg-tertiary cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed appearance-none pr-6 bg-no-repeat bg-[length:12px] bg-[right_6px_center]"
+        style={{
+          borderColor: selectColor || 'var(--color-claude-border)',
+          color: selectColor || 'var(--color-claude-text-secondary)',
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+        }}
+        value={value}
+        onChange={(e) => onChange(e.target.value as ClaudePermissionMode)}
+        disabled={disabled}
+      >
+        {modes.map((mode) => (
+          <option key={mode.value} value={mode.value}>
+            {mode.shortLabel}
+          </option>
+        ))}
+      </select>
+    </>
   );
 }
