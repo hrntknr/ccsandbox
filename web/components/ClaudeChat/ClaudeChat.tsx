@@ -7,11 +7,14 @@ import type {
   ClaudeMessage,
   ClaudePendingPermission,
   ClaudePermissionMode,
+  TodoItem,
+  TodoWriteResult,
 } from '@shared/index.js';
 import { MessageList } from './MessageList';
 import { InputForm } from './InputForm';
 import { PermissionDialog } from './PermissionDialog';
 import { AskUserQuestionDialog } from './AskUserQuestionDialog';
+import { TodoList } from './TodoList';
 
 interface ClaudeChatProps {
   tabId: string;
@@ -56,7 +59,10 @@ export function ClaudeChat({
   const [pendingPermissions, setPendingPermissions] = useState<ClaudePendingPermission[]>([]);
   const [streamingContent, setStreamingContent] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [todos, setTodos] = useState<TodoItem[]>([]);
+  const [bottomAreaHeight, setBottomAreaHeight] = useState(128);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const bottomAreaRef = useRef<HTMLDivElement>(null);
   const historyLoadedRef = useRef(false);
 
   // Handle incoming events
@@ -83,8 +89,9 @@ export function ClaudeChat({
             .map((c) => c.text ?? '')
             .join('');
 
+          // Filter out TodoWrite from tool use display
           const toolUse = event.message.content
-            .filter((c) => c.type === 'tool_use')
+            .filter((c) => c.type === 'tool_use' && c.name !== 'TodoWrite')
             .map((c) => ({
               id: c.id ?? '',
               name: c.name ?? '',
@@ -108,9 +115,19 @@ export function ClaudeChat({
         }
 
         case 'user': {
-          // Tool results - update the last assistant message
+          // Check for TodoWrite tool_use_result first
+          const rawResult = event.tool_use_result as unknown;
+          const isTodoWriteResult = rawResult && typeof rawResult === 'object' && 'newTodos' in rawResult;
+
+          if (isTodoWriteResult) {
+            const todoResult = rawResult as TodoWriteResult;
+            setTodos(todoResult.newTodos);
+          }
+
+          // Tool results - update the last assistant message (exclude TodoWrite)
           const toolResults = event.message.content
             .filter((c) => c.type === 'tool_result')
+            .filter((c) => !c.content?.includes('Todos have been modified successfully'))
             .map((c) => ({
               toolUseId: c.tool_use_id ?? '',
               content: c.content ?? '',
@@ -176,12 +193,27 @@ export function ClaudeChat({
     });
   }, [tabId, onClaudeUserMessage]);
 
-  // Auto-scroll to bottom
+  // Track bottom area height for scroll spacer
+  useEffect(() => {
+    const bottomArea = bottomAreaRef.current;
+    if (!bottomArea) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setBottomAreaHeight(entry.contentRect.height + 16); // +16 for padding
+      }
+    });
+
+    observer.observe(bottomArea);
+    return () => observer.disconnect();
+  }, []);
+
+  // Auto-scroll to bottom (including when todos change)
   useEffect(() => {
     if (isActive) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, streamingContent, isActive]);
+  }, [messages, streamingContent, isActive, todos]);
 
   const handleSubmit = useCallback(
     (content: string, permissionMode: ClaudePermissionMode) => {
@@ -208,13 +240,14 @@ export function ClaudeChat({
 
   return (
     <div className={`relative h-full bg-claude-bg-primary text-claude-text-primary font-sans text-sm leading-normal ${isActive ? 'flex flex-col' : 'hidden'}`}>
-      <div className="flex-1 overflow-y-auto py-4 pb-32 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto py-4 scrollbar-thin">
         <MessageList
           messages={messages}
           streamingContent={streamingContent}
           isLoading={isLoading}
         />
-        <div ref={messagesEndRef} />
+        {/* Scroll spacer - matches bottom area height */}
+        <div ref={messagesEndRef} style={{ height: bottomAreaHeight }} />
       </div>
 
       {pendingPermissions.length > 0 && (() => {
@@ -242,8 +275,10 @@ export function ClaudeChat({
         );
       })()}
 
-      <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 pt-6 bg-gradient-to-t from-claude-bg-primary via-claude-bg-primary to-transparent pointer-events-none">
-        <div className="pointer-events-auto max-w-3xl mx-auto">
+      <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 pointer-events-none">
+        <div ref={bottomAreaRef} className="pointer-events-auto max-w-3xl mx-auto">
+          {/* Todo List - above input form */}
+          <TodoList todos={todos} />
           <InputForm
             onSubmit={handleSubmit}
             disabled={isLoading || pendingPermissions.length > 0}

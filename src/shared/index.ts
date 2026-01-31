@@ -24,6 +24,8 @@ export type {
   ClaudeStreamEventDetail,
   ClaudeSystemInitEvent,
   ClaudeUserEvent,
+  TodoItem,
+  TodoWriteResult,
 } from './types/claude.js';
 
 export type { Repository } from './types/github.js';

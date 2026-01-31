@@ -186,3 +186,20 @@ export interface ClaudePendingPermission {
   toolUseId: string;
   timestamp: string;
 }
+
+/**
+ * Todo item from TodoWrite tool
+ */
+export interface TodoItem {
+  content: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  activeForm?: string;
+}
+
+/**
+ * TodoWrite tool_use_result
+ */
+export interface TodoWriteResult {
+  oldTodos: TodoItem[];
+  newTodos: TodoItem[];
+}
