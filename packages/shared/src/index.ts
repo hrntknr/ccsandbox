@@ -46,6 +46,12 @@ export type {
   EditableConfig,
   UpdateConfigRequest,
   ClientConfig,
+  DiffStats,
+  DiffLine,
+  DiffHunk,
+  FileDiff,
+  DiffStatsResponse,
+  DiffDetailResponse,
 } from './types/api.js';
 
 export type {
