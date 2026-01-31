@@ -184,22 +184,24 @@ export function TerminalPane({ session }: TerminalPaneProps) {
               </div>
             ))}
           </div>
-          <div className="flex items-center gap-1 ml-2 mr-2 shrink-0">
+          <div className="flex items-center gap-1 ml-2 mr-2 shrink-0 max-md:ml-1 max-md:mr-1 max-md:gap-0.5">
             <button
-              className="bg-transparent border border-transparent text-[#9cdcfe] text-xs cursor-pointer py-1 px-2 rounded leading-none whitespace-nowrap hover:bg-white/10 hover:text-[#4fc3f7] disabled:opacity-40 disabled:cursor-not-allowed"
+              className="bg-transparent border border-transparent text-[#9cdcfe] text-xs cursor-pointer py-1 px-2 rounded leading-none whitespace-nowrap hover:bg-white/10 hover:text-[#4fc3f7] disabled:opacity-40 disabled:cursor-not-allowed max-md:px-1.5 max-md:text-[11px]"
               onClick={handleAddTerminalTab}
               disabled={!isConnected}
               title="Add Terminal"
             >
-              + Terminal
+              <span className="max-md:hidden">+ Terminal</span>
+              <span className="hidden max-md:inline">+$</span>
             </button>
             <button
-              className="bg-transparent border border-transparent text-[#E57B3A] text-xs cursor-pointer py-1 px-2 rounded leading-none whitespace-nowrap hover:bg-white/10 hover:text-[#FF8C42] disabled:opacity-40 disabled:cursor-not-allowed"
+              className="bg-transparent border border-transparent text-[#E57B3A] text-xs cursor-pointer py-1 px-2 rounded leading-none whitespace-nowrap hover:bg-white/10 hover:text-[#FF8C42] disabled:opacity-40 disabled:cursor-not-allowed max-md:px-1.5 max-md:text-[11px]"
               onClick={handleAddClaudeTab}
               disabled={!isConnected}
               title="Add Claude"
             >
-              + Claude
+              <span className="max-md:hidden">+ Claude</span>
+              <span className="hidden max-md:inline">+◈</span>
             </button>
           </div>
         </div>
