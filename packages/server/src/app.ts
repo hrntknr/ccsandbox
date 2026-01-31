@@ -1,7 +1,9 @@
 import express, { type Express, type Request, type Response, type NextFunction } from 'express';
+import cookieParser from 'cookie-parser';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import apiRouter from './routes/api/index.js';
+import { authMiddleware } from './middleware/auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -19,6 +21,10 @@ export function createApp(options: CreateAppOptions = {}): Express {
   // Middleware
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+  app.use(cookieParser());
+
+  // Authentication middleware
+  app.use(authMiddleware);
 
   // API routes
   app.use('/api', apiRouter);
