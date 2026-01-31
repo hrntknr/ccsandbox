@@ -136,11 +136,13 @@ export function TerminalPane({ session }: TerminalPaneProps) {
             {tabs.map((tab) => (
               <div
                 key={tab.tabId}
-                className={`flex items-center gap-1.5 py-1.5 px-3 bg-transparent border border-transparent border-b-0 cursor-pointer text-xs text-vscode-text-secondary min-w-[80px] max-w-[160px] shrink-0 relative hover:text-[#ccc] max-md:py-[5px] max-md:px-2 max-md:min-w-[60px] max-md:max-w-[120px] max-md:text-[11px] ${activeTabId === tab.tabId ? 'bg-vscode-bg text-white border-vscode-border-light rounded-t -mb-px pb-[7px]' : ''} ${tab.tabType === 'claude' ? 'border-l-2 border-l-[#9cdcfe]' : ''} ${activeTabId === tab.tabId && tab.tabType === 'claude' ? 'border-l-[#4fc3f7]' : ''}`}
+                className={`flex items-center gap-1.5 py-1.5 px-3 bg-transparent border border-transparent border-b-0 cursor-pointer text-xs text-vscode-text-secondary min-w-[80px] max-w-[160px] shrink-0 relative hover:text-[#ccc] max-md:py-[5px] max-md:px-2 max-md:min-w-[60px] max-md:max-w-[120px] max-md:text-[11px] ${activeTabId === tab.tabId ? 'bg-vscode-bg text-white border-vscode-border-light rounded-t -mb-px pb-[7px]' : ''}`}
                 onClick={() => setActiveTabId(tab.tabId)}
               >
-                {tab.tabType === 'claude' && (
-                  <span className="text-[10px] text-[#9cdcfe] shrink-0">◈</span>
+                {tab.tabType === 'claude' ? (
+                  <span className="text-[10px] text-[#E57B3A] shrink-0">◈</span>
+                ) : (
+                  <span className="text-[10px] text-[#9cdcfe] shrink-0">$</span>
                 )}
                 {tab.isEditing ? (
                   <form
@@ -184,7 +186,7 @@ export function TerminalPane({ session }: TerminalPaneProps) {
           </div>
           <div className="flex items-center gap-1 ml-2 mr-2 shrink-0">
             <button
-              className="bg-transparent border border-transparent text-vscode-text-secondary text-xs cursor-pointer py-1 px-2 rounded leading-none whitespace-nowrap hover:bg-white/10 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
+              className="bg-transparent border border-transparent text-[#9cdcfe] text-xs cursor-pointer py-1 px-2 rounded leading-none whitespace-nowrap hover:bg-white/10 hover:text-[#4fc3f7] disabled:opacity-40 disabled:cursor-not-allowed"
               onClick={handleAddTerminalTab}
               disabled={!isConnected}
               title="Add Terminal"
@@ -192,7 +194,7 @@ export function TerminalPane({ session }: TerminalPaneProps) {
               + Terminal
             </button>
             <button
-              className="bg-transparent border border-transparent text-[#9cdcfe] text-xs cursor-pointer py-1 px-2 rounded leading-none whitespace-nowrap hover:bg-white/10 hover:text-[#4fc3f7] disabled:opacity-40 disabled:cursor-not-allowed"
+              className="bg-transparent border border-transparent text-[#E57B3A] text-xs cursor-pointer py-1 px-2 rounded leading-none whitespace-nowrap hover:bg-white/10 hover:text-[#FF8C42] disabled:opacity-40 disabled:cursor-not-allowed"
               onClick={handleAddClaudeTab}
               disabled={!isConnected}
               title="Add Claude"
