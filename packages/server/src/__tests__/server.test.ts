@@ -3,7 +3,7 @@ import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { startServer, type ServerInstance } from '../index.js';
-import { resetConfigStore } from '../persistence/config-store.js';
+import { getConfigStore, resetConfigStore } from '../persistence/config-store.js';
 import { resetSessionStore } from '../persistence/session-store.js';
 
 describe('startServer', () => {
@@ -48,7 +48,20 @@ describe('startServer', () => {
       port: 0,
     });
 
-    const response = await fetch(`http://127.0.0.1:${serverInstance.port}/api/health`);
+    // Get auth token from config store
+    const configStore = getConfigStore(testDir);
+    const config = await configStore.read();
+    const authToken = config.authToken;
+
+    // Use Cookie header with the auth token to authenticate
+    const response = await fetch(
+      `http://127.0.0.1:${serverInstance.port}/api/health`,
+      {
+        headers: {
+          Cookie: `ccsandbox_auth=${authToken}`,
+        },
+      },
+    );
     const data = await response.json();
 
     expect(response.status).toBe(200);

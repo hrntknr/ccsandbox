@@ -23,6 +23,8 @@ export function SettingsModal({
   const [dotfilesTargetPath, setDotfilesTargetPath] = useState('');
   const [dotfilesInstallCommand, setDotfilesInstallCommand] = useState('');
   const [defaultShell, setDefaultShell] = useState('bash');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authPasswordConfirm, setAuthPasswordConfirm] = useState('');
 
   const { updateConfig, loading, error } = useUpdateConfig();
 
@@ -36,6 +38,8 @@ export function SettingsModal({
       setDotfilesTargetPath(initialConfig.dotfilesTargetPath ?? '');
       setDotfilesInstallCommand(initialConfig.dotfilesInstallCommand ?? '');
       setDefaultShell(initialConfig.defaultShell ?? 'bash');
+      setAuthPassword('');
+      setAuthPasswordConfirm('');
     }
   }, [isOpen, initialConfig]);
 
@@ -62,6 +66,14 @@ export function SettingsModal({
       request.dotfilesInstallCommand = dotfilesInstallCommand || undefined;
       request.defaultShell = defaultShell || undefined;
 
+      // Password: only include if user entered a value (and it matches confirmation)
+      if (authPassword || authPasswordConfirm) {
+        if (authPassword !== authPasswordConfirm) {
+          return; // Don't submit if passwords don't match
+        }
+        request.authPassword = authPassword;
+      }
+
       const result = await updateConfig(request);
       if (result) {
         onConfigUpdated?.(result);
@@ -79,6 +91,8 @@ export function SettingsModal({
       dotfilesTargetPath,
       dotfilesInstallCommand,
       defaultShell,
+      authPassword,
+      authPasswordConfirm,
       updateConfig,
       onConfigUpdated,
       onClose,
@@ -195,7 +209,7 @@ export function SettingsModal({
           </div>
 
           {/* Terminal Section */}
-          <div className="mb-0">
+          <div className="mb-6 max-md:mb-5">
             <h3 className="text-sm font-semibold text-vscode-text-secondary uppercase tracking-wide m-0 mb-3 pb-2 border-b border-vscode-border max-md:text-[13px]">Terminal</h3>
 
             <div className="mb-4 max-md:mb-3.5">
@@ -208,6 +222,51 @@ export function SettingsModal({
                 onChange={(e) => setDefaultShell(e.target.value)}
                 placeholder="bash"
               />
+            </div>
+          </div>
+
+          {/* Security Section */}
+          <div className="mb-0">
+            <h3 className="text-sm font-semibold text-vscode-text-secondary uppercase tracking-wide m-0 mb-3 pb-2 border-b border-vscode-border max-md:text-[13px]">Security</h3>
+
+            <div className="mb-4 max-md:mb-3.5">
+              <label htmlFor="authPassword" className="block text-[13px] font-medium text-[#ccc] mb-1.5">
+                Password {initialConfig?.hasAuthPassword ? '(configured)' : '(optional)'}
+              </label>
+              <input
+                id="authPassword"
+                type="password"
+                className="w-full py-2.5 px-3 bg-vscode-bg border border-[#444] rounded text-vscode-text text-sm focus:outline-none focus:border-vscode-accent disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-vscode-text-muted max-md:py-3 max-md:text-base"
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                placeholder={initialConfig?.hasAuthPassword ? 'Enter new password to change' : 'Set a password (optional)'}
+                autoComplete="new-password"
+              />
+            </div>
+
+            <div className="mb-4 max-md:mb-3.5">
+              <label htmlFor="authPasswordConfirm" className="block text-[13px] font-medium text-[#ccc] mb-1.5">Confirm Password</label>
+              <input
+                id="authPasswordConfirm"
+                type="password"
+                className={`w-full py-2.5 px-3 bg-vscode-bg border rounded text-vscode-text text-sm focus:outline-none focus:border-vscode-accent disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-vscode-text-muted max-md:py-3 max-md:text-base ${
+                  authPasswordConfirm && authPassword !== authPasswordConfirm
+                    ? 'border-red-500'
+                    : 'border-[#444]'
+                }`}
+                value={authPasswordConfirm}
+                onChange={(e) => setAuthPasswordConfirm(e.target.value)}
+                placeholder="Confirm password"
+                autoComplete="new-password"
+              />
+              {authPasswordConfirm && authPassword !== authPasswordConfirm && (
+                <div className="text-[11px] text-red-500 mt-1">Passwords do not match</div>
+              )}
+            </div>
+
+            <div className="text-[11px] text-vscode-text-muted mt-1">
+              Setting a password allows you to authenticate with either the token or password.
+              {initialConfig?.hasAuthPassword && ' Leave empty to keep current password.'}
             </div>
           </div>
 
