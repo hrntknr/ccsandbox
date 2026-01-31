@@ -7,11 +7,15 @@ interface AnsiOutputProps {
 }
 
 const COLS = 120;
-const ROWS = 20;
+const MIN_ROWS = 3;
+const MAX_ROWS = 20;
 
 export function AnsiOutput({ content }: AnsiOutputProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerm | null>(null);
+
+  const lineCount = content.split('\n').length;
+  const rows = Math.max(MIN_ROWS, Math.min(MAX_ROWS, lineCount));
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -26,7 +30,7 @@ export function AnsiOutput({ content }: AnsiOutputProps) {
       fontFamily:
         '"JetBrainsMono Nerd Font", "FiraCode Nerd Font", "MesloLGS NF", "Hack Nerd Font", Menlo, Monaco, "Courier New", monospace',
       cols: COLS,
-      rows: ROWS,
+      rows: rows,
       theme: {
         background: '#1e1e1e',
         foreground: '#d4d4d4',
