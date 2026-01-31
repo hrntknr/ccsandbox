@@ -464,7 +464,7 @@ export function createTerminalHandler(
    * Handle claude-message - send a message to Claude
    */
   async function handleClaudeMessage(content: string, permissionMode?: ClaudePermissionMode): Promise<void> {
-    if (!currentTabId || !currentSessionId) {
+    if (!currentTabId || !currentSessionId || !clientId) {
       sendError(ws, 'Not attached to a Claude tab');
       return;
     }
@@ -480,9 +480,18 @@ export function createTerminalHandler(
       await claudeManager.setPermissionMode(currentTabId, permissionMode);
     }
 
-    if (!claudeManager.sendMessage(currentTabId, content)) {
+    const userMessage = claudeManager.sendMessage(currentTabId, content);
+    if (!userMessage) {
       sendError(ws, 'Failed to send message to Claude');
+      return;
     }
+
+    // Broadcast user message to other clients attached to this tab
+    connectionManager.broadcastToTab(currentSessionId, currentTabId, {
+      type: 'claude-user-message',
+      tabId: currentTabId,
+      message: userMessage,
+    } satisfies TerminalServerMessage, clientId);
   }
 
   /**
@@ -496,14 +505,22 @@ export function createTerminalHandler(
     permission: 'allow' | 'deny',
     answers?: Record<string, string>
   ): void {
-    if (!currentTabId) {
+    if (!currentTabId || !currentSessionId) {
       sendError(ws, 'Not attached to a Claude tab');
       return;
     }
 
     if (!claudeManager.respondToPermission(currentTabId, requestId, permission, answers)) {
       sendError(ws, 'Failed to respond to permission request');
+      return;
     }
+
+    // Broadcast permission resolution to all clients attached to this tab
+    connectionManager.broadcastToTab(currentSessionId, currentTabId, {
+      type: 'claude-permission-resolved',
+      tabId: currentTabId,
+      requestId,
+    } satisfies TerminalServerMessage);
   }
 
   /**

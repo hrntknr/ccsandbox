@@ -30,6 +30,14 @@ interface ClaudeChatProps {
     tabId: string,
     callback: (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[]) => void
   ) => () => void;
+  onClaudePermissionResolved: (
+    tabId: string,
+    callback: (requestId: string) => void
+  ) => () => void;
+  onClaudeUserMessage: (
+    tabId: string,
+    callback: (message: ClaudeMessage) => void
+  ) => () => void;
 }
 
 export function ClaudeChat({
@@ -39,6 +47,8 @@ export function ClaudeChat({
   respondToPermission,
   onClaudeEvent,
   onClaudeHistory,
+  onClaudePermissionResolved,
+  onClaudeUserMessage,
 }: ClaudeChatProps) {
   const [messages, setMessages] = useState<ClaudeMessage[]>([]);
   const [pendingPermissions, setPendingPermissions] = useState<ClaudePendingPermission[]>([]);
@@ -149,6 +159,20 @@ export function ClaudeChat({
       }
     });
   }, [tabId, onClaudeHistory]);
+
+  // Handle permission resolved from other clients (multi-tab sync)
+  useEffect(() => {
+    return onClaudePermissionResolved(tabId, (requestId) => {
+      setPendingPermissions((prev) => prev.filter((p) => p.requestId !== requestId));
+    });
+  }, [tabId, onClaudePermissionResolved]);
+
+  // Handle user messages from other clients (multi-tab sync)
+  useEffect(() => {
+    return onClaudeUserMessage(tabId, (message) => {
+      setMessages((prev) => [...prev, message]);
+    });
+  }, [tabId, onClaudeUserMessage]);
 
   // Auto-scroll to bottom
   useEffect(() => {

@@ -51,7 +51,9 @@ export type TerminalServerMessage =
       tabId: string;
       messages: ClaudeMessage[];
       pendingPermissions: ClaudePendingPermission[];
-    };
+    }
+  | { type: 'claude-permission-resolved'; tabId: string; requestId: string }
+  | { type: 'claude-user-message'; tabId: string; message: ClaudeMessage };
 
 /**
  * Session creation WebSocket message types

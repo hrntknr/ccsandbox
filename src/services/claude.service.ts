@@ -348,11 +348,12 @@ export class ClaudeManager extends EventEmitter {
 
   /**
    * Send a user message to Claude
+   * @returns The created message object, or null if sending failed
    */
-  sendMessage(tabId: string, content: string): boolean {
+  sendMessage(tabId: string, content: string): ClaudeMessage | null {
     const instance = this.instances.get(tabId);
     if (!instance?.process?.stdin?.writable) {
-      return false;
+      return null;
     }
 
     const message = {
@@ -363,14 +364,15 @@ export class ClaudeManager extends EventEmitter {
     instance.process.stdin.write(JSON.stringify(message) + '\n');
 
     // Add to messages history
-    instance.messages.push({
+    const userMessage: ClaudeMessage = {
       id: uuidv4(),
       role: 'user',
       content,
       timestamp: new Date().toISOString(),
-    });
+    };
+    instance.messages.push(userMessage);
 
-    return true;
+    return userMessage;
   }
 
   /**

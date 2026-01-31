@@ -241,12 +241,13 @@ export class ConnectionManager {
     }
   }
 
-  broadcastToTab(sessionId: string, tabId: string, message: unknown): void {
+  broadcastToTab(sessionId: string, tabId: string, message: unknown, excludeClientId?: string): void {
     const room = this.rooms.get(sessionId);
     if (!room) return;
 
     const data = JSON.stringify(message);
     for (const client of room.clients.values()) {
+      if (excludeClientId && client.clientId === excludeClientId) continue;
       if (client.currentTabId === tabId && client.ws.readyState === 1) {
         client.ws.send(data);
       }
