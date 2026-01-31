@@ -97,9 +97,9 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
       switch (message.type) {
         case 'sync-state':
           setTabs(message.tabs);
-          // Auto-create a tab if none exists
+          // Auto-create a claude tab if none exists
           if (message.tabs.length === 0) {
-            sendMessage({ type: 'add-tab' });
+            sendMessage({ type: 'add-tab', tabType: 'claude' });
           }
           break;
 
