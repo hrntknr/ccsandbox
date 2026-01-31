@@ -27,7 +27,8 @@ export type TerminalClientMessage =
       permission: 'allow' | 'deny';
       /** Answers for AskUserQuestion tool (key: question text, value: selected label(s)) */
       answers?: Record<string, string>;
-    };
+    }
+  | { type: 'claude-change-permission-mode'; permissionMode: ClaudePermissionMode };
 
 /**
  * Messages sent from server to client

@@ -22,6 +22,7 @@ interface ClaudeChatProps {
     permission: 'allow' | 'deny',
     answers?: Record<string, string>
   ) => void;
+  changePermissionMode: (mode: ClaudePermissionMode) => void;
   onClaudeEvent: (
     tabId: string,
     callback: (event: ClaudeEvent) => void
@@ -45,6 +46,7 @@ export function ClaudeChat({
   isActive,
   sendClaudeMessage,
   respondToPermission,
+  changePermissionMode,
   onClaudeEvent,
   onClaudeHistory,
   onClaudePermissionResolved,
@@ -235,6 +237,7 @@ export function ClaudeChat({
           <PermissionDialog
             permission={permission}
             onResponse={handlePermissionResponse}
+            onChangePermissionMode={changePermissionMode}
           />
         );
       })()}

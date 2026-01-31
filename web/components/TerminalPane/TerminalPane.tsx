@@ -48,6 +48,7 @@ export function TerminalPane({ session }: TerminalPaneProps) {
     // Claude-specific
     sendClaudeMessage,
     respondToPermission,
+    changePermissionMode,
     onClaudeEvent,
     onClaudeHistory,
     onClaudePermissionResolved,
@@ -244,6 +245,7 @@ export function TerminalPane({ session }: TerminalPaneProps) {
                 isActive={tab.tabId === activeTabId}
                 sendClaudeMessage={sendClaudeMessage}
                 respondToPermission={respondToPermission}
+                changePermissionMode={changePermissionMode}
                 onClaudeEvent={onClaudeEvent}
                 onClaudeHistory={onClaudeHistory}
                 onClaudePermissionResolved={onClaudePermissionResolved}
