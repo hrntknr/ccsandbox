@@ -135,7 +135,7 @@ Conventional Commits format: `feat(scope):`, `fix(scope):`, `refactor(scope):`, 
 ```
 --config-dir <path>        Config directory (default: ~/.ccsandbox)
 --repo-dir <path>          Repository directory (default: ~/.ccsandbox/repo)
---listen <host>            Bind host (default: 127.0.0.1)
+--listen <host>            Bind host (default: 0.0.0.0)
 --port <port>              Port (default: 3000)
 --devcontainer-cli <path>  devcontainer CLI path
 ```

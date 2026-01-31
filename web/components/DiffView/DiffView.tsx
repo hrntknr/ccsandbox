@@ -9,6 +9,7 @@ interface DiffViewProps {
 
 export function DiffView({ sessionId, onClose }: DiffViewProps) {
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
+  const [showFileList, setShowFileList] = useState(false);
   const { data, loading, execute } = useDiffDetail(sessionId);
 
   useEffect(() => {
@@ -42,32 +43,32 @@ export function DiffView({ sessionId, onClose }: DiffViewProps) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-8"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 md:p-8"
       style={{ animation: 'overlay-in 0.2s ease-out' }}
       onClick={handleBackdropClick}
     >
       {/* Modal container */}
       <div
-        className="bg-vscode-bg border border-vscode-border rounded-2xl shadow-2xl shadow-black/40 flex flex-col w-full max-w-5xl max-h-[80vh] min-h-[400px] overflow-hidden"
+        className="bg-vscode-bg border border-vscode-border rounded-lg sm:rounded-2xl shadow-2xl shadow-black/40 flex flex-col w-full max-w-5xl max-h-[95vh] sm:max-h-[85vh] min-h-[300px] sm:min-h-[400px] overflow-hidden"
         style={{ animation: 'modal-in 0.2s ease-out' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-vscode-bg-secondary border-b border-vscode-border shrink-0">
-          <div className="flex items-center gap-4">
-            <h2 className="text-white text-base font-medium">Diff View</h2>
+        <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3 bg-vscode-bg-secondary border-b border-vscode-border shrink-0 gap-2">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+            <h2 className="text-white text-sm sm:text-base font-medium shrink-0">Diff View</h2>
             {stats && (
-              <div className="text-sm">
+              <div className="text-xs sm:text-sm truncate">
                 <span className="text-green-400">+{stats.insertions}</span>
                 <span className="text-vscode-text-muted mx-1">/</span>
                 <span className="text-red-400">-{stats.deletions}</span>
-                <span className="text-vscode-text-muted ml-2">
+                <span className="text-vscode-text-muted ml-1 sm:ml-2 hidden xs:inline">
                   ({stats.filesChanged} file{stats.filesChanged !== 1 ? 's' : ''})
                 </span>
               </div>
             )}
           </div>
           <button
-            className="text-vscode-text-muted hover:text-white text-xl leading-none p-1 hover:bg-white/10 rounded"
+            className="text-vscode-text-muted hover:text-white text-xl leading-none p-1 hover:bg-white/10 rounded shrink-0"
             onClick={onClose}
             aria-label="Close"
           >
@@ -76,7 +77,7 @@ export function DiffView({ sessionId, onClose }: DiffViewProps) {
         </div>
 
         {/* Content */}
-        <div className="flex-1 flex overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
           {loading ? (
             <div className="flex-1 flex items-center justify-center text-vscode-text-muted">
               Loading diff...
@@ -87,8 +88,41 @@ export function DiffView({ sessionId, onClose }: DiffViewProps) {
             </div>
           ) : (
             <>
-              {/* File list sidebar */}
-              <div className="w-56 min-w-[180px] border-r border-vscode-border bg-vscode-bg-secondary overflow-y-auto shrink-0">
+              {/* Mobile file selector */}
+              <div className="md:hidden border-b border-vscode-border bg-vscode-bg-secondary shrink-0">
+                <button
+                  className="w-full px-3 py-2 flex items-center justify-between text-sm"
+                  onClick={() => setShowFileList(!showFileList)}
+                >
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="text-vscode-text-muted">File:</span>
+                    <span className="text-vscode-text-secondary truncate">
+                      {selectedFile?.path ?? 'Select file'}
+                    </span>
+                  </span>
+                  <span className="text-vscode-text-muted shrink-0 ml-2">
+                    {showFileList ? '▲' : '▼'}
+                  </span>
+                </button>
+                {showFileList && (
+                  <div className="max-h-48 overflow-y-auto border-t border-vscode-border">
+                    {files.map((file, index) => (
+                      <FileListItem
+                        key={file.path}
+                        file={file}
+                        isSelected={index === selectedFileIndex}
+                        onClick={() => {
+                          setSelectedFileIndex(index);
+                          setShowFileList(false);
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Desktop file list sidebar */}
+              <div className="hidden md:block w-56 min-w-[180px] border-r border-vscode-border bg-vscode-bg-secondary overflow-y-auto shrink-0">
                 {files.map((file, index) => (
                   <FileListItem
                     key={file.path}
@@ -134,13 +168,13 @@ function FileListItem({ file, isSelected, onClick }: FileListItemProps) {
 
   return (
     <button
-      className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-white/5 ${
+      className={`w-full text-left px-2 sm:px-3 py-2 text-xs sm:text-sm flex items-center gap-2 hover:bg-white/5 ${
         isSelected ? 'bg-white/10 border-l-2 border-vscode-accent' : ''
       }`}
       onClick={onClick}
     >
-      <span className={`${statusColor} font-mono text-xs w-4`}>{statusIcon}</span>
-      <span className="text-vscode-text-secondary truncate flex-1">{file.path}</span>
+      <span className={`${statusColor} font-mono text-xs w-4 shrink-0`}>{statusIcon}</span>
+      <span className="text-vscode-text-secondary truncate flex-1 min-w-0">{file.path}</span>
       <span className="text-xs shrink-0">
         <span className="text-green-400">+{file.insertions}</span>
         <span className="text-vscode-text-muted">/</span>
@@ -156,22 +190,22 @@ interface FileDiffContentProps {
 
 function FileDiffContent({ file }: FileDiffContentProps) {
   return (
-    <div className="font-mono text-sm">
+    <div className="font-mono text-xs sm:text-sm">
       {/* File header */}
-      <div className="sticky top-0 bg-vscode-bg-secondary px-4 py-2 border-b border-vscode-border">
-        <span className="text-vscode-text-secondary">{file.path}</span>
+      <div className="sticky top-0 bg-vscode-bg-secondary px-2 sm:px-4 py-2 border-b border-vscode-border">
+        <span className="text-vscode-text-secondary break-all">{file.path}</span>
       </div>
 
       {/* Hunks */}
       <div className="p-0">
         {file.hunks.map((hunk, hunkIndex) => (
-          <div key={hunkIndex} className="mb-4">
+          <div key={hunkIndex} className="mb-2 sm:mb-4">
             {/* Hunk header */}
-            <div className="bg-[#1e3a5f] text-[#80b4d8] px-4 py-1 text-xs">
+            <div className="bg-[#1e3a5f] text-[#80b4d8] px-2 sm:px-4 py-1 text-xs">
               @@ -{hunk.oldStart},{hunk.oldLines} +{hunk.newStart},{hunk.newLines} @@
             </div>
             {/* Lines */}
-            <div>
+            <div className="overflow-x-auto">
               {hunk.lines.map((line, lineIndex) => {
                 const bgColor = {
                   add: 'bg-[#1e3a1e]',
@@ -194,7 +228,7 @@ function FileDiffContent({ file }: FileDiffContentProps) {
                 return (
                   <div
                     key={lineIndex}
-                    className={`${bgColor} px-4 py-0 leading-6 whitespace-pre ${textColor}`}
+                    className={`${bgColor} px-2 sm:px-4 py-0 leading-5 sm:leading-6 whitespace-pre ${textColor}`}
                   >
                     <span className="inline-block w-4 shrink-0 select-none opacity-60">{prefix}</span>
                     {line.content}

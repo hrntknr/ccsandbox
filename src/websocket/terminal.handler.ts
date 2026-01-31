@@ -188,6 +188,7 @@ export function createTerminalHandler(
           devcontainerCliPath: config.devcontainerCli,
           tabId,
           configPath: getSessionConfigPath(session, config.configDir),
+          remoteEnv: config.pat ? [`GITHUB_TOKEN=${config.pat}`] : undefined,
         }).then(() => {
           connectionManager.updateTab(sessionId, tabId, {
             ready: true,
@@ -476,7 +477,6 @@ export function createTerminalHandler(
 
     // Update permission mode if changed
     if (permissionMode && permissionMode !== instance.permissionMode) {
-      const config = getConfig();
       await claudeManager.setPermissionMode(currentTabId, permissionMode);
     }
 

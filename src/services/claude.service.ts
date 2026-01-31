@@ -42,6 +42,7 @@ export interface ClaudeInstance {
   devcontainerCliPath: string;
   /** Path to devcontainer.json config (for template-based sessions) */
   configPath?: string;
+  remoteEnv?: string[];
 }
 
 /**
@@ -74,6 +75,7 @@ export interface CreateClaudeOptions {
   permissionMode?: ClaudePermissionMode;
   /** Path to devcontainer.json config (for template-based sessions) */
   configPath?: string;
+  remoteEnv?: string[];
 }
 
 /**
@@ -97,6 +99,7 @@ export class ClaudeManager extends EventEmitter {
       tabId = uuidv4(),
       permissionMode = 'default',
       configPath,
+      remoteEnv,
     } = options;
 
     if (!isValidWorkspacePath(workspacePath)) {
@@ -118,6 +121,7 @@ export class ClaudeManager extends EventEmitter {
       permissionMode,
       devcontainerCliPath,
       configPath,
+      remoteEnv,
     };
 
     this.instances.set(tabId, instance);
@@ -144,6 +148,13 @@ export class ClaudeManager extends EventEmitter {
     // Add config path for template-based sessions
     if (instance.configPath) {
       args.push('--config', instance.configPath);
+    }
+
+    // Add remote environment variables (e.g., GITHUB_TOKEN)
+    if (instance.remoteEnv) {
+      for (const env of instance.remoteEnv) {
+        args.push('--remote-env', env);
+      }
     }
 
     args.push(

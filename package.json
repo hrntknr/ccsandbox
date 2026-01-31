@@ -1,6 +1,6 @@
 {
   "name": "ccsandbox",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "repository": {
     "type": "git",
@@ -9,6 +9,10 @@
   "bin": {
     "ccsandbox": "./dist/cli.js"
   },
+  "files": [
+    "dist",
+    "web/dist"
+  ],
   "scripts": {
     "build": "concurrently -n server,web -c yellow,green \"npm:build:server\" \"npm:build:web\"",
     "build:server": "esbuild src/cli.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/cli.js && rm -rf dist/templates && cp -r src/templates dist/templates",
