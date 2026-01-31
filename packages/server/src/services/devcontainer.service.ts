@@ -1,6 +1,8 @@
 import { spawn } from 'node:child_process';
-import { stat, readdir } from 'node:fs/promises';
+import { stat, readdir, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import { randomBytes } from 'node:crypto';
+import { deriveGitHost } from './git.service.js';
 import type { ContainerInfo, DevcontainerUpResult } from '@ccsandbox/shared';
 
 /**
@@ -144,6 +146,7 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
+
 /**
  * Checks if a workspace has a .devcontainer configuration.
  *
@@ -191,6 +194,60 @@ export async function hasDevcontainerConfig(workspacePath: string): Promise<bool
 }
 
 /**
+ * Git credential configuration for devcontainer.
+ */
+export interface GitCredentialConfig {
+  /** GitHub API base URL (e.g., https://api.github.com) */
+  apiBase: string;
+  /** Personal Access Token */
+  pat: string;
+  /** GitHub username */
+  username: string;
+  /** Config directory for storing gitconfig files (e.g., ~/.ccsandbox) */
+  configDir: string;
+}
+
+/** Path inside container where gitconfig will be copied */
+const CONTAINER_GITCONFIG_PATH = '/etc/ccsandbox/gitconfig';
+
+/** Subdirectory within configDir for storing credential files */
+const CREDENTIAL_SUBDIR = 'credentials';
+
+/**
+ * Creates a gitconfig file with credential settings for the specified host.
+ *
+ * @param configDir - Base config directory (e.g., ~/.ccsandbox)
+ * @param apiBase - GitHub API base URL
+ * @param username - GitHub username
+ * @returns Path to the created gitconfig file
+ */
+async function createGitConfigFile(
+  configDir: string,
+  apiBase: string,
+  username: string
+): Promise<string> {
+  const gitHost = deriveGitHost(apiBase);
+
+  // gitconfig with username and credential helper (reads from GITHUB_TOKEN env var)
+  const gitconfigContent = `[credential "https://${gitHost}"]
+\tusername = ${username}
+\thelper = "!f() { echo password=$GITHUB_TOKEN; }; f"
+`;
+
+  const credentialDir = join(configDir, CREDENTIAL_SUBDIR);
+
+  // Ensure the credentials directory exists
+  await mkdir(credentialDir, { recursive: true, mode: 0o700 });
+
+  const suffix = randomBytes(8).toString('hex');
+  const gitconfigPath = join(credentialDir, `gitconfig-${suffix}`);
+
+  await writeFile(gitconfigPath, gitconfigContent, { mode: 0o600 });
+
+  return gitconfigPath;
+}
+
+/**
  * Options for starting a devcontainer.
  */
 export interface StartDevcontainerOptions {
@@ -206,6 +263,8 @@ export interface StartDevcontainerOptions {
   dotfilesTargetPath?: string;
   /** Dotfiles install command */
   dotfilesInstallCommand?: string;
+  /** Git credential configuration to inject into container */
+  gitCredential?: GitCredentialConfig;
 }
 
 /**
@@ -233,6 +292,7 @@ export async function startDevcontainer(
     dotfilesRepository,
     dotfilesTargetPath,
     dotfilesInstallCommand,
+    gitCredential,
   } = options;
 
   // Verify devcontainer config exists
@@ -244,6 +304,17 @@ export async function startDevcontainer(
 
   onLog?.(`Starting devcontainer for ${workspacePath}\n`);
 
+  // Create gitconfig file before devcontainer up if credential is provided
+  let gitconfigPath: string | undefined;
+  if (gitCredential) {
+    gitconfigPath = await createGitConfigFile(
+      gitCredential.configDir,
+      gitCredential.apiBase,
+      gitCredential.username
+    );
+    onLog?.(`Created gitconfig for credential injection\n`);
+  }
+
   // Build devcontainer up arguments
   const args = ['up', '--workspace-folder', workspacePath];
   if (dotfilesRepository) {
@@ -254,6 +325,15 @@ export async function startDevcontainer(
   }
   if (dotfilesInstallCommand) {
     args.push('--dotfiles-install-command', dotfilesInstallCommand);
+  }
+
+  // Add git credential options
+  if (gitCredential && gitconfigPath) {
+    args.push('--remote-env', `GITHUB_TOKEN=${gitCredential.pat}`);
+    args.push(
+      '--mount',
+      `type=bind,source=${gitconfigPath},target=${CONTAINER_GITCONFIG_PATH}`
+    );
   }
 
   // Run devcontainer up
@@ -292,7 +372,30 @@ export async function startDevcontainer(
     );
   }
 
-  onLog?.(`Devcontainer started successfully (container: ${parsedResult.containerId.substring(0, 12)})\n`);
+  // Configure git to include our credential config (mounted via --mount)
+  if (gitCredential) {
+    onLog?.(`Configuring git include.path in container\n`);
+    const execResult = await execCommand(cliPath, [
+      'exec',
+      '--workspace-folder',
+      workspacePath,
+      'git',
+      'config',
+      '--global',
+      'include.path',
+      CONTAINER_GITCONFIG_PATH,
+    ]);
+
+    if (execResult.exitCode !== 0) {
+      onLog?.(
+        `Warning: Failed to configure git include.path: ${execResult.stderr}\n`
+      );
+    }
+  }
+
+  onLog?.(
+    `Devcontainer started successfully (container: ${parsedResult.containerId.substring(0, 12)})\n`
+  );
 
   return {
     containerId: parsedResult.containerId,

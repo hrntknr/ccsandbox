@@ -68,6 +68,8 @@ export interface CreateTerminalOptions {
   shell?: string;
   cols?: number;
   rows?: number;
+  /** Additional remote environment variables (name=value format) */
+  remoteEnv?: string[];
 }
 
 /**
@@ -133,13 +135,20 @@ export class TerminalManager extends EventEmitter {
     // Detect shell if not specified
     const shell = options.shell ?? await this.detectShell(workspacePath, devcontainerCliPath);
 
+    // Build remote-env arguments
+    const remoteEnvArgs: string[] = ['--remote-env', 'TERM=xterm-256color'];
+    if (options.remoteEnv) {
+      for (const env of options.remoteEnv) {
+        remoteEnvArgs.push('--remote-env', env);
+      }
+    }
+
     // Spawn devcontainer exec with node-pty for real PTY support
     const ptyProcess = pty.spawn(devcontainerCliPath, [
       'exec',
       '--workspace-folder',
       workspacePath,
-      '--remote-env',
-      'TERM=xterm-256color',
+      ...remoteEnvArgs,
       shell,
     ], {
       name: 'xterm-256color',
