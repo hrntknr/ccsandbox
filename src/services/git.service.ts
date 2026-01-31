@@ -289,20 +289,18 @@ async function createUntrackedFileDiff(
 }
 
 /**
- * Gets diff statistics between the work branch and base branch.
+ * Gets diff statistics for uncommitted changes in the working tree.
  * Includes untracked files.
  *
  * @param workspacePath - Path to the git repository
- * @param baseBranch - Base branch to compare against
  * @returns Diff statistics (insertions, deletions, filesChanged)
  */
 export async function getDiffStats(
-  workspacePath: string,
-  baseBranch: string
+  workspacePath: string
 ): Promise<DiffStats> {
   try {
-    // Get tracked file changes
-    const { stdout } = await execCommand('git', ['diff', '--numstat', baseBranch], {
+    // Get uncommitted changes in working tree
+    const { stdout } = await execCommand('git', ['diff', '--numstat', 'HEAD'], {
       cwd: workspacePath,
     });
 
@@ -449,20 +447,18 @@ function parseDiffOutput(diffOutput: string): FileDiff[] {
 }
 
 /**
- * Gets detailed diff between the work branch and base branch.
+ * Gets detailed diff for uncommitted changes in the working tree.
  * Includes untracked files as new files.
  *
  * @param workspacePath - Path to the git repository
- * @param baseBranch - Base branch to compare against
  * @returns Detailed diff with file-by-file changes and statistics
  */
 export async function getDiffDetail(
-  workspacePath: string,
-  baseBranch: string
+  workspacePath: string
 ): Promise<{ files: FileDiff[]; stats: DiffStats }> {
   try {
-    // Get tracked file changes
-    const { stdout } = await execCommand('git', ['diff', '-U3', '--no-color', baseBranch], {
+    // Get uncommitted changes in working tree
+    const { stdout } = await execCommand('git', ['diff', '-U3', '--no-color', 'HEAD'], {
       cwd: workspacePath,
     });
 
