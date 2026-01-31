@@ -4,23 +4,23 @@
   "private": true,
   "type": "module",
   "bin": {
-    "ccsandbox": "./dist/cli.cjs"
+    "ccsandbox": "./dist/cli.js"
   },
   "scripts": {
     "build": "concurrently -n server,web -c yellow,green \"npm:build:server\" \"npm:build:web\"",
-    "build:server": "esbuild src/cli.ts --bundle --platform=node --format=cjs --outfile=dist/cli.cjs --external:@lydell/node-pty",
+    "build:server": "esbuild src/cli.ts --bundle --platform=node --format=esm --packages=external --outfile=dist/cli.js",
     "build:web": "npm run build --prefix web",
     "clean": "rm -rf dist web/dist",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "start": "node dist/cli.cjs",
+    "start": "node dist/cli.js",
     "dev": "concurrently -n server,web -c blue,green \"npm:dev:server\" \"npm:dev:web\"",
     "dev:server": "node --import tsx src/cli.ts",
     "dev:web": "npm run dev --prefix web"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.11.0"
   },
   "dependencies": {
     "@lydell/node-pty": "^1.2.0-beta.3",

@@ -1,14 +1,8 @@
 import express, { type Express, type Request, type Response, type NextFunction } from 'express';
 import cookieParser from 'cookie-parser';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import apiRouter from './routes/api/index.js';
 import { authMiddleware } from './middleware/auth.js';
-
-// Support both ESM (development) and CJS (bundled production)
-const currentDir = typeof __dirname !== 'undefined'
-  ? __dirname
-  : path.dirname(fileURLToPath(import.meta.url));
 
 export interface CreateAppOptions {
   /** Enable static file serving for production mode */
@@ -35,7 +29,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
   // Static file serving for production mode
   if (options.serveStatic) {
     // Serve the web package's dist folder
-    const webDistPath = path.resolve(currentDir, '../web/dist');
+    const webDistPath = path.resolve(import.meta.dirname, '../web/dist');
     app.use(express.static(webDistPath));
 
     // SPA fallback - serve index.html for non-API routes
