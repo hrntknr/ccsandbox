@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import type { Repository } from '@shared/index.js';
+import type { Repository, DevcontainerSource } from '@shared/index.js';
 import { useRepositories, useSessionCreate, useClientConfig } from '../../hooks';
 import '@xterm/xterm/css/xterm.css';
 
@@ -33,6 +33,7 @@ export function NewSessionModal({
   const [baseBranch, setBaseBranch] = useState('');
   const [workBranch, setWorkBranch] = useState('');
   const [shell, setShell] = useState('');
+  const [devcontainerSource, setDevcontainerSource] = useState<DevcontainerSource>({ type: 'project' });
 
   const terminalContainerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerm | null>(null);
@@ -83,6 +84,7 @@ export function NewSessionModal({
       setBaseBranch('');
       setWorkBranch(generateRandomBranchName());
       setShell('');
+      setDevcontainerSource({ type: 'project' });
       resetCreate();
     }
   }, [isOpen, fetchRepositories, fetchClientConfig, resetCreate]);
@@ -188,9 +190,10 @@ export function NewSessionModal({
         baseBranch,
         workBranch,
         shell: shell || undefined,
+        devcontainerSource,
       });
     },
-    [selectedRepo, baseBranch, workBranch, shell, create]
+    [selectedRepo, baseBranch, workBranch, shell, devcontainerSource, create]
   );
 
   const handleClose = useCallback(() => {
@@ -376,6 +379,39 @@ export function NewSessionModal({
                 onChange={(e) => setShell(e.target.value)}
                 placeholder="e.g., /bin/bash, /bin/zsh"
               />
+            </div>
+
+            <div className="mb-4 max-md:mb-3.5">
+              <label className="block text-[13px] font-medium text-[#ccc] mb-2 max-[480px]:text-xs">Development Container</label>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="devcontainerSource"
+                    checked={devcontainerSource.type === 'project'}
+                    onChange={() => setDevcontainerSource({ type: 'project' })}
+                    className="w-4 h-4 accent-vscode-accent"
+                  />
+                  <span className="text-sm text-vscode-text">Use project's .devcontainer</span>
+                </label>
+                {clientConfig?.templates && clientConfig.templates.length > 0 && (
+                  clientConfig.templates.map((template) => (
+                    <label key={template.id} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="devcontainerSource"
+                        checked={devcontainerSource.type === 'template' && devcontainerSource.templateId === template.id}
+                        onChange={() => setDevcontainerSource({ type: 'template', templateId: template.id })}
+                        className="w-4 h-4 accent-vscode-accent"
+                      />
+                      <span className="text-sm text-vscode-text">{template.name}</span>
+                      {template.description && (
+                        <span className="text-xs text-vscode-text-muted">- {template.description}</span>
+                      )}
+                    </label>
+                  ))
+                )}
+              </div>
             </div>
 
             <div className="flex justify-end gap-3 mt-6 max-md:flex-col-reverse max-md:gap-2.5">
