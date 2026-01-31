@@ -2,7 +2,11 @@ import type { ClaudePendingPermission } from '@shared/index.js';
 
 interface PermissionDialogProps {
   permission: ClaudePendingPermission;
-  onResponse: (requestId: string, permission: 'allow' | 'deny') => void;
+  onResponse: (
+    requestId: string,
+    permission: 'allow' | 'deny',
+    answers?: Record<string, string>
+  ) => void;
 }
 
 export function PermissionDialog({ permission, onResponse }: PermissionDialogProps) {
