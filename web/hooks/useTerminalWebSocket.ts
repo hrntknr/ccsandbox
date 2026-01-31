@@ -74,6 +74,10 @@ export interface UseTerminalWebSocketReturn {
     permission: 'allow' | 'deny',
     answers?: Record<string, string>
   ) => void;
+  /**
+   * Change permission mode for the current Claude tab
+   */
+  changePermissionMode: (permissionMode: ClaudePermissionMode) => void;
   onClaudeEvent: (tabId: string, callback: ClaudeEventCallback) => () => void;
   onClaudeHistory: (tabId: string, callback: ClaudeHistoryCallback) => () => void;
 }
@@ -427,6 +431,13 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     [sendMessage]
   );
 
+  const changePermissionMode = useCallback(
+    (permissionMode: ClaudePermissionMode) => {
+      sendMessage({ type: 'claude-change-permission-mode', permissionMode });
+    },
+    [sendMessage]
+  );
+
   const onClaudeEvent = useCallback(
     (tabId: string, callback: ClaudeEventCallback): (() => void) => {
       const subscription = { tabId, callback };
@@ -472,6 +483,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     // Claude-specific
     sendClaudeMessage,
     respondToPermission,
+    changePermissionMode,
     onClaudeEvent,
     onClaudeHistory,
   };

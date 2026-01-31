@@ -507,6 +507,26 @@ export function createTerminalHandler(
   }
 
   /**
+   * Handle claude-change-permission-mode - change permission mode for current Claude tab
+   */
+  async function handleClaudeChangePermissionMode(permissionMode: ClaudePermissionMode): Promise<void> {
+    if (!currentTabId) {
+      sendError(ws, 'Not attached to a Claude tab');
+      return;
+    }
+
+    const instance = claudeManager.get(currentTabId);
+    if (!instance) {
+      sendError(ws, 'Claude instance not found');
+      return;
+    }
+
+    if (!await claudeManager.setPermissionMode(currentTabId, permissionMode)) {
+      sendError(ws, 'Failed to change permission mode');
+    }
+  }
+
+  /**
    * Process incoming WebSocket messages
    */
   function handleMessage(message: TerminalClientMessage): void {
@@ -609,6 +629,13 @@ export function createTerminalHandler(
           return;
         }
         handleClaudePermissionResponse(message.requestId, message.permission, message.answers);
+        break;
+
+      case 'claude-change-permission-mode':
+        handleClaudeChangePermissionMode(message.permissionMode).catch((error) => {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to change permission mode';
+          sendError(ws, errorMessage);
+        });
         break;
 
       default:
