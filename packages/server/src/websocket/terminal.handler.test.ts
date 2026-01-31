@@ -183,6 +183,8 @@ describe('createTerminalHandler', () => {
           workspacePath: '/workspaces/test-project',
           devcontainerCliPath: '/usr/local/bin/devcontainer',
           tabId: expect.any(String),
+          shell: undefined,
+          remoteEnv: ['GITHUB_TOKEN=test-pat'],
         });
       });
 

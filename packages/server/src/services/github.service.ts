@@ -283,3 +283,23 @@ export async function getDefaultBranch(
   const repository = await getRepository(pat, apiBase, owner, repo);
   return repository.defaultBranch;
 }
+
+/**
+ * Response from GitHub /user endpoint.
+ */
+interface GitHubUserResponse {
+  login: string;
+  id: number;
+  name: string | null;
+}
+
+/**
+ * Get the authenticated user's login name.
+ */
+export async function getAuthenticatedUsername(
+  pat: string,
+  apiBase: string
+): Promise<string> {
+  const user = await githubFetch<GitHubUserResponse>(pat, apiBase, '/user');
+  return user.login;
+}

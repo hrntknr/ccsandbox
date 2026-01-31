@@ -200,6 +200,7 @@ export function createTerminalHandler(
           devcontainerCliPath: config.devcontainerCli,
           tabId,
           shell: session.shell,
+          remoteEnv: config.pat ? [`GITHUB_TOKEN=${config.pat}`] : undefined,
         }).then(() => {
           const terminal = terminalManager.get(tabId);
           connectionManager.updateTab(sessionId, tabId, {
