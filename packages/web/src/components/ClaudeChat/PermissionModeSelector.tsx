@@ -42,7 +42,7 @@ export function PermissionModeSelector({
         <button
           key={mode.value}
           type="button"
-          className={`py-1 px-2.5 text-[11px] font-medium border rounded-[14px] bg-transparent text-claude-text-muted cursor-pointer transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${value === mode.value ? getModeActiveClasses(mode.value) : 'border-claude-border hover:border-claude-text-secondary hover:text-claude-text-secondary hover:bg-claude-bg-hover'}`}
+          className={`py-1 px-2.5 text-[11px] font-medium border rounded-[14px] bg-transparent text-claude-text-muted cursor-pointer transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed ${value === mode.value ? getModeActiveClasses(mode.value) : 'border-claude-border hover:text-claude-text-secondary hover:bg-claude-bg-hover'}`}
           onClick={() => onChange(mode.value)}
           disabled={disabled}
         >
