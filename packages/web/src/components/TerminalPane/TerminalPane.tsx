@@ -263,18 +263,22 @@ export function TerminalPane({ session }: TerminalPaneProps) {
           )
         )}
 
-        {/* Floating diff badge */}
-        {isRunning && diffStats && (diffStats.insertions > 0 || diffStats.deletions > 0) && (
-          <button
-            className="absolute bottom-4 right-4 bg-vscode-bg-secondary border border-vscode-border px-3 py-1.5 rounded-md text-sm cursor-pointer hover:bg-[#3c3c3c] z-10 transition-colors"
-            onClick={() => setShowDiffView(true)}
-            title="View diff"
-          >
-            <span className="text-green-400">+{diffStats.insertions}</span>
-            <span className="mx-1 text-vscode-text-muted">/</span>
-            <span className="text-red-400">-{diffStats.deletions}</span>
-          </button>
-        )}
+        {/* Floating diff badge - position at top-right when Claude tab is active to avoid overlap with chat input */}
+        {isRunning && diffStats && (diffStats.insertions > 0 || diffStats.deletions > 0) && (() => {
+          const activeTab = tabs.find(t => t.tabId === activeTabId);
+          const isClaudeTabActive = activeTab?.tabType === 'claude';
+          return (
+            <button
+              className={`absolute ${isClaudeTabActive ? 'top-4' : 'bottom-4'} right-4 bg-vscode-bg-secondary border border-vscode-border px-3 py-1.5 rounded-md text-sm cursor-pointer hover:bg-[#3c3c3c] z-10 transition-all`}
+              onClick={() => setShowDiffView(true)}
+              title="View diff"
+            >
+              <span className="text-green-400">+{diffStats.insertions}</span>
+              <span className="mx-1 text-vscode-text-muted">/</span>
+              <span className="text-red-400">-{diffStats.deletions}</span>
+            </button>
+          );
+        })()}
       </div>
 
       {/* Diff View Modal */}
