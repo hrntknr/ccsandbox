@@ -2,6 +2,10 @@
   "name": "ccsandbox",
   "version": "1.0.1",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hrntknr/ccsandbox"
+  },
   "bin": {
     "ccsandbox": "./dist/cli.js"
   },
