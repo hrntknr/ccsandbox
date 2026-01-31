@@ -9,6 +9,7 @@ interface CliOptions {
   listen: string;
   port: string;
   devcontainerCli?: string;
+  dev?: boolean;
 }
 
 const DEFAULT_CONFIG_DIR = path.join(os.homedir(), '.ccsandbox');

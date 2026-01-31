@@ -1,3 +1,4 @@
+/// <reference path="../../types/node-pty.d.ts" />
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { resolve, normalize } from 'node:path';

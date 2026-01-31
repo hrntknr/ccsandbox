@@ -33,6 +33,8 @@ export interface StartServerOptions {
   devcontainerCli?: string;
   /** Enable static file serving for production mode */
   serveStatic?: boolean;
+  /** Enable Vite dev server proxy for development mode */
+  viteProxy?: boolean;
 }
 
 export interface ServerInstance {

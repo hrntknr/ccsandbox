@@ -7,18 +7,23 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "tsc --build && npm run build --workspace=packages/web",
+    "build": "concurrently -n tsc,web -c yellow,green \"npm:build:tsc\" \"npm:build:web\"",
+    "build:tsc": "tsc --build",
+    "build:web": "npm run build --workspace=packages/web",
     "clean": "npm run clean --workspaces --if-present",
     "typecheck": "tsc --build",
     "test": "vitest run",
     "test:watch": "vitest",
     "start": "node packages/cli/dist/index.js",
-    "dev": "tsx packages/cli/src/index.ts"
+    "dev": "concurrently -n server,web -c blue,green \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "node --conditions=development --import tsx packages/cli/src/index.ts",
+    "dev:web": "npm run dev --workspace=packages/web"
   },
   "engines": {
     "node": ">=20.0.0"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "loupe": "^3.2.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
