@@ -107,7 +107,6 @@ export async function startServer(options: StartServerOptions): Promise<ServerIn
         : options.port;
 
       console.log(`Server listening on http://${options.listen}:${actualPort}`);
-      console.log(`WebSocket terminal endpoint: ws://${options.listen}:${actualPort}/ws/terminal`);
 
       // Always print authentication URL
       if (persistedConfig.authToken) {

@@ -55,7 +55,6 @@ export function startBackgroundRefresh(pat: string, apiBase: string): void {
         repositories: repos,
         timestamp: Date.now(),
       });
-      console.log(`[github] Initial cache loaded: ${repos.length} repositories`);
     })
     .catch((err) => {
       console.error('[github] Failed to load initial cache:', err);
