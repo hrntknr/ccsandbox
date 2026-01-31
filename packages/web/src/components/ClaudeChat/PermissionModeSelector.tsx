@@ -16,16 +16,16 @@ const modes: { value: ClaudePermissionMode; label: string }[] = [
 function getModeActiveClasses(mode: ClaudePermissionMode): string {
   switch (mode) {
     case 'default':
-      return 'border-claude-text-secondary text-claude-text-secondary bg-transparent';
+      return 'border-claude-text-secondary text-claude-text-secondary bg-transparent hover:border-claude-text-secondary hover:text-claude-text-secondary hover:bg-claude-bg-hover';
     case 'acceptEdits':
       // Purple
-      return 'border-[#a855f7] text-[#a855f7] bg-[rgba(168,85,247,0.1)]';
+      return 'border-[#a855f7] text-[#a855f7] bg-[rgba(168,85,247,0.1)] hover:border-[#a855f7] hover:text-[#a855f7] hover:bg-[rgba(168,85,247,0.2)]';
     case 'plan':
       // Deep green
-      return 'border-[#059669] text-[#059669] bg-[rgba(5,150,105,0.1)]';
+      return 'border-[#059669] text-[#059669] bg-[rgba(5,150,105,0.1)] hover:border-[#059669] hover:text-[#059669] hover:bg-[rgba(5,150,105,0.2)]';
     case 'bypassPermissions':
       // Red
-      return 'border-[#ef4444] text-[#ef4444] bg-[rgba(239,68,68,0.1)]';
+      return 'border-[#ef4444] text-[#ef4444] bg-[rgba(239,68,68,0.1)] hover:border-[#ef4444] hover:text-[#ef4444] hover:bg-[rgba(239,68,68,0.2)]';
     default:
       return '';
   }
