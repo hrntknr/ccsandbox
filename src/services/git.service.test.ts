@@ -128,17 +128,17 @@ describe('git.service', () => {
         });
         spawnCallCount++;
 
-        const mockProcess: Partial<ChildProcess> = {
+        const mockProcess = {
           stdin: {
             write: vi.fn(() => true),
             end: vi.fn(),
-          } as unknown as NodeJS.WritableStream,
+          },
           stdout: {
             on: vi.fn(),
-          } as unknown as NodeJS.ReadableStream,
+          },
           stderr: {
             on: vi.fn(),
-          } as unknown as NodeJS.ReadableStream,
+          },
           on: vi.fn((event: string, handler: (code: number | null) => void) => {
             if (event === 'close') {
               setTimeout(() => handler(0), 0);
@@ -146,7 +146,7 @@ describe('git.service', () => {
           }),
         };
 
-        return mockProcess as ChildProcess;
+        return mockProcess as unknown as ChildProcess;
       });
     });
 
@@ -179,9 +179,9 @@ describe('git.service', () => {
 
       // Check environment variables are set
       const cloneEnv = spawnCalls[0]?.options?.env;
-      expect(cloneEnv?.GIT_ASKPASS).toMatch(/git-askpass-.*\.sh$/);
-      expect(cloneEnv?.GIT_ASKPASS_PASSWORD).toBe('test-token');
-      expect(cloneEnv?.GIT_TERMINAL_PROMPT).toBe('0');
+      expect(cloneEnv?.['GIT_ASKPASS']).toMatch(/git-askpass-.*\.sh$/);
+      expect(cloneEnv?.['GIT_ASKPASS_PASSWORD']).toBe('test-token');
+      expect(cloneEnv?.['GIT_TERMINAL_PROMPT']).toBe('0');
     });
 
     it('creates work branch after cloning', async () => {
@@ -227,7 +227,7 @@ describe('git.service', () => {
       }
 
       // Token should be in environment variable, not command line
-      expect(spawnCalls[0]?.options?.env?.GIT_ASKPASS_PASSWORD).toBe(secretToken);
+      expect(spawnCalls[0]?.options?.env?.['GIT_ASKPASS_PASSWORD']).toBe(secretToken);
     });
 
     it('handles GHE URLs correctly', async () => {
@@ -253,21 +253,21 @@ describe('git.service', () => {
       mockSpawn.mockImplementation(() => {
         callCount++;
         const currentCall = callCount;
-        const mockProcess: Partial<ChildProcess> = {
+        const mockProcess = {
           stdin: {
             write: vi.fn(() => true),
             end: vi.fn(),
-          } as unknown as NodeJS.WritableStream,
+          },
           stdout: {
             on: vi.fn(),
-          } as unknown as NodeJS.ReadableStream,
+          },
           stderr: {
             on: vi.fn((event: string, handler: (data: Buffer) => void) => {
               if (event === 'data' && currentCall === 1) {
                 handler(Buffer.from('fatal: repository not found'));
               }
             }),
-          } as unknown as NodeJS.ReadableStream,
+          },
           on: vi.fn(
             (event: string, handler: (code: number | null) => void) => {
               if (event === 'close') {
@@ -277,7 +277,7 @@ describe('git.service', () => {
             }
           ),
         };
-        return mockProcess as ChildProcess;
+        return mockProcess as unknown as ChildProcess;
       });
 
       const options: CloneRepositoryOptions = {
@@ -303,21 +303,21 @@ describe('git.service', () => {
       mockSpawn.mockImplementation(() => {
         callCount++;
         const currentCall = callCount;
-        const mockProcess: Partial<ChildProcess> = {
+        const mockProcess = {
           stdin: {
             write: vi.fn(() => true),
             end: vi.fn(),
-          } as unknown as NodeJS.WritableStream,
+          },
           stdout: {
             on: vi.fn(),
-          } as unknown as NodeJS.ReadableStream,
+          },
           stderr: {
             on: vi.fn((event: string, handler: (data: Buffer) => void) => {
               if (event === 'data' && currentCall === 2) {
                 handler(Buffer.from('error: branch already exists'));
               }
             }),
-          } as unknown as NodeJS.ReadableStream,
+          },
           on: vi.fn(
             (event: string, handler: (code: number | null) => void) => {
               if (event === 'close') {
@@ -327,7 +327,7 @@ describe('git.service', () => {
             }
           ),
         };
-        return mockProcess as ChildProcess;
+        return mockProcess as unknown as ChildProcess;
       });
 
       const options: CloneRepositoryOptions = {

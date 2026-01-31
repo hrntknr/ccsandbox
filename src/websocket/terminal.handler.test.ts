@@ -62,12 +62,14 @@ describe('createTerminalHandler', () => {
     mockTerminalManager.kill = vi.fn().mockReturnValue(true);
     mockTerminalManager.get = vi.fn().mockReturnValue(undefined);
     mockTerminalManager.getOutputHistory = vi.fn().mockReturnValue(null);
-    mockTerminalManager.on = vi.fn((event, handler) => {
+    mockTerminalManager.on = vi.fn((event: string, handler: (...args: unknown[]) => void) => {
       EventEmitter.prototype.on.call(mockTerminalManager, event, handler);
-    });
-    mockTerminalManager.off = vi.fn((event, handler) => {
+      return mockTerminalManager;
+    }) as typeof mockTerminalManager.on;
+    mockTerminalManager.off = vi.fn((event: string, handler: (...args: unknown[]) => void) => {
       EventEmitter.prototype.off.call(mockTerminalManager, event, handler);
-    });
+      return mockTerminalManager;
+    }) as typeof mockTerminalManager.off;
 
     vi.mocked(terminalService.getTerminalManager).mockReturnValue(
       mockTerminalManager as unknown as terminalService.TerminalManager
@@ -313,6 +315,7 @@ describe('createTerminalHandler', () => {
         tabId: testTabId,
         title: 'Terminal 1',
         shell: 'bash',
+        tabType: 'shell',
       });
 
       mockTerminalManager.get.mockReturnValue({
@@ -383,6 +386,7 @@ describe('createTerminalHandler', () => {
         tabId: testTabId,
         title: 'Terminal 1',
         shell: 'bash',
+        tabType: 'shell',
       });
 
       mockTerminalManager.get.mockReturnValue({
@@ -444,6 +448,7 @@ describe('createTerminalHandler', () => {
         tabId: testTabId,
         title: 'Terminal 1',
         shell: 'bash',
+        tabType: 'shell',
       });
 
       mockTerminalManager.get.mockReturnValue({
@@ -507,6 +512,7 @@ describe('createTerminalHandler', () => {
         tabId: testTabId,
         title: 'Terminal 1',
         shell: 'bash',
+        tabType: 'shell',
       });
 
       mockTerminalManager.get.mockReturnValue({
@@ -628,6 +634,7 @@ describe('createTerminalHandler', () => {
         tabId: testTabId,
         title: 'Terminal 1',
         shell: 'bash',
+        tabType: 'shell',
       });
 
       mockTerminalManager.get.mockReturnValue({
@@ -676,6 +683,7 @@ describe('createTerminalHandler', () => {
         tabId: testTabId,
         title: 'Terminal 1',
         shell: 'bash',
+        tabType: 'shell',
       });
 
       mockTerminalManager.get.mockReturnValue({
@@ -726,6 +734,7 @@ describe('createTerminalHandler', () => {
         tabId: testTabId,
         title: 'Terminal 1',
         shell: 'bash',
+        tabType: 'shell',
         exited: true,
       });
 
@@ -774,6 +783,7 @@ describe('createTerminalHandler', () => {
         tabId: testTabId,
         title: 'Terminal 1',
         shell: 'bash',
+        tabType: 'shell',
         exited: true,
       });
 

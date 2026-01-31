@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { setConfig, getConfig, hasConfig } from '../config.js';
+import type { ServerConfig } from '../config.js';
 
 describe('config', () => {
   beforeEach(() => {
@@ -11,9 +11,10 @@ describe('config', () => {
   describe('setConfig and getConfig', () => {
     it('should store and retrieve configuration', async () => {
       // Use dynamic import to get fresh module state
-      const config = await import('../config.js?fresh1');
+      // @ts-expect-error - query string used to bust module cache for testing
+      const config = await import('../config.js?fresh1') as typeof import('../config.js');
 
-      const testConfig = {
+      const testConfig: ServerConfig = {
         pat: 'test-pat',
         apiBase: 'https://api.github.com',
         configDir: '/home/user/.ccsandbox',
@@ -32,7 +33,8 @@ describe('config', () => {
 
   describe('hasConfig', () => {
     it('should return true after config is set', async () => {
-      const config = await import('../config.js?fresh2');
+      // @ts-expect-error - query string used to bust module cache for testing
+      const config = await import('../config.js?fresh2') as typeof import('../config.js');
 
       config.setConfig({
         pat: 'test',
