@@ -11,6 +11,11 @@ export interface TerminalTab {
   ready?: boolean;
 }
 
+export interface ClaudeStats {
+  running: number; // isProcessing === true のClaude tabの数
+  total: number; // セッション内の全Claude tabの数
+}
+
 export interface Session {
   sessionId: string;
   title: string;
@@ -25,6 +30,7 @@ export interface Session {
   containerName?: string;
   shell?: string;
   hasPendingPermissions?: boolean;
+  claudeStats?: ClaudeStats;
 }
 
 /**

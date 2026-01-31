@@ -117,6 +117,18 @@ export function SessionList({
                     <span className="max-md:hidden">Waiting</span>
                   </span>
                 )}
+                {session.claudeStats && session.claudeStats.total > 0 && (
+                  <span
+                    className={`shrink-0 text-[10px] px-1 py-0.5 rounded ${
+                      session.claudeStats.running > 0
+                        ? 'text-vscode-success bg-vscode-success-bg'
+                        : 'text-vscode-text-muted bg-vscode-border'
+                    }`}
+                    title={`Claude: ${session.claudeStats.running}/${session.claudeStats.total} running`}
+                  >
+                    {session.claudeStats.running}/{session.claudeStats.total}
+                  </span>
+                )}
               </div>
               <div className="relative ml-2 shrink-0" ref={openMenuId === session.sessionId ? menuRef : null}>
                 <button
