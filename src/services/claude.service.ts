@@ -45,8 +45,8 @@ export interface ClaudeInstance {
  * Processing stats for a session's Claude instances
  */
 export interface ClaudeProcessingStats {
-  running: number; // isProcessing === true のClaude tabの数
-  total: number; // セッション内の全Claude tabの数
+  running: number; // Number of Claude tabs with isProcessing === true
+  total: number; // Total number of Claude tabs in the session
 }
 
 /**
