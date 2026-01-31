@@ -315,11 +315,25 @@ export class ClaudeManager extends EventEmitter {
       return false;
     }
 
+    const pendingRequest = instance.pendingPermissions.get(requestId);
+
+    // Build response in the correct format for Claude CLI
     const response = {
-      type: 'control',
-      subtype: 'permission_response',
-      request_id: requestId,
-      permission,
+      type: 'control_response',
+      response: {
+        subtype: 'success',
+        request_id: requestId,
+        response:
+          permission === 'allow'
+            ? {
+                behavior: 'allow',
+                updatedInput: pendingRequest?.input ?? {},
+              }
+            : {
+                behavior: 'deny',
+                message: 'User denied the operation',
+              },
+      },
     };
 
     instance.process.stdin.write(JSON.stringify(response) + '\n');
