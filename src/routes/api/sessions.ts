@@ -118,6 +118,7 @@ router.post(
             pat: config.pat!,
             username,
             configDir: config.configDir,
+            sessionId: session.sessionId,
           },
         });
 
@@ -320,7 +321,7 @@ router.post(
         dotfilesTargetPath: config.dotfilesTargetPath,
         dotfilesInstallCommand: config.dotfilesInstallCommand,
         gitCredential: config.pat && username
-          ? { apiBase: config.apiBase, pat: config.pat, username, configDir: config.configDir }
+          ? { apiBase: config.apiBase, pat: config.pat, username, configDir: config.configDir, sessionId: id }
           : undefined,
       });
 
