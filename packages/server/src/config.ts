@@ -26,6 +26,10 @@ export interface ServerConfig {
   dotfilesInstallCommand?: string;
   /** Default shell for new sessions (optional) */
   defaultShell?: string;
+  /** Authentication token (random, stored as plaintext) */
+  authToken?: string;
+  /** Authentication password hash (bcrypt) */
+  authPasswordHash?: string;
 }
 
 let config: ServerConfig | null = null;

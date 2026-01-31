@@ -1,7 +1,9 @@
 import type { WebSocket } from 'ws';
 import type { TerminalTab, TerminalServerMessage, ClaudeEvent } from '@ccsandbox/shared';
 import type { TerminalManager } from '../services/terminal.service.js';
-import type { ClaudeManager } from '../services/claude.service.js';
+import type { ClaudeManager, ClaudeProcessingStats } from '../services/claude.service.js';
+import { getSessionSyncManager } from './session-sync-manager.js';
+import { getSessionStore } from '../persistence/session-store.js';
 
 export interface ClientConnection {
   ws: WebSocket;
@@ -51,6 +53,8 @@ export class ConnectionManager {
     claudeManager.on('event', this.handleClaudeEvent);
     claudeManager.on('exit', this.handleClaudeExit);
     claudeManager.on('error', this.handleClaudeError);
+    claudeManager.on('pendingPermissionsChanged', this.handlePendingPermissionsChanged);
+    claudeManager.on('processingStateChanged', this.handleProcessingStateChanged);
 
     this.claudeListenersRegistered = true;
   }
@@ -136,6 +140,30 @@ export class ConnectionManager {
       type: 'error',
       message: error.message,
     } satisfies TerminalServerMessage);
+  };
+
+  private handlePendingPermissionsChanged = async (sessionId: string, hasPending: boolean): Promise<void> => {
+    // Update session and broadcast to all clients
+    const sessionStore = getSessionStore();
+    try {
+      const session = await sessionStore.get(sessionId);
+      const updatedSession = { ...session, hasPendingPermissions: hasPending };
+      getSessionSyncManager().broadcastUpdated(updatedSession);
+    } catch {
+      // Session not found, ignore
+    }
+  };
+
+  private handleProcessingStateChanged = async (sessionId: string, stats: ClaudeProcessingStats): Promise<void> => {
+    // Update session and broadcast to all clients
+    const sessionStore = getSessionStore();
+    try {
+      const session = await sessionStore.get(sessionId);
+      const updatedSession = { ...session, claudeStats: stats };
+      getSessionSyncManager().broadcastUpdated(updatedSession);
+    } catch {
+      // Session not found, ignore
+    }
   };
 
   joinSession(
@@ -340,6 +368,8 @@ export class ConnectionManager {
       this.claudeManager.off('event', this.handleClaudeEvent);
       this.claudeManager.off('exit', this.handleClaudeExit);
       this.claudeManager.off('error', this.handleClaudeError);
+      this.claudeManager.off('pendingPermissionsChanged', this.handlePendingPermissionsChanged);
+      this.claudeManager.off('processingStateChanged', this.handleProcessingStateChanged);
       this.claudeListenersRegistered = false;
     }
     this.rooms.clear();

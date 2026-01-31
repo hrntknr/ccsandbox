@@ -9,6 +9,7 @@ import { getClaudeManager, resetClaudeManager } from '../services/claude.service
 import { getSessionSyncManager, resetSessionSyncManager } from './session-sync-manager.js';
 import { getSessionStore } from '../persistence/session-store.js';
 import { getConfig } from '../config.js';
+import { verifyWebSocketAuth, sendWebSocketUnauthorized } from '../middleware/auth.js';
 
 /**
  * Validate that a message conforms to TerminalClientMessage structure
@@ -100,7 +101,14 @@ export function setupWebSocketServer(server: http.Server): WebSocketServerInstan
   const sessionsSyncWss = new WebSocketServer({ noServer: true });
 
   // Handle HTTP upgrade requests and route to the appropriate WebSocket server
-  server.on('upgrade', (request, socket, head) => {
+  server.on('upgrade', async (request, socket, head) => {
+    // Verify authentication
+    const isAuthenticated = await verifyWebSocketAuth(request);
+    if (!isAuthenticated) {
+      sendWebSocketUnauthorized(socket);
+      return;
+    }
+
     const pathname = request.url;
 
     if (pathname === '/ws/terminal') {

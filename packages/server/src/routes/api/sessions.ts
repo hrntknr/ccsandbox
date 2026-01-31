@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import { rm } from 'node:fs/promises';
-import type { CreateSessionRequest, ApiResponse, Session } from '@ccsandbox/shared';
+import type { CreateSessionRequest, ApiResponse, Session, DiffStatsResponse, DiffDetailResponse } from '@ccsandbox/shared';
 import { getConfig } from '../../config.js';
 import {
   getSessionStore,
@@ -9,7 +9,7 @@ import {
   SessionNotFoundError,
   WorkspaceExistsError,
 } from '../../persistence/session-store.js';
-import { cloneRepository, GitOperationError } from '../../services/git.service.js';
+import { cloneRepository, GitOperationError, getDiffStats, getDiffDetail } from '../../services/git.service.js';
 import { getAuthenticatedUsername } from '../../services/github.service.js';
 import {
   hasDevcontainerConfig,
@@ -438,6 +438,74 @@ router.post(
         return;
       }
 
+      throw error;
+    }
+  })
+);
+
+/**
+ * GET /api/sessions/:id/diff/stats
+ * Get diff statistics for a session.
+ */
+router.get(
+  '/:id/diff/stats',
+  asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
+    const { id } = req.params;
+    const store = getSessionStore(getConfig().configDir, getConfig().repoDir);
+
+    try {
+      const session = await store.get(id);
+
+      const stats = await getDiffStats(session.workspacePath, session.baseBranch);
+
+      const response: ApiResponse<DiffStatsResponse> = {
+        success: true,
+        data: { stats },
+      };
+      res.json(response);
+    } catch (error) {
+      if (error instanceof SessionNotFoundError) {
+        const response: ApiResponse<null> = {
+          success: false,
+          error: `Session not found: ${id}`,
+        };
+        res.status(404).json(response);
+        return;
+      }
+      throw error;
+    }
+  })
+);
+
+/**
+ * GET /api/sessions/:id/diff
+ * Get detailed diff for a session.
+ */
+router.get(
+  '/:id/diff',
+  asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
+    const { id } = req.params;
+    const store = getSessionStore(getConfig().configDir, getConfig().repoDir);
+
+    try {
+      const session = await store.get(id);
+
+      const { files, stats } = await getDiffDetail(session.workspacePath, session.baseBranch);
+
+      const response: ApiResponse<DiffDetailResponse> = {
+        success: true,
+        data: { files, stats },
+      };
+      res.json(response);
+    } catch (error) {
+      if (error instanceof SessionNotFoundError) {
+        const response: ApiResponse<null> = {
+          success: false,
+          error: `Session not found: ${id}`,
+        };
+        res.status(404).json(response);
+        return;
+      }
       throw error;
     }
   })

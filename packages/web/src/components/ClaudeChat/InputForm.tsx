@@ -66,8 +66,8 @@ export function InputForm({ onSubmit, disabled, isActive }: InputFormProps) {
   );
 
   return (
-    <form className="flex gap-0 py-3 px-4 bg-claude-bg-secondary border-t border-claude-border items-end" onSubmit={handleSubmit}>
-      <div className="flex-1 relative bg-claude-bg-tertiary border border-claude-border rounded-lg transition-colors focus-within:border-claude-accent">
+    <form className="flex gap-0" onSubmit={handleSubmit}>
+      <div className="flex-1 relative bg-claude-bg-secondary/95 backdrop-blur-sm border border-claude-border rounded-2xl shadow-lg shadow-black/20 transition-colors focus-within:border-claude-accent">
         <textarea
           ref={textareaRef}
           className="w-full bg-transparent border-none py-3 px-3.5 text-claude-text-primary font-sans text-sm resize-none min-h-[44px] max-h-[200px] leading-normal focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-claude-text-muted"
@@ -78,7 +78,7 @@ export function InputForm({ onSubmit, disabled, isActive }: InputFormProps) {
           disabled={disabled}
           rows={1}
         />
-        <div className="flex items-center justify-between py-1.5 px-3 border-t border-claude-border bg-claude-bg-hover rounded-b-[7px]">
+        <div className="flex items-center justify-between py-1.5 px-3 border-t border-claude-border/50 bg-claude-bg-tertiary/50 rounded-b-[15px]">
           <PermissionModeSelector
             value={permissionMode}
             onChange={setPermissionMode}
@@ -86,11 +86,10 @@ export function InputForm({ onSubmit, disabled, isActive }: InputFormProps) {
           />
           <button
             type="submit"
-            className="py-1.5 px-3.5 bg-claude-accent text-white border-none rounded-md cursor-pointer text-[13px] font-medium transition-all flex items-center gap-1.5 hover:bg-claude-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
+            className="py-1.5 px-3.5 bg-claude-accent text-white border-none rounded-xl cursor-pointer text-[13px] font-medium transition-all flex items-center gap-1.5 hover:bg-claude-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={disabled || !input.trim()}
           >
             <span className="text-sm">↑</span>
-            Send
           </button>
         </div>
       </div>
