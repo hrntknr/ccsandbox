@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Session, ClientConfig } from '@shared/index.js';
 import { SessionList } from './components/SessionList';
 import { TerminalPane } from './components/TerminalPane';
@@ -9,6 +9,11 @@ import { useSessionSync } from './hooks/useSessionSync';
 
 type MobileView = 'sessions' | 'terminal';
 
+const SIDEBAR_WIDTH_KEY = 'ccsandbox-sidebar-width';
+const DEFAULT_SIDEBAR_WIDTH = 280;
+const MIN_SIDEBAR_WIDTH = 180;
+const MAX_SIDEBAR_WIDTH = 500;
+
 export function App() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
@@ -16,6 +21,12 @@ export function App() {
   const [deleteConfirmSessionId, setDeleteConfirmSessionId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<MobileView>('sessions');
   const [clientConfig, setClientConfig] = useState<ClientConfig | null>(null);
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
+    return saved ? Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, parseInt(saved, 10))) : DEFAULT_SIDEBAR_WIDTH;
+  });
+  const [isResizing, setIsResizing] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const { sessions, loading, error } = useSessionSync();
   const { deleteSession, loading: deleteLoading } = useDeleteSession();
@@ -35,6 +46,36 @@ export function App() {
       }
     });
   }, [fetchConfig]);
+
+  // Handle sidebar resize
+  useEffect(() => {
+    if (!isResizing) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const newWidth = e.clientX - containerRect.left;
+      const clampedWidth = Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, newWidth));
+      setSidebarWidth(clampedWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing, sidebarWidth]);
+
+  const handleResizeStart = useCallback(() => {
+    setIsResizing(true);
+  }, []);
 
   const handleSelectSession = useCallback((sessionId: string) => {
     setSelectedSessionId(sessionId);
@@ -104,7 +145,7 @@ export function App() {
   const requirePat = clientConfig !== null && !clientConfig.hasPat;
 
   return (
-    <div className="flex h-full w-full max-md:flex-col">
+    <div ref={containerRef} className={`flex h-full w-full max-md:flex-col ${isResizing ? 'select-none' : ''}`}>
       {error && (
         <div className="fixed top-0 left-0 right-0 bg-red-700 text-white py-3 px-4 flex items-center justify-center gap-4 z-[1000] max-md:flex-col max-md:gap-2 max-md:py-2.5">
           <span className="text-sm">{error}</span>
@@ -125,7 +166,10 @@ export function App() {
           Terminal
         </button>
       </nav>
-      <div className={`w-[280px] min-w-[280px] h-full shrink-0 max-md:w-full max-md:min-w-full max-md:h-auto max-md:flex-1 max-md:min-h-0 ${mobileView !== 'sessions' ? 'max-md:hidden' : ''}`}>
+      <div
+        style={{ width: sidebarWidth }}
+        className={`h-full shrink-0 max-md:!w-full max-md:h-auto max-md:flex-1 max-md:min-h-0 ${mobileView !== 'sessions' ? 'max-md:hidden' : ''}`}
+      >
         <SessionList
           sessions={sessions ?? []}
           selectedSessionId={selectedSessionId}
@@ -138,6 +182,11 @@ export function App() {
           loading={loading}
         />
       </div>
+      {/* Resize handle */}
+      <div
+        className="w-1 h-full bg-vscode-border hover:bg-vscode-accent cursor-col-resize shrink-0 max-md:hidden transition-colors"
+        onMouseDown={handleResizeStart}
+      />
       <div className={`flex-1 h-full min-w-0 max-md:min-h-0 ${mobileView !== 'terminal' ? 'max-md:hidden' : ''}`}>
         <TerminalPane
           session={selectedSession}
