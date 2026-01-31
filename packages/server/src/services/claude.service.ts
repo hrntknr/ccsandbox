@@ -48,6 +48,7 @@ export interface ClaudeManagerEvents {
   event: (tabId: string, event: ClaudeEvent) => void;
   exit: (tabId: string, code: number) => void;
   error: (tabId: string, error: Error) => void;
+  pendingPermissionsChanged: (sessionId: string, hasPending: boolean) => void;
 }
 
 /**
@@ -185,6 +186,7 @@ export class ClaudeManager extends EventEmitter {
   private handleEvent(instance: ClaudeInstance, event: ClaudeEvent): void {
     // Track pending permissions
     if (event.type === 'control_request') {
+      const hadPending = instance.pendingPermissions.size > 0;
       instance.pendingPermissions.set(event.request_id, {
         requestId: event.request_id,
         toolName: event.request.tool_name,
@@ -192,6 +194,10 @@ export class ClaudeManager extends EventEmitter {
         toolUseId: event.request.tool_use_id,
         timestamp: new Date().toISOString(),
       });
+      // Emit event if pending permissions changed from none to some
+      if (!hadPending) {
+        this.emit('pendingPermissionsChanged', instance.sessionId, true);
+      }
     }
 
     // Track processing state
@@ -349,6 +355,10 @@ export class ClaudeManager extends EventEmitter {
     instance.process.stdin.write(JSON.stringify(response) + '\n');
     instance.pendingPermissions.delete(requestId);
 
+    // Check if any pending permissions remain for this session
+    const hasPendingForSession = this.hasPendingPermissionsForSession(instance.sessionId);
+    this.emit('pendingPermissionsChanged', instance.sessionId, hasPendingForSession);
+
     return true;
   }
 
@@ -414,6 +424,14 @@ export class ClaudeManager extends EventEmitter {
     return Array.from(this.instances.values()).filter(
       (i) => i.sessionId === sessionId
     );
+  }
+
+  /**
+   * Check if any Claude instance for a session has pending permissions
+   */
+  hasPendingPermissionsForSession(sessionId: string): boolean {
+    const instances = this.getBySession(sessionId);
+    return instances.some((i) => i.pendingPermissions.size > 0);
   }
 
   /**
