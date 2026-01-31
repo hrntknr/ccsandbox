@@ -152,6 +152,31 @@ export interface ClaudeMessage {
 }
 
 /**
+ * AskUserQuestion option
+ */
+export interface AskUserQuestionOption {
+  label: string;
+  description: string;
+}
+
+/**
+ * AskUserQuestion question
+ */
+export interface AskUserQuestion {
+  question: string;
+  header: string;
+  options: AskUserQuestionOption[];
+  multiSelect: boolean;
+}
+
+/**
+ * AskUserQuestion tool input
+ */
+export interface AskUserQuestionInput {
+  questions: AskUserQuestion[];
+}
+
+/**
  * Pending permission request
  */
 export interface ClaudePendingPermission {

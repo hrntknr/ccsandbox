@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type {
+  AskUserQuestion,
+  AskUserQuestionInput,
   ClaudeEvent,
   ClaudeMessage,
   ClaudePendingPermission,
@@ -9,12 +11,17 @@ import type {
 import { MessageList } from './MessageList';
 import { InputForm } from './InputForm';
 import { PermissionDialog } from './PermissionDialog';
+import { AskUserQuestionDialog } from './AskUserQuestionDialog';
 
 interface ClaudeChatProps {
   tabId: string;
   isActive: boolean;
   sendClaudeMessage: (content: string, permissionMode: ClaudePermissionMode) => void;
-  respondToPermission: (requestId: string, permission: 'allow' | 'deny') => void;
+  respondToPermission: (
+    requestId: string,
+    permission: 'allow' | 'deny',
+    answers?: Record<string, string>
+  ) => void;
   onClaudeEvent: (
     tabId: string,
     callback: (event: ClaudeEvent) => void
@@ -166,8 +173,8 @@ export function ClaudeChat({
   );
 
   const handlePermissionResponse = useCallback(
-    (requestId: string, permission: 'allow' | 'deny') => {
-      respondToPermission(requestId, permission);
+    (requestId: string, permission: 'allow' | 'deny', answers?: Record<string, string>) => {
+      respondToPermission(requestId, permission, answers);
       setPendingPermissions((prev) => prev.filter((p) => p.requestId !== requestId));
     },
     [respondToPermission]
@@ -184,12 +191,29 @@ export function ClaudeChat({
         <div ref={messagesEndRef} />
       </div>
 
-      {pendingPermissions.length > 0 && (
-        <PermissionDialog
-          permission={pendingPermissions[0]!}
-          onResponse={handlePermissionResponse}
-        />
-      )}
+      {pendingPermissions.length > 0 && (() => {
+        const permission = pendingPermissions[0]!;
+        // Check if this is an AskUserQuestion tool request
+        if (permission.toolName === 'AskUserQuestion') {
+          const input = permission.input as unknown as AskUserQuestionInput;
+          if (input.questions && Array.isArray(input.questions)) {
+            return (
+              <AskUserQuestionDialog
+                permission={permission}
+                questions={input.questions}
+                onResponse={handlePermissionResponse}
+              />
+            );
+          }
+        }
+        // Default permission dialog for other tools
+        return (
+          <PermissionDialog
+            permission={permission}
+            onResponse={handlePermissionResponse}
+          />
+        );
+      })()}
 
       <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 pt-6 bg-gradient-to-t from-claude-bg-primary via-claude-bg-primary to-transparent pointer-events-none">
         <div className="pointer-events-auto max-w-3xl mx-auto">

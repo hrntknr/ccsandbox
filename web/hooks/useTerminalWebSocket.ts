@@ -63,7 +63,17 @@ export interface UseTerminalWebSocketReturn {
   onOwnTabAdded: (callback: (tab: TerminalTab) => void) => () => void;
   // Claude-specific
   sendClaudeMessage: (content: string, permissionMode?: ClaudePermissionMode) => void;
-  respondToPermission: (requestId: string, permission: 'allow' | 'deny') => void;
+  /**
+   * Respond to a permission request
+   * @param requestId - The permission request ID
+   * @param permission - 'allow' or 'deny'
+   * @param answers - For AskUserQuestion tool: map of question text to selected answer(s)
+   */
+  respondToPermission: (
+    requestId: string,
+    permission: 'allow' | 'deny',
+    answers?: Record<string, string>
+  ) => void;
   onClaudeEvent: (tabId: string, callback: ClaudeEventCallback) => () => void;
   onClaudeHistory: (tabId: string, callback: ClaudeHistoryCallback) => () => void;
 }
@@ -411,8 +421,8 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
   );
 
   const respondToPermission = useCallback(
-    (requestId: string, permission: 'allow' | 'deny') => {
-      sendMessage({ type: 'claude-permission-response', requestId, permission });
+    (requestId: string, permission: 'allow' | 'deny', answers?: Record<string, string>) => {
+      sendMessage({ type: 'claude-permission-response', requestId, permission, answers });
     },
     [sendMessage]
   );
