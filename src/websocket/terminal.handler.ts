@@ -175,6 +175,7 @@ export function createTerminalHandler(
           workspacePath: session.workspacePath,
           devcontainerCliPath: config.devcontainerCli,
           tabId,
+          remoteEnv: config.pat ? [`GITHUB_TOKEN=${config.pat}`] : undefined,
         }).then(() => {
           connectionManager.updateTab(sessionId, tabId, {
             ready: true,
