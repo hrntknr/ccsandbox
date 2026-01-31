@@ -77,6 +77,10 @@ export interface EditableConfig {
   dotfilesTargetPath?: string;
   dotfilesInstallCommand?: string;
   defaultShell?: string;
+  /** Authentication token (random, stored as plaintext) */
+  authToken?: string;
+  /** Authentication password hash (bcrypt) */
+  authPasswordHash?: string;
 }
 
 /**
@@ -89,6 +93,8 @@ export interface UpdateConfigRequest {
   dotfilesTargetPath?: string;
   dotfilesInstallCommand?: string;
   defaultShell?: string;
+  /** Plaintext password (will be hashed on server side) */
+  authPassword?: string;
 }
 
 /**
@@ -102,6 +108,8 @@ export interface ClientConfig {
   dotfilesTargetPath?: string;
   dotfilesInstallCommand?: string;
   defaultShell?: string;
+  /** Whether a password has been set for authentication */
+  hasAuthPassword: boolean;
 }
 
 // Diff types

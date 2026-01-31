@@ -7,6 +7,7 @@ import { resetTerminalManager } from './services/terminal.service.js';
 import { startBackgroundRefresh, stopBackgroundRefresh } from './services/github.service.js';
 import { startContainerHealthCheck, stopContainerHealthCheck } from './services/container-health.service.js';
 import { getConfigStore } from './persistence/config-store.js';
+import { generateAuthToken } from './utils/auth.js';
 
 export { getConfig, hasConfig, setConfig, updateConfig, type ServerConfig } from './config.js';
 export { getConfigStore, resetConfigStore, ConfigStore } from './persistence/config-store.js';
@@ -56,7 +57,13 @@ export async function startServer(options: StartServerOptions): Promise<ServerIn
 
   // Load persisted configuration from config.json
   const configStore = getConfigStore(options.configDir);
-  const persistedConfig = await configStore.read();
+  let persistedConfig = await configStore.read();
+
+  // Generate auth token if not present
+  if (!persistedConfig.authToken) {
+    const newToken = generateAuthToken();
+    persistedConfig = await configStore.write({ authToken: newToken });
+  }
 
   // Use persisted apiBase or default
   const effectiveApiBase = persistedConfig.apiBase ?? 'https://api.github.com';
@@ -73,6 +80,8 @@ export async function startServer(options: StartServerOptions): Promise<ServerIn
     dotfilesTargetPath: persistedConfig.dotfilesTargetPath,
     dotfilesInstallCommand: persistedConfig.dotfilesInstallCommand,
     defaultShell: persistedConfig.defaultShell,
+    authToken: persistedConfig.authToken,
+    authPasswordHash: persistedConfig.authPasswordHash,
   });
 
   // Create Express app
@@ -99,6 +108,13 @@ export async function startServer(options: StartServerOptions): Promise<ServerIn
 
       console.log(`Server listening on http://${options.listen}:${actualPort}`);
       console.log(`WebSocket terminal endpoint: ws://${options.listen}:${actualPort}/ws/terminal`);
+
+      // Always print authentication URL
+      if (persistedConfig.authToken) {
+        console.log('');
+        console.log('Authentication URL:');
+        console.log(`  http://${options.listen}:${actualPort}/?token=${persistedConfig.authToken}`);
+      }
 
       // Start background repository cache refresh (only if PAT is configured)
       if (persistedConfig.pat) {

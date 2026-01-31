@@ -3,6 +3,7 @@ import type { ApiResponse, ClientConfig, UpdateConfigRequest } from '@ccsandbox/
 import { getConfig, updateConfig } from '../../config.js';
 import { getConfigStore } from '../../persistence/config-store.js';
 import { startBackgroundRefresh, stopBackgroundRefresh } from '../../services/github.service.js';
+import { hashPassword } from '../../utils/auth.js';
 
 const router = Router();
 
@@ -18,6 +19,7 @@ function buildClientConfig(): ClientConfig {
     dotfilesTargetPath: config.dotfilesTargetPath,
     dotfilesInstallCommand: config.dotfilesInstallCommand,
     defaultShell: config.defaultShell,
+    hasAuthPassword: Boolean(config.authPasswordHash),
   };
 }
 
@@ -42,10 +44,24 @@ router.put('/', async (req, res) => {
   try {
     const updates = req.body as UpdateConfigRequest;
     const config = getConfig();
-    const configStore = getConfigStore(config.repoDir);
+    const configStore = getConfigStore(config.configDir);
+
+    // Handle password update: hash and store as authPasswordHash
+    const persistUpdates: Record<string, unknown> = { ...updates };
+    delete persistUpdates['authPassword'];
+
+    if (updates.authPassword !== undefined) {
+      if (updates.authPassword === '') {
+        // Empty string means remove password
+        persistUpdates['authPasswordHash'] = '';
+      } else {
+        // Hash the password
+        persistUpdates['authPasswordHash'] = await hashPassword(updates.authPassword);
+      }
+    }
 
     // Persist to config.json
-    const persisted = await configStore.write(updates);
+    const persisted = await configStore.write(persistUpdates);
 
     // Determine the new apiBase (use persisted if available, else current)
     const newApiBase = persisted.apiBase ?? config.apiBase;
@@ -58,6 +74,7 @@ router.put('/', async (req, res) => {
       dotfilesTargetPath: persisted.dotfilesTargetPath,
       dotfilesInstallCommand: persisted.dotfilesInstallCommand,
       defaultShell: persisted.defaultShell,
+      authPasswordHash: persisted.authPasswordHash,
     });
 
     // Restart background refresh if PAT or apiBase changed
