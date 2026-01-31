@@ -456,7 +456,7 @@ router.get(
     try {
       const session = await store.get(id);
 
-      const stats = await getDiffStats(session.workspacePath, session.baseBranch);
+      const stats = await getDiffStats(session.workspacePath);
 
       const response: ApiResponse<DiffStatsResponse> = {
         success: true,
@@ -490,7 +490,7 @@ router.get(
     try {
       const session = await store.get(id);
 
-      const { files, stats } = await getDiffDetail(session.workspacePath, session.baseBranch);
+      const { files, stats } = await getDiffDetail(session.workspacePath);
 
       const response: ApiResponse<DiffDetailResponse> = {
         success: true,
