@@ -1,4 +1,6 @@
 import { WebSocket } from 'ws';
+import os from 'node:os';
+import path from 'node:path';
 import type { SessionCreateClientMessage, SessionCreateServerMessage, Session, DevcontainerSource } from '../shared/index.js';
 import { getSessionStore, WorkspaceExistsError } from '../persistence/session-store.js';
 import { cloneRepository, GitOperationError } from '../services/git.service.js';
@@ -157,6 +159,7 @@ export function createSessionCreateHandler(ws: WebSocket): SessionCreateHandler 
       // Step 5: Start devcontainer
       sendLog(ws, `=== Starting devcontainer ===\n`);
       try {
+        const homeDir = os.homedir();
         const containerInfo = await startDevcontainer({
           workspacePath: session.workspacePath,
           devcontainerCliPath: config.devcontainerCli,
@@ -172,6 +175,10 @@ export function createSessionCreateHandler(ws: WebSocket): SessionCreateHandler 
             sessionId: session.sessionId,
           },
           configPath: templateConfigPath,
+          claudeConfig: {
+            claudeJsonPath: path.join(homeDir, '.claude.json'),
+            claudeDirPath: path.join(homeDir, '.claude'),
+          },
         });
 
         // Update session with container info
