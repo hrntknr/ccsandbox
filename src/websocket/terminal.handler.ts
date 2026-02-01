@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
 import type { TerminalClientMessage, TerminalServerMessage, TerminalTab, TabType, ClaudePermissionMode, Session } from '../shared/index.js';
 import { getTerminalManager } from '../services/terminal.service.js';
-import { getClaudeManager } from '../services/claude.service.js';
+import { getClaudeManager } from '../services/claude/index.js';
 import { SessionStore } from '../persistence/session-store.js';
 import { getConfig } from '../config.js';
 import type { ConnectionManager } from './connection-manager.js';
@@ -508,15 +508,26 @@ export function createTerminalHandler(
    * @param requestId - The permission request ID
    * @param permission - 'allow' or 'deny'
    * @param answers - For AskUserQuestion tool: map of question text to selected answer(s)
+   * @param permissionMode - Permission mode to set (for ExitPlanMode)
    */
-  function handleClaudePermissionResponse(
+  async function handleClaudePermissionResponse(
     requestId: string,
     permission: 'allow' | 'deny',
-    answers?: Record<string, string>
-  ): void {
+    answers?: Record<string, string>,
+    permissionMode?: ClaudePermissionMode
+  ): Promise<void> {
     if (!currentTabId || !currentSessionId) {
       sendError(ws, 'Not attached to a Claude tab');
       return;
+    }
+
+    // If permissionMode is specified (e.g., for ExitPlanMode), set it first
+    if (permissionMode) {
+      const success = await claudeManager.setPermissionMode(currentTabId, permissionMode);
+      if (!success) {
+        sendError(ws, 'Failed to set permission mode');
+        return;
+      }
     }
 
     if (!claudeManager.respondToPermission(currentTabId, requestId, permission, answers)) {
@@ -654,7 +665,10 @@ export function createTerminalHandler(
           sendError(ws, 'Invalid requestId format');
           return;
         }
-        handleClaudePermissionResponse(message.requestId, message.permission, message.answers);
+        handleClaudePermissionResponse(message.requestId, message.permission, message.answers, message.permissionMode).catch((error) => {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to respond to permission';
+          sendError(ws, errorMessage);
+        });
         break;
 
       case 'claude-change-permission-mode':

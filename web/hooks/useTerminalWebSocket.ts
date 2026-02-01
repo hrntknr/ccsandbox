@@ -105,11 +105,13 @@ export interface UseTerminalWebSocketReturn {
    * @param requestId - The permission request ID
    * @param permission - 'allow' or 'deny'
    * @param answers - For AskUserQuestion tool: map of question text to selected answer(s)
+   * @param permissionMode - Permission mode to set (for ExitPlanMode)
    */
   respondToPermission: (
     requestId: string,
     permission: 'allow' | 'deny',
-    answers?: Record<string, string>
+    answers?: Record<string, string>,
+    permissionMode?: ClaudePermissionMode
   ) => void;
   /**
    * Change permission mode for the current Claude tab
@@ -231,7 +233,8 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
         case 'claude-event':
           for (const sub of claudeEventSubscriptionsRef.current) {
             if (sub.tabId === message.tabId) {
-              sub.callback(message.event);
+              // SDK events are compatible with ClaudeEvent type
+              sub.callback(message.event as ClaudeEvent);
             }
           }
           break;
@@ -506,8 +509,8 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
   );
 
   const respondToPermission = useCallback(
-    (requestId: string, permission: 'allow' | 'deny', answers?: Record<string, string>) => {
-      sendMessage({ type: 'claude-permission-response', requestId, permission, answers });
+    (requestId: string, permission: 'allow' | 'deny', answers?: Record<string, string>, permissionMode?: ClaudePermissionMode) => {
+      sendMessage({ type: 'claude-permission-response', requestId, permission, answers, permissionMode });
     },
     [sendMessage]
   );

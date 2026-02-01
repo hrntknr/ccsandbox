@@ -6,7 +6,8 @@ interface PermissionDialogProps {
   onResponse: (
     requestId: string,
     permission: 'allow' | 'deny',
-    answers?: Record<string, string>
+    answers?: Record<string, string>,
+    permissionMode?: ClaudePermissionMode
   ) => void;
   onChangePermissionMode: (mode: ClaudePermissionMode) => void;
 }

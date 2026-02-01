@@ -5,7 +5,7 @@ import { createTerminalHandler } from './terminal.handler.js';
 import { createSessionCreateHandler } from './session-create.handler.js';
 import { getConnectionManager, resetConnectionManager } from './connection-manager.js';
 import { getTerminalManager } from '../services/terminal.service.js';
-import { getClaudeManager, resetClaudeManager } from '../services/claude.service.js';
+import { getClaudeManager, resetClaudeManager } from '../services/claude/index.js';
 import { getSessionSyncManager, resetSessionSyncManager } from './session-sync-manager.js';
 import { getSessionStore } from '../persistence/session-store.js';
 import { getConfig } from '../config.js';

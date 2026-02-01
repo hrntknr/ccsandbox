@@ -24,7 +24,8 @@ interface ClaudeChatProps {
   respondToPermission: (
     requestId: string,
     permission: 'allow' | 'deny',
-    answers?: Record<string, string>
+    answers?: Record<string, string>,
+    permissionMode?: ClaudePermissionMode
   ) => void;
   changePermissionMode: (mode: ClaudePermissionMode) => void;
   onClaudeEvent: (
@@ -261,8 +262,8 @@ export function ClaudeChat({
   );
 
   const handlePermissionResponse = useCallback(
-    (requestId: string, permission: 'allow' | 'deny', answers?: Record<string, string>) => {
-      respondToPermission(requestId, permission, answers);
+    (requestId: string, permission: 'allow' | 'deny', answers?: Record<string, string>, permissionMode?: ClaudePermissionMode) => {
+      respondToPermission(requestId, permission, answers, permissionMode);
       setPendingPermissions((prev) => prev.filter((p) => p.requestId !== requestId));
     },
     [respondToPermission]
@@ -301,7 +302,6 @@ export function ClaudeChat({
             <ExitPlanModeDialog
               permission={permission}
               onResponse={handlePermissionResponse}
-              onChangePermissionMode={changePermissionMode}
             />
           );
         }

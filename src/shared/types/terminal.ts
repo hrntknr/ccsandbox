@@ -1,5 +1,5 @@
 import type { Session, TabType, TerminalTab } from './session.js';
-import type { ClaudeEvent, ClaudeMessage, ClaudePendingPermission, ClaudePermissionMode, TodoItem } from './claude.js';
+import type { ClaudeMessage, ClaudePendingPermission, ClaudePermissionMode, TodoItem } from './claude.js';
 import type { DevcontainerSource } from './template.js';
 
 /**
@@ -27,6 +27,8 @@ export type TerminalClientMessage =
       permission: 'allow' | 'deny';
       /** Answers for AskUserQuestion tool (key: question text, value: selected label(s)) */
       answers?: Record<string, string>;
+      /** Permission mode to set (for ExitPlanMode) */
+      permissionMode?: ClaudePermissionMode;
     }
   | { type: 'claude-change-permission-mode'; permissionMode: ClaudePermissionMode };
 
@@ -45,8 +47,8 @@ export type TerminalServerMessage =
   | { type: 'error'; message: string }
   | { type: 'exit'; tabId: string; code: number }
   | { type: 'resize-sync'; cols: number; rows: number }
-  // Claude-specific messages
-  | { type: 'claude-event'; tabId: string; event: ClaudeEvent }
+  // Claude-specific messages (event is SDK's SDKMessage type)
+  | { type: 'claude-event'; tabId: string; event: unknown }
   | {
       type: 'claude-history';
       tabId: string;

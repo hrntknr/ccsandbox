@@ -1,7 +1,8 @@
 import type { WebSocket } from 'ws';
-import type { TerminalTab, TerminalServerMessage, ClaudeEvent, TodoItem, ClaudePermissionMode } from '../shared/index.js';
+import type { TerminalTab, TerminalServerMessage, TodoItem, ClaudePermissionMode } from '../shared/index.js';
+import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { TerminalManager } from '../services/terminal.service.js';
-import type { ClaudeManager, ClaudeProcessingStats } from '../services/claude.service.js';
+import type { ClaudeManager, ClaudeProcessingStats } from '../services/claude/index.js';
 import { getSessionSyncManager } from './session-sync-manager.js';
 import { getSessionStore } from '../persistence/session-store.js';
 
@@ -103,15 +104,16 @@ export class ConnectionManager {
     } satisfies TerminalServerMessage);
   };
 
-  private handleClaudeEvent = (tabId: string, event: ClaudeEvent): void => {
+  private handleClaudeEvent = (tabId: string, event: SDKMessage): void => {
     const sessionId = this.tabToSession.get(tabId);
     if (!sessionId) return;
 
+    // SDK events are compatible with the existing ClaudeEvent structure
     this.broadcastToTab(sessionId, tabId, {
       type: 'claude-event',
       tabId,
-      event,
-    } satisfies TerminalServerMessage);
+      event: event as unknown,
+    });
   };
 
   private handleClaudeExit = (tabId: string, code: number): void => {
