@@ -3,6 +3,7 @@ import { ToolInputDisplay } from './ToolInputDisplay';
 
 interface PermissionDialogProps {
   permission: ClaudePendingPermission;
+  currentPermissionMode?: PermissionMode;
   onResponse: (
     requestId: string,
     permission: 'allow' | 'deny',
@@ -32,7 +33,7 @@ function getModeColor(mode: PermissionMode): string {
   }
 }
 
-export function PermissionDialog({ permission, onResponse, onChangePermissionMode }: PermissionDialogProps) {
+export function PermissionDialog({ permission, currentPermissionMode, onResponse, onChangePermissionMode }: PermissionDialogProps) {
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" style={{ animation: 'overlay-in 0.2s ease-out' }}>
       <div className="bg-claude-bg-secondary rounded-2xl shadow-2xl shadow-black/40 max-w-lg w-[calc(100%-2rem)] mx-4 overflow-hidden border border-claude-border" style={{ animation: 'modal-in 0.2s ease-out' }}>
@@ -55,6 +56,7 @@ export function PermissionDialog({ permission, onResponse, onChangePermissionMod
                   color: 'var(--color-claude-text-secondary)',
                   backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
                 }}
+                value={currentPermissionMode ?? 'default'}
                 onChange={(e) => onChangePermissionMode(e.target.value as PermissionMode)}
                 title="Change permission mode for subsequent actions"
               >

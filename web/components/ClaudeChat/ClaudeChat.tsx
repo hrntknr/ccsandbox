@@ -309,6 +309,7 @@ export function ClaudeChat({
         return (
           <PermissionDialog
             permission={permission}
+            currentPermissionMode={backendPermissionMode ?? undefined}
             onResponse={handlePermissionResponse}
             onChangePermissionMode={changePermissionMode}
           />

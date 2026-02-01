@@ -54,6 +54,8 @@ function isValidTerminalClientMessage(message: unknown): message is TerminalClie
         typeof msg['requestId'] === 'string' &&
         (msg['permission'] === 'allow' || msg['permission'] === 'deny')
       );
+    case 'claude-change-permission-mode':
+      return typeof msg['permissionMode'] === 'string';
     default:
       return false;
   }
