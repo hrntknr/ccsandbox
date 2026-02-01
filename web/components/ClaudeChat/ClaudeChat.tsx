@@ -75,8 +75,11 @@ export function ClaudeChat({
   const [bottomAreaHeight, setBottomAreaHeight] = useState(128);
   const [backendPermissionMode, setBackendPermissionMode] = useState<PermissionMode | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const bottomAreaRef = useRef<HTMLDivElement>(null);
   const historyLoadedRef = useRef(false);
+  const isAtBottomRef = useRef(true);
+  const userScrolledRef = useRef(false);
 
   // Handle incoming events
   useEffect(() => {
@@ -242,12 +245,78 @@ export function ClaudeChat({
     return () => observer.disconnect();
   }, []);
 
-  // Auto-scroll to bottom (including when todos change)
+  // Check if scroll is at bottom (with threshold for floating point errors)
+  const checkIsAtBottom = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return true;
+    const threshold = 50; // pixels from bottom to consider "at bottom"
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    return scrollHeight - scrollTop - clientHeight < threshold;
+  }, []);
+
+  // Scroll to bottom helper
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  }, []);
+
+  // Track scroll position to detect if user is at bottom
   useEffect(() => {
-    if (isActive) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const atBottom = checkIsAtBottom();
+      isAtBottomRef.current = atBottom;
+
+      // If user scrolled up, mark as user-initiated scroll
+      if (!atBottom) {
+        userScrolledRef.current = true;
+      } else {
+        userScrolledRef.current = false;
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [checkIsAtBottom]);
+
+  // Auto-scroll on new content only if user was at bottom
+  useEffect(() => {
+    if (!isActive) return;
+
+    // Always scroll on streaming content if at bottom
+    if (isAtBottomRef.current || !userScrolledRef.current) {
+      scrollToBottom('smooth');
     }
-  }, [messages, streamingContent, isActive, todos]);
+  }, [streamingContent, isActive, scrollToBottom]);
+
+  // Auto-scroll on new messages only if user was at bottom
+  useEffect(() => {
+    if (!isActive) return;
+
+    if (isAtBottomRef.current || !userScrolledRef.current) {
+      scrollToBottom('smooth');
+    }
+  }, [messages, isActive, scrollToBottom]);
+
+  // Auto-scroll when todos change only if at bottom
+  useEffect(() => {
+    if (!isActive) return;
+
+    if (isAtBottomRef.current) {
+      scrollToBottom('smooth');
+    }
+  }, [todos, isActive, scrollToBottom]);
+
+  // Scroll to bottom when tab becomes active (handles both initial load and tab switch)
+  useEffect(() => {
+    if (isActive && messages.length > 0) {
+      // Use instant scroll for tab activation
+      scrollToBottom('instant');
+      isAtBottomRef.current = true;
+      userScrolledRef.current = false;
+    }
+  }, [isActive, scrollToBottom, messages.length]);
 
   const handleSubmit = useCallback(
     (content: string, permissionMode: PermissionMode) => {
@@ -260,8 +329,13 @@ export function ClaudeChat({
       };
       setMessages((prev) => [...prev, userMessage]);
       sendClaudeMessage(content, permissionMode);
+
+      // When user sends a message, reset scroll state to follow new messages
+      isAtBottomRef.current = true;
+      userScrolledRef.current = false;
+      scrollToBottom('smooth');
     },
-    [sendClaudeMessage]
+    [sendClaudeMessage, scrollToBottom]
   );
 
   const handlePermissionResponse = useCallback(
@@ -274,7 +348,7 @@ export function ClaudeChat({
 
   return (
     <div className={`relative h-full bg-claude-bg-primary text-claude-text-primary font-sans text-sm leading-normal ${isActive ? 'flex flex-col' : 'hidden'}`}>
-      <div className="flex-1 overflow-y-auto py-4 scrollbar-thin">
+      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto py-4 scrollbar-thin">
         <MessageList
           messages={messages}
           streamingContent={streamingContent}
