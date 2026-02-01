@@ -55,7 +55,8 @@ export type TerminalServerMessage =
       todos: TodoItem[];
     }
   | { type: 'claude-permission-resolved'; tabId: string; requestId: string }
-  | { type: 'claude-user-message'; tabId: string; message: ClaudeMessage };
+  | { type: 'claude-user-message'; tabId: string; message: ClaudeMessage }
+  | { type: 'claude-todos-updated'; tabId: string; todos: TodoItem[] };
 
 /**
  * Session creation WebSocket message types

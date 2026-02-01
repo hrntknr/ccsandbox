@@ -66,6 +66,15 @@ interface ClaudeUserMessageSubscription {
   callback: ClaudeUserMessageCallback;
 }
 
+interface ClaudeTodosUpdatedCallback {
+  (todos: TodoItem[]): void;
+}
+
+interface ClaudeTodosUpdatedSubscription {
+  tabId: string;
+  callback: ClaudeTodosUpdatedCallback;
+}
+
 export interface UseTerminalWebSocketReturn {
   isConnected: boolean;
   tabs: TerminalTab[];
@@ -101,6 +110,7 @@ export interface UseTerminalWebSocketReturn {
   onClaudeHistory: (tabId: string, callback: ClaudeHistoryCallback) => () => void;
   onClaudePermissionResolved: (tabId: string, callback: ClaudePermissionResolvedCallback) => () => void;
   onClaudeUserMessage: (tabId: string, callback: ClaudeUserMessageCallback) => () => void;
+  onClaudeTodosUpdated: (tabId: string, callback: ClaudeTodosUpdatedCallback) => () => void;
 }
 
 export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSocketReturn {
@@ -119,6 +129,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
   const claudeHistorySubscriptionsRef = useRef<ClaudeHistorySubscription[]>([]);
   const claudePermissionResolvedSubscriptionsRef = useRef<ClaudePermissionResolvedSubscription[]>([]);
   const claudeUserMessageSubscriptionsRef = useRef<ClaudeUserMessageSubscription[]>([]);
+  const claudeTodosUpdatedSubscriptionsRef = useRef<ClaudeTodosUpdatedSubscription[]>([]);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sendMessage = useCallback((message: TerminalClientMessage) => {
@@ -238,6 +249,14 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
           }
           break;
 
+        case 'claude-todos-updated':
+          for (const sub of claudeTodosUpdatedSubscriptionsRef.current) {
+            if (sub.tabId === message.tabId) {
+              sub.callback(message.todos);
+            }
+          }
+          break;
+
         case 'error':
           console.error('Terminal WebSocket error:', message.message);
           break;
@@ -271,6 +290,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     claudeHistorySubscriptionsRef.current = [];
     claudePermissionResolvedSubscriptionsRef.current = [];
     claudeUserMessageSubscriptionsRef.current = [];
+    claudeTodosUpdatedSubscriptionsRef.current = [];
   }, []);
 
   // Connect to WebSocket and join session
@@ -535,6 +555,20 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     []
   );
 
+  const onClaudeTodosUpdated = useCallback(
+    (tabId: string, callback: ClaudeTodosUpdatedCallback): (() => void) => {
+      const subscription = { tabId, callback };
+      claudeTodosUpdatedSubscriptionsRef.current.push(subscription);
+
+      return () => {
+        claudeTodosUpdatedSubscriptionsRef.current = claudeTodosUpdatedSubscriptionsRef.current.filter(
+          (s) => s !== subscription
+        );
+      };
+    },
+    []
+  );
+
   return {
     isConnected,
     tabs,
@@ -557,5 +591,6 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     onClaudeHistory,
     onClaudePermissionResolved,
     onClaudeUserMessage,
+    onClaudeTodosUpdated,
   };
 }

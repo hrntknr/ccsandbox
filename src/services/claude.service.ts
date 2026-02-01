@@ -65,6 +65,7 @@ export interface ClaudeManagerEvents {
   error: (tabId: string, error: Error) => void;
   pendingPermissionsChanged: (sessionId: string, hasPending: boolean) => void;
   processingStateChanged: (sessionId: string, stats: ClaudeProcessingStats) => void;
+  todosChanged: (tabId: string, todos: TodoItem[]) => void;
 }
 
 /**
@@ -325,6 +326,8 @@ export class ClaudeManager extends EventEmitter {
       if (rawResult && typeof rawResult === 'object' && 'newTodos' in rawResult) {
         const todoResult = rawResult as { newTodos: TodoItem[] };
         instance.todos = todoResult.newTodos;
+        // Notify about todos change
+        this.emit('todosChanged', instance.tabId, instance.todos);
       }
 
       // Filter out TodoWrite tool results (they contain "Todos have been modified successfully")
