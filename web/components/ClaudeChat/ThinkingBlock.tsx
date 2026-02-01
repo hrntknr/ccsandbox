@@ -1,0 +1,71 @@
+import { useState } from 'react';
+
+interface ThinkingBlockProps {
+  thinking: string;
+  previewLines?: number;
+}
+
+/**
+ * Collapsible thinking block component (Claude Code style)
+ * - Collapsed by default
+ * - Shows last N lines as preview when collapsed
+ * - Expands to show full thinking content
+ */
+export function ThinkingBlock({ thinking, previewLines = 3 }: ThinkingBlockProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const lines = thinking.split('\n');
+  const totalLines = lines.length;
+  const previewText = lines.slice(-previewLines).join('\n');
+  const hasMoreContent = totalLines > previewLines;
+
+  return (
+    <div className="bg-claude-bg-tertiary border border-claude-border rounded-lg overflow-hidden my-2">
+      {/* Header */}
+      <div
+        className="flex items-center gap-2 py-1.5 px-3 bg-claude-bg-hover cursor-pointer select-none hover:bg-claude-bg-hover/80"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <span className="text-claude-text-muted text-[10px]">💭</span>
+        <span className="text-claude-text-muted text-[11px] font-medium">
+          Thinking
+        </span>
+        {!isExpanded && hasMoreContent && (
+          <span className="text-claude-text-muted/60 text-[10px]">
+            ({totalLines} lines)
+          </span>
+        )}
+        <span
+          className={`ml-auto text-claude-text-muted transition-transform duration-200 text-[10px] ${
+            isExpanded ? 'rotate-90' : ''
+          }`}
+        >
+          ▶
+        </span>
+      </div>
+
+      {/* Content */}
+      <div className="border-t border-claude-border/30">
+        {isExpanded ? (
+          // Full content when expanded
+          <pre className="font-mono text-xs m-0 p-3 overflow-x-auto text-claude-text-secondary whitespace-pre-wrap max-h-[400px] overflow-y-auto">
+            {thinking}
+          </pre>
+        ) : (
+          // Preview (last N lines) when collapsed
+          <div className="relative">
+            {hasMoreContent && (
+              <div className="absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-claude-bg-tertiary to-transparent pointer-events-none z-10" />
+            )}
+            <pre className="font-mono text-xs m-0 p-3 overflow-x-auto text-claude-text-secondary/70 whitespace-pre-wrap">
+              {hasMoreContent && (
+                <span className="text-claude-text-muted/50 italic">... </span>
+              )}
+              {previewText}
+            </pre>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

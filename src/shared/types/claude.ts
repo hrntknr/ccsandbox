@@ -169,6 +169,7 @@ export interface ClaudeMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  thinking?: string;
   toolUse?: {
     id: string;
     name: string;

@@ -3,6 +3,7 @@ import { Streamdown } from 'streamdown';
 import { code } from '@streamdown/code';
 import type { ClaudeMessage } from '@shared/index.js';
 import { AnsiOutput } from './AnsiOutput';
+import { ThinkingBlock } from './ThinkingBlock';
 
 interface MessageListProps {
   messages: ClaudeMessage[];
@@ -101,6 +102,7 @@ function ToolGroup({ tools }: ToolGroupProps) {
 // Item type for preserving order
 type ContentItem =
   | { type: 'text'; text: string }
+  | { type: 'thinking'; thinking: string }
   | { type: 'tool'; tool: ToolInfo; result?: ToolResult };
 
 interface GroupedMessage {
@@ -118,6 +120,11 @@ function groupConsecutiveMessages(messages: ClaudeMessage[]): GroupedMessage[] {
 
     // Create items from message (preserving order)
     const items: ContentItem[] = [];
+
+    // Thinking content (shown first, before text)
+    if (message.thinking?.trim()) {
+      items.push({ type: 'thinking', thinking: message.thinking });
+    }
 
     // Text content
     if (message.content.trim()) {
@@ -229,7 +236,12 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
               };
 
               message.items.forEach((item, index) => {
-                if (item.type === 'text') {
+                if (item.type === 'thinking') {
+                  flushTools();
+                  rendered.push(
+                    <ThinkingBlock key={`thinking-${keyIndex++}`} thinking={item.thinking} />
+                  );
+                } else if (item.type === 'text') {
                   flushTools();
                   const text = message.role === 'user' ? item.text.replace(/\n/g, '  \n') : item.text;
                   rendered.push(
