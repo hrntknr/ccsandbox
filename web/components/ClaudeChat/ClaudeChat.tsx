@@ -106,9 +106,10 @@ export function ClaudeChat({
             .join('');
 
           // Extract thinking content
+          // SDK's thinking blocks may have 'thinking' or 'text' property
           const thinkingContent = event.message.content
             .filter((c) => c.type === 'thinking')
-            .map((c) => (c as { thinking?: string }).thinking ?? '')
+            .map((c) => c.thinking ?? c.text ?? '')
             .join('');
 
           // Filter out TodoWrite from tool use display

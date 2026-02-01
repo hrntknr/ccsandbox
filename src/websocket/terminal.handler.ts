@@ -5,6 +5,7 @@ import type { TerminalClientMessage, TerminalServerMessage, TerminalTab, TabType
 import { getTerminalManager } from '../services/terminal.service.js';
 import { getClaudeManager } from '../services/claude/index.js';
 import { SessionStore } from '../persistence/session-store.js';
+import { getConfigStore } from '../persistence/config-store.js';
 import { getConfig } from '../config.js';
 import type { ConnectionManager } from './connection-manager.js';
 
@@ -182,13 +183,18 @@ export function createTerminalHandler(
 
       // Step 2: Create terminal or Claude instance in background
       if (tabType === 'claude') {
-        claudeManager.create({
-          sessionId,
-          workspacePath: session.workspacePath,
-          devcontainerCliPath: config.devcontainerCli,
-          tabId,
-          configPath: getSessionConfigPath(session, config.configDir),
-          remoteEnv: config.pat ? [`GITHUB_TOKEN=${config.pat}`] : undefined,
+        // Get maxThinkingTokens from persisted config
+        const configStore = getConfigStore(config.configDir);
+        configStore.read().then((persistedConfig) => {
+          return claudeManager.create({
+            sessionId,
+            workspacePath: session.workspacePath,
+            devcontainerCliPath: config.devcontainerCli,
+            tabId,
+            configPath: getSessionConfigPath(session, config.configDir),
+            remoteEnv: config.pat ? [`GITHUB_TOKEN=${config.pat}`] : undefined,
+            maxThinkingTokens: persistedConfig.maxThinkingTokens,
+          });
         }).then(() => {
           connectionManager.updateTab(sessionId, tabId, {
             ready: true,

@@ -44,6 +44,8 @@ export interface CreateSessionOptions {
   remoteEnv?: string[];
   /** Directory to store wrapper scripts */
   scratchDir: string;
+  /** Maximum thinking tokens for extended thinking (0 or undefined to disable) */
+  maxThinkingTokens?: number;
 }
 
 /**

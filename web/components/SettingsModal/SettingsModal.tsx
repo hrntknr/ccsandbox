@@ -25,6 +25,7 @@ export function SettingsModal({
   const [defaultShell, setDefaultShell] = useState('bash');
   const [authPassword, setAuthPassword] = useState('');
   const [authPasswordConfirm, setAuthPasswordConfirm] = useState('');
+  const [maxThinkingTokens, setMaxThinkingTokens] = useState('10000');
 
   const { updateConfig, loading, error } = useUpdateConfig();
 
@@ -40,6 +41,7 @@ export function SettingsModal({
       setDefaultShell(initialConfig.defaultShell ?? 'bash');
       setAuthPassword('');
       setAuthPasswordConfirm('');
+      setMaxThinkingTokens(String(initialConfig.maxThinkingTokens ?? 10000));
     }
   }, [isOpen, initialConfig]);
 
@@ -66,6 +68,10 @@ export function SettingsModal({
       request.dotfilesInstallCommand = dotfilesInstallCommand || undefined;
       request.defaultShell = defaultShell || undefined;
 
+      // maxThinkingTokens: parse as number
+      const parsedThinkingTokens = parseInt(maxThinkingTokens, 10);
+      request.maxThinkingTokens = isNaN(parsedThinkingTokens) ? 0 : parsedThinkingTokens;
+
       // Password: only include if user entered a value (and it matches confirmation)
       if (authPassword || authPasswordConfirm) {
         if (authPassword !== authPasswordConfirm) {
@@ -91,6 +97,7 @@ export function SettingsModal({
       dotfilesTargetPath,
       dotfilesInstallCommand,
       defaultShell,
+      maxThinkingTokens,
       authPassword,
       authPasswordConfirm,
       updateConfig,
@@ -222,6 +229,28 @@ export function SettingsModal({
                 onChange={(e) => setDefaultShell(e.target.value)}
                 placeholder="bash"
               />
+            </div>
+          </div>
+
+          {/* Claude Section */}
+          <div className="mb-6 max-md:mb-5">
+            <h3 className="text-sm font-semibold text-vscode-text-secondary uppercase tracking-wide m-0 mb-3 pb-2 border-b border-vscode-border max-md:text-[13px]">Claude</h3>
+
+            <div className="mb-4 max-md:mb-3.5">
+              <label htmlFor="maxThinkingTokens" className="block text-[13px] font-medium text-[#ccc] mb-1.5">Max Thinking Tokens</label>
+              <input
+                id="maxThinkingTokens"
+                type="number"
+                min="0"
+                step="1000"
+                className="w-full py-2.5 px-3 bg-vscode-bg border border-[#444] rounded text-vscode-text text-sm focus:outline-none focus:border-vscode-accent disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-vscode-text-muted max-md:py-3 max-md:text-base"
+                value={maxThinkingTokens}
+                onChange={(e) => setMaxThinkingTokens(e.target.value)}
+                placeholder="10000"
+              />
+              <div className="text-[11px] text-vscode-text-muted mt-1">
+                Extended thinking token budget (0 to disable, minimum 1024 when enabled). Changes apply to new Claude tabs.
+              </div>
             </div>
           </div>
 

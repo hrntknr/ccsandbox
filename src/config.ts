@@ -30,6 +30,8 @@ export interface ServerConfig {
   authToken?: string;
   /** Authentication password hash (bcrypt) */
   authPasswordHash?: string;
+  /** Maximum thinking tokens for Claude extended thinking (0 to disable) */
+  maxThinkingTokens?: number;
 }
 
 let config: ServerConfig | null = null;

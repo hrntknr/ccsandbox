@@ -72,17 +72,25 @@ export class ClaudeSession extends EventEmitter {
     // Create async generator for streaming input
     const messageGenerator = this.createMessageGenerator();
 
+    // Build query options
+    const queryOptions: Parameters<typeof query>[0]['options'] = {
+      pathToClaudeCodeExecutable: this.wrapperPath,
+      permissionMode: this._permissionMode,
+      canUseTool: this.handlePermissionRequest.bind(this),
+      includePartialMessages: true,
+      preset: 'claude_code',
+      settingSources: ['user', 'project'],
+    };
+
+    // Add maxThinkingTokens if configured (0 or undefined means disabled)
+    if (this.options.maxThinkingTokens && this.options.maxThinkingTokens > 0) {
+      queryOptions.maxThinkingTokens = this.options.maxThinkingTokens;
+    }
+
     // Start query with streaming input mode
     this.queryInstance = query({
       prompt: messageGenerator,
-      options: {
-        pathToClaudeCodeExecutable: this.wrapperPath,
-        permissionMode: this._permissionMode,
-        canUseTool: this.handlePermissionRequest.bind(this),
-        includePartialMessages: true,
-        preset: 'claude_code',
-        settingSources: ['user', 'project'],
-      },
+      options: queryOptions,
     });
 
     // Process events in background
@@ -254,9 +262,14 @@ export class ClaudeSession extends EventEmitter {
         .join('');
 
       // Extract thinking content
+      // SDK's thinking blocks have 'thinking' property (Anthropic API format)
       const thinkingContent = message.content
-        .filter((c: ContentBlock): c is ContentBlock & { type: 'thinking'; thinking: string } => c.type === 'thinking')
-        .map((c: ContentBlock & { type: 'thinking'; thinking: string }) => c.thinking)
+        .filter((c: ContentBlock) => c.type === 'thinking')
+        .map((c) => {
+          // Handle both 'thinking' property and potential 'text' property
+          const block = c as { thinking?: string; text?: string };
+          return block.thinking ?? block.text ?? '';
+        })
         .join('');
 
       // Extract tool use (filter out TodoWrite)

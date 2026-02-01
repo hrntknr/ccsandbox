@@ -26,6 +26,8 @@ async function getTemplates(): Promise<DevcontainerTemplate[]> {
  */
 async function buildClientConfig(): Promise<ClientConfig> {
   const config = getConfig();
+  const configStore = getConfigStore(config.configDir);
+  const persisted = await configStore.read();
   const templates = await getTemplates();
   return {
     hasPat: Boolean(config.pat),
@@ -36,6 +38,7 @@ async function buildClientConfig(): Promise<ClientConfig> {
     defaultShell: config.defaultShell,
     hasAuthPassword: Boolean(config.authPasswordHash),
     templates,
+    maxThinkingTokens: persisted.maxThinkingTokens,
   };
 }
 

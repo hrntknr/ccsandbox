@@ -82,6 +82,8 @@ export interface EditableConfig {
   authToken?: string;
   /** Authentication password hash (bcrypt) */
   authPasswordHash?: string;
+  /** Maximum thinking tokens for Claude extended thinking (0 to disable) */
+  maxThinkingTokens?: number;
 }
 
 /**
@@ -96,6 +98,8 @@ export interface UpdateConfigRequest {
   defaultShell?: string;
   /** Plaintext password (will be hashed on server side) */
   authPassword?: string;
+  /** Maximum thinking tokens for Claude extended thinking (0 to disable) */
+  maxThinkingTokens?: number;
 }
 
 /**
@@ -113,6 +117,8 @@ export interface ClientConfig {
   hasAuthPassword: boolean;
   /** Available devcontainer templates */
   templates: DevcontainerTemplate[];
+  /** Maximum thinking tokens for Claude extended thinking (0 to disable) */
+  maxThinkingTokens?: number;
 }
 
 // Diff types
