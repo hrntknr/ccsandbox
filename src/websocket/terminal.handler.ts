@@ -270,7 +270,15 @@ export function createTerminalHandler(
       const messages = claudeManager.getMessages(tabId);
       const pendingPermissions = claudeManager.getPendingPermissions(tabId);
       const todos = claudeManager.getTodos(tabId);
-      sendMessage(ws, { type: 'claude-history', tabId, messages, pendingPermissions, todos });
+      const instance = claudeManager.get(tabId);
+      sendMessage(ws, {
+        type: 'claude-history',
+        tabId,
+        messages,
+        pendingPermissions,
+        todos,
+        permissionMode: instance?.permissionMode,
+      });
     } else {
       // Get terminal history BEFORE setting client tab to avoid race condition:
       // If we set client tab first, any output arriving between setClientTab
