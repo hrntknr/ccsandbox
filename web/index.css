@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* shadcn/ui CSS variables for streamdown */
+:root {
+  /* Dark theme for streamdown */
+  --background: 20 14.3% 4.1%;
+  --foreground: 0 0% 89%;
+  --muted: 20 14.3% 14.1%;
+  --muted-foreground: 0 0% 63.9%;
+  --primary: 47.9 95.8% 53.1%;
+  --primary-foreground: 26 83.3% 14.1%;
+  --border: 12 6.5% 22%;
+  --radius: 0.5rem;
+}
+
 /* JetBrains Mono Nerd Font - self-hosted */
 @font-face {
   font-family: 'JetBrainsMono NF';
