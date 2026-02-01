@@ -27,43 +27,38 @@ interface ToolItemProps {
   result?: ToolResult;
 }
 
-function ToolItem({ tool, result }: ToolItemProps) {
+function ToolItem({ tool, result, isFirst, isLast }: ToolItemProps & { isFirst: boolean; isLast: boolean }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const getStatus = () => {
-    if (!result) return { label: 'Running', className: 'bg-claude-accent text-white' };
-    if (result.isError) return { label: 'Error', className: 'bg-claude-error text-white' };
-    return { label: 'Done', className: 'bg-claude-success text-white' };
+    if (!result) return { label: 'Running', icon: '●', className: 'text-claude-accent' };
+    if (result.isError) return { label: 'Error', icon: '✕', className: 'text-claude-error' };
+    return { label: 'Done', icon: '✓', className: 'text-claude-success' };
   };
 
   const status = getStatus();
 
   return (
-    <div className="bg-claude-bg-tertiary border border-claude-border rounded-lg mt-2 overflow-hidden">
+    <div className={`${!isFirst ? 'border-t border-claude-border/50' : ''}`}>
       <div
-        className="flex items-center gap-2 py-2.5 px-3 bg-claude-bg-hover cursor-pointer select-none hover:bg-claude-border"
+        className="flex items-center gap-1.5 py-1.5 px-2.5 cursor-pointer select-none hover:bg-claude-bg-hover/50"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <span className="text-claude-accent text-sm">⚡</span>
-        <span className="font-semibold text-[13px] text-claude-text-primary">{tool.name}</span>
-        <span className={`ml-auto text-[11px] py-0.5 px-2 rounded-[10px] font-medium ${status.className}`}>
-          {status.label}
-        </span>
-        <span className={`text-claude-text-muted transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
+        <span className={`text-[10px] ${status.className}`}>{status.icon}</span>
+        <span className="font-medium text-[12px] text-claude-text-primary">{tool.name}</span>
+        <span className={`ml-auto text-claude-text-muted transition-transform duration-200 text-[10px] ${isExpanded ? 'rotate-90' : ''}`}>
           ▶
         </span>
       </div>
       {isExpanded && (
-        <div className="border-t border-claude-border">
-          <pre className="font-mono text-xs m-0 p-3 overflow-x-auto text-claude-text-secondary bg-claude-code-bg max-h-[200px] overflow-y-auto">
+        <div className="border-t border-claude-border/30 bg-claude-code-bg">
+          <pre className="font-mono text-xs m-0 p-2 overflow-x-auto text-claude-text-secondary max-h-[150px] overflow-y-auto">
             {JSON.stringify(tool.input, null, 2)}
           </pre>
           {result && (
-            <div className={`bg-claude-code-bg border border-claude-border rounded-md overflow-hidden mt-2 ${result.isError ? '' : ''}`}>
-              <div className={`flex items-center gap-1.5 py-2 px-3 bg-claude-bg-tertiary text-xs text-claude-text-secondary ${result.isError ? 'text-claude-error' : 'text-claude-success'}`}>
-                <span className="text-xs">
-                  {result.isError ? '✕' : '✓'}
-                </span>
+            <div className="border-t border-claude-border/30">
+              <div className={`flex items-center gap-1 py-1 px-2 text-[11px] ${result.isError ? 'text-claude-error' : 'text-claude-success'}`}>
+                <span>{result.isError ? '✕' : '✓'}</span>
                 <span>Output</span>
               </div>
               <AnsiOutput content={result.content} />
@@ -71,6 +66,34 @@ function ToolItem({ tool, result }: ToolItemProps) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+interface ToolGroupProps {
+  tools: Array<{ tool: ToolInfo; result?: ToolResult }>;
+}
+
+function ToolGroup({ tools }: ToolGroupProps) {
+  if (tools.length === 0) return null;
+
+  return (
+    <div className="bg-claude-bg-tertiary border border-claude-border rounded-lg mt-2 overflow-hidden">
+      <div className="flex items-center gap-1.5 py-1 px-2.5 bg-claude-bg-hover text-claude-text-muted text-[11px]">
+        <span className="text-claude-accent text-[10px]">⚡</span>
+        <span>Tools ({tools.length})</span>
+      </div>
+      <div>
+        {tools.map((item, index) => (
+          <ToolItem
+            key={item.tool.id}
+            tool={item.tool}
+            result={item.result}
+            isFirst={index === 0}
+            isLast={index === tools.length - 1}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -188,24 +211,40 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
               )}
             </div>
 
-            {/* Display items in order */}
-            {message.items.map((item, index) => {
-              if (item.type === 'text') {
-                // Convert newlines to Markdown line breaks for user messages
-                const text = message.role === 'user' ? item.text.replace(/\n/g, '  \n') : item.text;
-                return (
-                  <div key={index} className={`break-words leading-relaxed text-claude-text-primary prose prose-invert max-w-none ${index > 0 ? 'mt-3 pt-3 border-t border-dashed border-claude-border' : ''}`}>
-                    <Streamdown plugins={{ code }}>{text}</Streamdown>
-                  </div>
-                );
-              } else {
-                return (
-                  <div key={index} className="my-3">
-                    <ToolItem tool={item.tool} result={item.result} />
-                  </div>
-                );
-              }
-            })}
+            {/* Display items in order, grouping consecutive tools */}
+            {(() => {
+              const rendered: JSX.Element[] = [];
+              let toolBuffer: Array<{ tool: ToolInfo; result?: ToolResult }> = [];
+              let keyIndex = 0;
+
+              const flushTools = () => {
+                if (toolBuffer.length > 0) {
+                  rendered.push(
+                    <div key={`tools-${keyIndex++}`} className="my-2">
+                      <ToolGroup tools={toolBuffer} />
+                    </div>
+                  );
+                  toolBuffer = [];
+                }
+              };
+
+              message.items.forEach((item, index) => {
+                if (item.type === 'text') {
+                  flushTools();
+                  const text = message.role === 'user' ? item.text.replace(/\n/g, '  \n') : item.text;
+                  rendered.push(
+                    <div key={`text-${keyIndex++}`} className={`break-words leading-relaxed text-claude-text-primary prose prose-invert max-w-none ${rendered.length > 0 ? 'mt-3 pt-3 border-t border-dashed border-claude-border' : ''}`}>
+                      <Streamdown plugins={{ code }}>{text}</Streamdown>
+                    </div>
+                  );
+                } else {
+                  toolBuffer.push({ tool: item.tool, result: item.result });
+                }
+              });
+
+              flushTools();
+              return rendered;
+            })()}
 
             {/* Streaming content */}
             {showStreamingHere && (
