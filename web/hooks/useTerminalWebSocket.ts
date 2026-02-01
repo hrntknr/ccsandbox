@@ -125,6 +125,11 @@ export interface UseTerminalWebSocketReturn {
   onPermissionModeChanged: (tabId: string, callback: PermissionModeChangedCallback) => () => void;
 }
 
+// Reconnect backoff configuration
+const RECONNECT_BASE_DELAY = 1000;
+const RECONNECT_MAX_DELAY = 30000;
+const RECONNECT_MULTIPLIER = 2;
+
 export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSocketReturn {
   const [isConnected, setIsConnected] = useState(false);
   const [tabs, setTabs] = useState<TerminalTab[]>([]);
@@ -144,6 +149,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
   const claudeTodosUpdatedSubscriptionsRef = useRef<ClaudeTodosUpdatedSubscription[]>([]);
   const claudePermissionModeChangedSubscriptionsRef = useRef<PermissionModeChangedSubscription[]>([]);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectDelayRef = useRef<number>(RECONNECT_BASE_DELAY);
 
   const sendMessage = useCallback((message: TerminalClientMessage) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -161,6 +167,13 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
           // Auto-create a claude tab if none exists
           if (message.tabs.length === 0) {
             sendMessage({ type: 'add-tab', tabType: 'claude' });
+          } else if (currentTabIdRef.current) {
+            // Re-attach to the previous tab if it still exists (reconnection case)
+            // This re-fetches history/state that may have been missed during disconnection
+            const previousTabExists = message.tabs.some(t => t.tabId === currentTabIdRef.current);
+            if (previousTabExists) {
+              sendMessage({ type: 'attach', tabId: currentTabIdRef.current });
+            }
           }
           break;
 
@@ -304,6 +317,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     setTabs([]);
     setIsConnected(false);
     currentTabIdRef.current = null;
+    reconnectDelayRef.current = RECONNECT_BASE_DELAY;
     outputSubscriptionsRef.current = [];
     historySubscriptionsRef.current = [];
     exitSubscriptionsRef.current = [];
@@ -340,6 +354,8 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
         ws.close();
         return;
       }
+      // Reset backoff delay on successful connection
+      reconnectDelayRef.current = RECONNECT_BASE_DELAY;
       setIsConnected(true);
       ws.send(JSON.stringify({
         type: 'join-session',
@@ -358,6 +374,13 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
 
         // Only reconnect if sessionId hasn't changed
         if (sessionIdRef.current === sessionId) {
+          const currentDelay = reconnectDelayRef.current;
+          // Calculate next delay with exponential backoff
+          reconnectDelayRef.current = Math.min(
+            currentDelay * RECONNECT_MULTIPLIER,
+            RECONNECT_MAX_DELAY
+          );
+
           reconnectTimeoutRef.current = setTimeout(() => {
             // Double-check sessionId before reconnecting
             if (sessionIdRef.current === sessionId) {
@@ -370,7 +393,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
               newWs.onclose = ws.onclose;
               newWs.onerror = ws.onerror;
             }
-          }, 2000);
+          }, currentDelay);
         }
       }
     };
