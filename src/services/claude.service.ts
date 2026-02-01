@@ -86,6 +86,7 @@ export interface ClaudeManagerEvents {
   pendingPermissionsChanged: (sessionId: string, hasPending: boolean) => void;
   processingStateChanged: (sessionId: string, stats: ClaudeProcessingStats) => void;
   todosChanged: (tabId: string, todos: TodoItem[]) => void;
+  permissionModeChanged: (tabId: string, mode: ClaudePermissionMode) => void;
 }
 
 /**
@@ -310,6 +311,19 @@ export class ClaudeManager extends EventEmitter {
 
     // Handle assistant message completion
     if (event.type === 'assistant') {
+      // Detect EnterPlanMode/ExitPlanMode tool use and update permission mode
+      for (const content of event.message.content) {
+        if (content.type === 'tool_use') {
+          if (content.name === 'EnterPlanMode') {
+            instance.permissionMode = 'plan';
+            this.emit('permissionModeChanged', instance.tabId, 'plan');
+          } else if (content.name === 'ExitPlanMode') {
+            instance.permissionMode = 'default';
+            this.emit('permissionModeChanged', instance.tabId, 'default');
+          }
+        }
+      }
+
       // Extract text content from the message
       const textContent = event.message.content
         .filter((c) => c.type === 'text')

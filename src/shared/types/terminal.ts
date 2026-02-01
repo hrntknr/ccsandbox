@@ -53,10 +53,12 @@ export type TerminalServerMessage =
       messages: ClaudeMessage[];
       pendingPermissions: ClaudePendingPermission[];
       todos: TodoItem[];
+      permissionMode?: ClaudePermissionMode;
     }
   | { type: 'claude-permission-resolved'; tabId: string; requestId: string }
   | { type: 'claude-user-message'; tabId: string; message: ClaudeMessage }
-  | { type: 'claude-todos-updated'; tabId: string; todos: TodoItem[] };
+  | { type: 'claude-todos-updated'; tabId: string; todos: TodoItem[] }
+  | { type: 'claude-permission-mode-changed'; tabId: string; mode: ClaudePermissionMode };
 
 /**
  * Session creation WebSocket message types

@@ -32,7 +32,7 @@ interface ClaudeChatProps {
   ) => () => void;
   onClaudeHistory: (
     tabId: string,
-    callback: (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[], todos: TodoItem[]) => void
+    callback: (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[], todos: TodoItem[], permissionMode?: ClaudePermissionMode) => void
   ) => () => void;
   onClaudePermissionResolved: (
     tabId: string,
@@ -45,6 +45,10 @@ interface ClaudeChatProps {
   onClaudeTodosUpdated: (
     tabId: string,
     callback: (todos: TodoItem[]) => void
+  ) => () => void;
+  onClaudePermissionModeChanged: (
+    tabId: string,
+    callback: (mode: ClaudePermissionMode) => void
   ) => () => void;
 }
 
@@ -59,6 +63,7 @@ export function ClaudeChat({
   onClaudePermissionResolved,
   onClaudeUserMessage,
   onClaudeTodosUpdated,
+  onClaudePermissionModeChanged,
 }: ClaudeChatProps) {
   const [messages, setMessages] = useState<ClaudeMessage[]>([]);
   const [pendingPermissions, setPendingPermissions] = useState<ClaudePendingPermission[]>([]);
@@ -66,6 +71,7 @@ export function ClaudeChat({
   const [isLoading, setIsLoading] = useState(false);
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [bottomAreaHeight, setBottomAreaHeight] = useState(128);
+  const [backendPermissionMode, setBackendPermissionMode] = useState<ClaudePermissionMode | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const bottomAreaRef = useRef<HTMLDivElement>(null);
   const historyLoadedRef = useRef(false);
@@ -175,11 +181,14 @@ export function ClaudeChat({
 
   // Handle history on attach
   useEffect(() => {
-    return onClaudeHistory(tabId, (history, permissions, historyTodos) => {
+    return onClaudeHistory(tabId, (history, permissions, historyTodos, permissionMode) => {
       if (!historyLoadedRef.current) {
         setMessages(history);
         setPendingPermissions(permissions);
         setTodos(historyTodos);
+        if (permissionMode) {
+          setBackendPermissionMode(permissionMode);
+        }
         historyLoadedRef.current = true;
       }
     });
@@ -205,6 +214,13 @@ export function ClaudeChat({
       setTodos(updatedTodos);
     });
   }, [tabId, onClaudeTodosUpdated]);
+
+  // Handle permission mode changed from server (EnterPlanMode/ExitPlanMode)
+  useEffect(() => {
+    return onClaudePermissionModeChanged(tabId, (mode) => {
+      setBackendPermissionMode(mode);
+    });
+  }, [tabId, onClaudePermissionModeChanged]);
 
   // Track bottom area height for scroll spacer
   useEffect(() => {
@@ -296,6 +312,7 @@ export function ClaudeChat({
             onSubmit={handleSubmit}
             disabled={isLoading || pendingPermissions.length > 0}
             isActive={isActive}
+            backendPermissionMode={backendPermissionMode}
           />
         </div>
       </div>

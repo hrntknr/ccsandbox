@@ -54,6 +54,7 @@ export function TerminalPane({ session }: TerminalPaneProps) {
     onClaudePermissionResolved,
     onClaudeUserMessage,
     onClaudeTodosUpdated,
+    onClaudePermissionModeChanged,
   } = useTerminalWebSocket(sessionId);
 
   // Convert remote tabs to local tabs with editing state
@@ -252,6 +253,7 @@ export function TerminalPane({ session }: TerminalPaneProps) {
                 onClaudePermissionResolved={onClaudePermissionResolved}
                 onClaudeUserMessage={onClaudeUserMessage}
                 onClaudeTodosUpdated={onClaudeTodosUpdated}
+                onClaudePermissionModeChanged={onClaudePermissionModeChanged}
               />
             ) : (
               <Terminal

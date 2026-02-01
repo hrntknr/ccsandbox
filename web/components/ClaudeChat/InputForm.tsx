@@ -6,9 +6,10 @@ interface InputFormProps {
   onSubmit: (content: string, permissionMode: ClaudePermissionMode) => void;
   disabled: boolean;
   isActive: boolean;
+  backendPermissionMode?: ClaudePermissionMode | null;
 }
 
-export function InputForm({ onSubmit, disabled, isActive }: InputFormProps) {
+export function InputForm({ onSubmit, disabled, isActive, backendPermissionMode }: InputFormProps) {
   const [input, setInput] = useState('');
   const [permissionMode, setPermissionMode] = useState<ClaudePermissionMode>('default');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -19,6 +20,13 @@ export function InputForm({ onSubmit, disabled, isActive }: InputFormProps) {
       textareaRef.current?.focus();
     }
   }, [isActive, disabled]);
+
+  // Sync permission mode when backend mode changes (EnterPlanMode/ExitPlanMode)
+  useEffect(() => {
+    if (backendPermissionMode) {
+      setPermissionMode(backendPermissionMode);
+    }
+  }, [backendPermissionMode]);
 
   // Auto-resize textarea
   useEffect(() => {
