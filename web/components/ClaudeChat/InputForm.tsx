@@ -29,6 +29,14 @@ export function InputForm({ onSubmit, disabled, isActive, backendPermissionMode,
     }
   }, [backendPermissionMode]);
 
+  // Sync permission mode when default mode changes (settings update)
+  // Only apply if no backend mode is active
+  useEffect(() => {
+    if (!backendPermissionMode && defaultPermissionMode) {
+      setPermissionMode(defaultPermissionMode);
+    }
+  }, [defaultPermissionMode, backendPermissionMode]);
+
   // Auto-resize textarea
   useEffect(() => {
     const textarea = textareaRef.current;
