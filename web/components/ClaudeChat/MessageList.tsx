@@ -1,8 +1,13 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Streamdown } from 'streamdown';
-import { code } from '@streamdown/code';
+import { createCodePlugin } from '@streamdown/code';
 import type { ClaudeMessage } from '@shared/index.js';
 import { AnsiOutput } from './AnsiOutput';
+
+// Create code plugin with dark theme (vitesse-dark for better contrast)
+const darkCodePlugin = createCodePlugin({
+  themes: ['vitesse-dark', 'vitesse-dark'],
+});
 
 interface MessageListProps {
   messages: ClaudeMessage[];
@@ -234,7 +239,7 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
                   const text = message.role === 'user' ? item.text.replace(/\n/g, '  \n') : item.text;
                   rendered.push(
                     <div key={`text-${keyIndex++}`} className={`break-words leading-relaxed text-claude-text-primary prose prose-invert max-w-none ${rendered.length > 0 ? 'mt-3 pt-3 border-t border-dashed border-claude-border' : ''}`}>
-                      <Streamdown plugins={{ code }}>{text}</Streamdown>
+                      <Streamdown plugins={{ code: darkCodePlugin }}>{text}</Streamdown>
                     </div>
                   );
                 } else {
@@ -249,7 +254,7 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
             {/* Streaming content */}
             {showStreamingHere && (
               <div className={`break-words leading-relaxed text-claude-text-primary prose prose-invert max-w-none ${message.items.length > 0 ? 'mt-3 pt-3 border-t border-dashed border-claude-border' : ''}`}>
-                <Streamdown plugins={{ code }} isAnimating>{streamingContent}</Streamdown>
+                <Streamdown plugins={{ code: darkCodePlugin }} isAnimating>{streamingContent}</Streamdown>
               </div>
             )}
           </div>
@@ -280,7 +285,7 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
             </span>
           </div>
           <div className="break-words leading-relaxed text-claude-text-primary prose prose-invert max-w-none">
-            <Streamdown plugins={{ code }} isAnimating>{streamingContent}</Streamdown>
+            <Streamdown plugins={{ code: darkCodePlugin }} isAnimating>{streamingContent}</Streamdown>
           </div>
         </div>
       )}
