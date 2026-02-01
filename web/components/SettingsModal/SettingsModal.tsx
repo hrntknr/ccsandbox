@@ -1,6 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { ClientConfig, UpdateConfigRequest } from '@shared/index.js';
+import type { ClientConfig, UpdateConfigRequest, PermissionMode } from '@shared/index.js';
 import { useUpdateConfig } from '../../hooks';
+
+const permissionModeOptions: { value: PermissionMode; label: string }[] = [
+  { value: 'default', label: 'Default' },
+  { value: 'acceptEdits', label: 'Accept Edits' },
+  { value: 'plan', label: 'Plan Mode' },
+  { value: 'bypassPermissions', label: 'Bypass Permissions' },
+];
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -26,6 +33,7 @@ export function SettingsModal({
   const [authPassword, setAuthPassword] = useState('');
   const [authPasswordConfirm, setAuthPasswordConfirm] = useState('');
   const [maxThinkingTokens, setMaxThinkingTokens] = useState('10000');
+  const [defaultPermissionMode, setDefaultPermissionMode] = useState<PermissionMode>('default');
 
   const { updateConfig, loading, error } = useUpdateConfig();
 
@@ -42,6 +50,7 @@ export function SettingsModal({
       setAuthPassword('');
       setAuthPasswordConfirm('');
       setMaxThinkingTokens(String(initialConfig.maxThinkingTokens ?? 10000));
+      setDefaultPermissionMode(initialConfig.defaultPermissionMode ?? 'default');
     }
   }, [isOpen, initialConfig]);
 
@@ -72,6 +81,9 @@ export function SettingsModal({
       const parsedThinkingTokens = parseInt(maxThinkingTokens, 10);
       request.maxThinkingTokens = isNaN(parsedThinkingTokens) ? 0 : parsedThinkingTokens;
 
+      // defaultPermissionMode
+      request.defaultPermissionMode = defaultPermissionMode;
+
       // Password: only include if user entered a value (and it matches confirmation)
       if (authPassword || authPasswordConfirm) {
         if (authPassword !== authPasswordConfirm) {
@@ -98,6 +110,7 @@ export function SettingsModal({
       dotfilesInstallCommand,
       defaultShell,
       maxThinkingTokens,
+      defaultPermissionMode,
       authPassword,
       authPasswordConfirm,
       updateConfig,
@@ -250,6 +263,25 @@ export function SettingsModal({
               />
               <div className="text-[11px] text-vscode-text-muted mt-1">
                 Extended thinking token budget (0 to disable, minimum 1024 when enabled). Changes apply to new Claude tabs.
+              </div>
+            </div>
+
+            <div className="mb-4 max-md:mb-3.5">
+              <label htmlFor="defaultPermissionMode" className="block text-[13px] font-medium text-[#ccc] mb-1.5">Default Permission Mode</label>
+              <select
+                id="defaultPermissionMode"
+                className="w-full py-2.5 px-3 bg-vscode-bg border border-[#444] rounded text-vscode-text text-sm focus:outline-none focus:border-vscode-accent disabled:opacity-60 disabled:cursor-not-allowed max-md:py-3 max-md:text-base"
+                value={defaultPermissionMode}
+                onChange={(e) => setDefaultPermissionMode(e.target.value as PermissionMode)}
+              >
+                {permissionModeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <div className="text-[11px] text-vscode-text-muted mt-1">
+                Default permission mode when opening new Claude tabs.
               </div>
             </div>
           </div>

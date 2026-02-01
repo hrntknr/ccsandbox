@@ -1,5 +1,6 @@
 import type { Session } from './session.js';
 import type { DevcontainerTemplate } from './template.js';
+import type { PermissionMode } from './claude.js';
 
 // API Request types
 export interface CreateSessionRequest {
@@ -84,6 +85,8 @@ export interface EditableConfig {
   authPasswordHash?: string;
   /** Maximum thinking tokens for Claude extended thinking (0 to disable) */
   maxThinkingTokens?: number;
+  /** Default permission mode for Claude tabs */
+  defaultPermissionMode?: PermissionMode;
 }
 
 /**
@@ -100,6 +103,8 @@ export interface UpdateConfigRequest {
   authPassword?: string;
   /** Maximum thinking tokens for Claude extended thinking (0 to disable) */
   maxThinkingTokens?: number;
+  /** Default permission mode for Claude tabs */
+  defaultPermissionMode?: PermissionMode;
 }
 
 /**
@@ -119,6 +124,8 @@ export interface ClientConfig {
   templates: DevcontainerTemplate[];
   /** Maximum thinking tokens for Claude extended thinking (0 to disable) */
   maxThinkingTokens?: number;
+  /** Default permission mode for Claude tabs */
+  defaultPermissionMode?: PermissionMode;
 }
 
 // Diff types

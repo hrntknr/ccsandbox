@@ -20,6 +20,7 @@ import { TodoList } from './TodoList';
 interface ClaudeChatProps {
   tabId: string;
   isActive: boolean;
+  defaultPermissionMode?: PermissionMode;
   sendClaudeMessage: (content: string, permissionMode: PermissionMode) => void;
   respondToPermission: (
     requestId: string,
@@ -57,6 +58,7 @@ interface ClaudeChatProps {
 export function ClaudeChat({
   tabId,
   isActive,
+  defaultPermissionMode,
   sendClaudeMessage,
   respondToPermission,
   changePermissionMode,
@@ -413,6 +415,7 @@ export function ClaudeChat({
             disabled={isLoading || pendingPermissions.length > 0}
             isActive={isActive}
             backendPermissionMode={backendPermissionMode}
+            defaultPermissionMode={defaultPermissionMode}
           />
         </div>
       </div>
