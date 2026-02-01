@@ -217,6 +217,7 @@ export function App() {
       <div className={`flex-1 h-full min-w-0 max-md:min-h-0 ${mobileView !== 'terminal' ? 'max-md:hidden' : ''}`}>
         <TerminalPane
           session={selectedSession}
+          defaultPermissionMode={clientConfig?.defaultPermissionMode}
         />
       </div>
 

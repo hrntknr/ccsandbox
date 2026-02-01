@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { Session, TerminalTab } from '@shared/index.js';
+import type { Session, TerminalTab, PermissionMode } from '@shared/index.js';
 import { Terminal } from '../Terminal';
 import { ClaudeChat } from '../ClaudeChat';
 import { DiffView } from '../DiffView';
@@ -8,13 +8,14 @@ import { useDiffStats } from '../../hooks/useApi';
 
 interface TerminalPaneProps {
   session: Session | null;
+  defaultPermissionMode?: PermissionMode;
 }
 
 interface LocalTab extends TerminalTab {
   isEditing?: boolean;
 }
 
-export function TerminalPane({ session }: TerminalPaneProps) {
+export function TerminalPane({ session, defaultPermissionMode }: TerminalPaneProps) {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
@@ -245,6 +246,7 @@ export function TerminalPane({ session }: TerminalPaneProps) {
                 key={tab.tabId}
                 tabId={tab.tabId}
                 isActive={tab.tabId === activeTabId}
+                defaultPermissionMode={defaultPermissionMode}
                 sendClaudeMessage={sendClaudeMessage}
                 respondToPermission={respondToPermission}
                 changePermissionMode={changePermissionMode}

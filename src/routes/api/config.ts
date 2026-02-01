@@ -39,6 +39,7 @@ async function buildClientConfig(): Promise<ClientConfig> {
     hasAuthPassword: Boolean(config.authPasswordHash),
     templates,
     maxThinkingTokens: persisted.maxThinkingTokens,
+    defaultPermissionMode: persisted.defaultPermissionMode,
   };
 }
 

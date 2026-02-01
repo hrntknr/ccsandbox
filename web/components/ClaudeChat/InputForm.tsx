@@ -7,11 +7,12 @@ interface InputFormProps {
   disabled: boolean;
   isActive: boolean;
   backendPermissionMode?: PermissionMode | null;
+  defaultPermissionMode?: PermissionMode;
 }
 
-export function InputForm({ onSubmit, disabled, isActive, backendPermissionMode }: InputFormProps) {
+export function InputForm({ onSubmit, disabled, isActive, backendPermissionMode, defaultPermissionMode = 'default' }: InputFormProps) {
   const [input, setInput] = useState('');
-  const [permissionMode, setPermissionMode] = useState<PermissionMode>('default');
+  const [permissionMode, setPermissionMode] = useState<PermissionMode>(defaultPermissionMode);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-focus when tab becomes active
