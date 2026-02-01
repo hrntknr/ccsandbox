@@ -223,10 +223,11 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
               )}
             </div>
 
-            {/* Display items in order, grouping consecutive tools */}
+            {/* Display items in order, grouping consecutive tools and thinkings */}
             {(() => {
               const rendered: JSX.Element[] = [];
               let toolBuffer: Array<{ tool: ToolInfo; result?: ToolResult }> = [];
+              let thinkingBuffer: string[] = [];
               let keyIndex = 0;
 
               const flushTools = () => {
@@ -240,13 +241,23 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
                 }
               };
 
-              message.items.forEach((item, index) => {
-                if (item.type === 'thinking') {
-                  flushTools();
+              const flushThinkings = () => {
+                if (thinkingBuffer.length > 0) {
                   rendered.push(
-                    <ThinkingBlock key={`thinking-${keyIndex++}`} thinking={item.thinking} />
+                    <ThinkingBlock key={`thinking-${keyIndex++}`} thinkings={thinkingBuffer} />
                   );
+                  thinkingBuffer = [];
+                }
+              };
+
+              message.items.forEach((item) => {
+                if (item.type === 'thinking') {
+                  // Flush tools before accumulating thinking
+                  flushTools();
+                  thinkingBuffer.push(item.thinking);
                 } else if (item.type === 'text') {
+                  // Flush both buffers before text
+                  flushThinkings();
                   flushTools();
                   const text = message.role === 'user' ? item.text.replace(/\n/g, '  \n') : item.text;
                   rendered.push(
@@ -255,10 +266,14 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
                     </div>
                   );
                 } else {
+                  // Tool item - flush thinkings first
+                  flushThinkings();
                   toolBuffer.push({ tool: item.tool, result: item.result });
                 }
               });
 
+              // Flush remaining buffers
+              flushThinkings();
               flushTools();
               return rendered;
             })()}
