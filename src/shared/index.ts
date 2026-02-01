@@ -69,6 +69,8 @@ export type {
   FileDiff,
   DiffStatsResponse,
   DiffDetailResponse,
+  GitStatus,
+  GitStatusResponse,
   AddPortForwardingRequest,
   PortForwardingListResponse,
 } from './types/api.js';

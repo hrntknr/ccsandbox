@@ -453,6 +453,114 @@ function parseDiffOutput(diffOutput: string): FileDiff[] {
  * @param workspacePath - Path to the git repository
  * @returns Detailed diff with file-by-file changes and statistics
  */
+/**
+ * Git status information for deletion warnings.
+ */
+export interface GitStatus {
+  /** Whether there are uncommitted changes (staged, unstaged, or untracked files) */
+  hasUncommittedChanges: boolean;
+  /** Whether there are unpushed commits on the current branch */
+  hasUnpushedCommits: boolean;
+  /** Number of uncommitted files */
+  uncommittedFileCount: number;
+  /** Number of unpushed commits */
+  unpushedCommitCount: number;
+  /** Current branch name */
+  currentBranch: string | null;
+}
+
+/**
+ * Gets git status for deletion warnings.
+ * Checks for uncommitted changes and unpushed commits.
+ *
+ * @param workspacePath - Path to the git repository
+ * @returns Git status information
+ */
+export async function getGitStatus(workspacePath: string): Promise<GitStatus> {
+  const result: GitStatus = {
+    hasUncommittedChanges: false,
+    hasUnpushedCommits: false,
+    uncommittedFileCount: 0,
+    unpushedCommitCount: 0,
+    currentBranch: null,
+  };
+
+  // Get current branch name
+  try {
+    const { stdout } = await execCommand('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      cwd: workspacePath,
+    });
+    result.currentBranch = stdout.trim();
+  } catch {
+    // Not a git repository or no commits yet
+    return result;
+  }
+
+  // Check for uncommitted changes (staged + unstaged + untracked)
+  try {
+    // Get staged and unstaged changes
+    const { stdout: statusOutput } = await execCommand(
+      'git',
+      ['status', '--porcelain'],
+      { cwd: workspacePath }
+    );
+    const changedFiles = statusOutput.trim().split('\n').filter((line) => line.length > 0);
+    result.uncommittedFileCount = changedFiles.length;
+    result.hasUncommittedChanges = changedFiles.length > 0;
+  } catch {
+    // Ignore errors
+  }
+
+  // Check for unpushed commits
+  try {
+    // Check if remote tracking branch exists
+    const { stdout: trackingBranch } = await execCommand(
+      'git',
+      ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'],
+      { cwd: workspacePath }
+    );
+
+    if (trackingBranch.trim()) {
+      // Count commits ahead of upstream
+      const { stdout: logOutput } = await execCommand(
+        'git',
+        ['rev-list', '--count', '@{upstream}..HEAD'],
+        { cwd: workspacePath }
+      );
+      result.unpushedCommitCount = parseInt(logOutput.trim(), 10) || 0;
+      result.hasUnpushedCommits = result.unpushedCommitCount > 0;
+    } else {
+      // No upstream branch - check if there are any local commits
+      const { stdout: logOutput } = await execCommand(
+        'git',
+        ['rev-list', '--count', 'HEAD'],
+        { cwd: workspacePath }
+      );
+      const commitCount = parseInt(logOutput.trim(), 10) || 0;
+      // If there's no upstream but there are commits, they're all "unpushed"
+      result.unpushedCommitCount = commitCount;
+      result.hasUnpushedCommits = commitCount > 0;
+    }
+  } catch {
+    // No upstream tracking branch or git error
+    // Try to check if there are any commits at all
+    try {
+      const { stdout: logOutput } = await execCommand(
+        'git',
+        ['rev-list', '--count', 'HEAD'],
+        { cwd: workspacePath }
+      );
+      const commitCount = parseInt(logOutput.trim(), 10) || 0;
+      result.unpushedCommitCount = commitCount;
+      result.hasUnpushedCommits = commitCount > 0;
+    } catch {
+      // Ignore - no commits yet
+    }
+  }
+
+  return result;
+}
+
 export async function getDiffDetail(
   workspacePath: string
 ): Promise<{ files: FileDiff[]; stats: DiffStats }> {

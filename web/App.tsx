@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { Session, ClientConfig } from '@shared/index.js';
+import type { Session, ClientConfig, GitStatus } from '@shared/index.js';
 import { SessionList } from './components/SessionList';
 import { TerminalPane } from './components/TerminalPane';
 import { NewSessionModal } from './components/NewSessionModal';
 import { SettingsModal } from './components/SettingsModal';
 import { PortForwardingModal } from './components/PortForwardingModal';
-import { useDeleteSession, useStartSession, useStopSession, useClientConfig } from './hooks/useApi';
+import { useDeleteSession, useStartSession, useStopSession, useClientConfig, useGitStatus } from './hooks/useApi';
 import { useSessionSync } from './hooks/useSessionSync';
 
 type MobileView = 'sessions' | 'terminal';
@@ -22,6 +22,8 @@ export function App() {
   const [isPortsModalOpen, setIsPortsModalOpen] = useState(false);
   const [portsSessionId, setPortsSessionId] = useState<string | null>(null);
   const [deleteConfirmSessionId, setDeleteConfirmSessionId] = useState<string | null>(null);
+  const [deleteGitStatus, setDeleteGitStatus] = useState<GitStatus | null>(null);
+  const [deleteGitStatusLoading, setDeleteGitStatusLoading] = useState(false);
   const [mobileView, setMobileView] = useState<MobileView>('sessions');
   const [clientConfig, setClientConfig] = useState<ClientConfig | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
@@ -36,6 +38,7 @@ export function App() {
   const { startSession } = useStartSession();
   const { stopSession } = useStopSession();
   const { execute: fetchConfig } = useClientConfig();
+  const { fetchGitStatus } = useGitStatus();
 
   // Fetch config on mount and check if PAT is required
   useEffect(() => {
@@ -116,9 +119,14 @@ export function App() {
     setClientConfig(config);
   }, []);
 
-  const handleDeleteSession = useCallback((sessionId: string) => {
+  const handleDeleteSession = useCallback(async (sessionId: string) => {
     setDeleteConfirmSessionId(sessionId);
-  }, []);
+    setDeleteGitStatus(null);
+    setDeleteGitStatusLoading(true);
+    const status = await fetchGitStatus(sessionId);
+    setDeleteGitStatus(status);
+    setDeleteGitStatusLoading(false);
+  }, [fetchGitStatus]);
 
   const handleStartSession = useCallback(async (sessionId: string) => {
     await startSession(sessionId);
@@ -145,6 +153,7 @@ export function App() {
 
   const handleCancelDelete = useCallback(() => {
     setDeleteConfirmSessionId(null);
+    setDeleteGitStatus(null);
   }, []);
 
   const selectedSession: Session | null =
@@ -246,6 +255,37 @@ export function App() {
                   <span className="text-vscode-text-secondary text-xs">{sessionToDelete.repo}</span>
                 </div>
               )}
+              {/* Git status warnings */}
+              {deleteGitStatusLoading && (
+                <div className="bg-vscode-bg p-3 rounded mb-3 text-vscode-text-secondary text-sm">
+                  Checking for uncommitted changes...
+                </div>
+              )}
+              {!deleteGitStatusLoading && deleteGitStatus && (deleteGitStatus.hasUncommittedChanges || deleteGitStatus.hasUnpushedCommits) && (
+                <div className="bg-[#3d2a2a] border border-[#ff6b6b]/30 p-3 rounded mb-3">
+                  <div className="flex items-center gap-2 text-[#ff6b6b] font-medium text-sm mb-2">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    Warning: Unsaved work will be lost
+                  </div>
+                  <ul className="m-0 pl-5 text-vscode-text text-[13px] space-y-1">
+                    {deleteGitStatus.hasUncommittedChanges && (
+                      <li>
+                        {deleteGitStatus.uncommittedFileCount} uncommitted {deleteGitStatus.uncommittedFileCount === 1 ? 'change' : 'changes'}
+                      </li>
+                    )}
+                    {deleteGitStatus.hasUnpushedCommits && (
+                      <li>
+                        {deleteGitStatus.unpushedCommitCount} unpushed {deleteGitStatus.unpushedCommitCount === 1 ? 'commit' : 'commits'}
+                        {deleteGitStatus.currentBranch && (
+                          <span className="text-vscode-text-secondary"> on {deleteGitStatus.currentBranch}</span>
+                        )}
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
               <p className="m-0 text-[#ff6b6b] text-[13px]">
                 This action cannot be undone.
               </p>
@@ -261,7 +301,7 @@ export function App() {
               <button
                 className="py-2.5 px-5 rounded font-medium text-sm cursor-pointer border-none bg-vscode-error text-white hover:bg-[#d85858] disabled:opacity-50 disabled:cursor-not-allowed max-md:w-full"
                 onClick={handleConfirmDelete}
-                disabled={deleteLoading}
+                disabled={deleteLoading || deleteGitStatusLoading}
               >
                 {deleteLoading ? 'Deleting...' : 'Delete'}
               </button>

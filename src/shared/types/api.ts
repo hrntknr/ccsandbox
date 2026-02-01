@@ -152,6 +152,24 @@ export interface DiffDetailResponse {
   stats: DiffStats;
 }
 
+// Git status types
+export interface GitStatus {
+  /** Whether there are uncommitted changes (staged, unstaged, or untracked files) */
+  hasUncommittedChanges: boolean;
+  /** Whether there are unpushed commits on the current branch */
+  hasUnpushedCommits: boolean;
+  /** Number of uncommitted files */
+  uncommittedFileCount: number;
+  /** Number of unpushed commits */
+  unpushedCommitCount: number;
+  /** Current branch name */
+  currentBranch: string | null;
+}
+
+export interface GitStatusResponse {
+  status: GitStatus;
+}
+
 // Port forwarding types
 export interface AddPortForwardingRequest {
   hostPort: number;

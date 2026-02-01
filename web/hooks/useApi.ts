@@ -12,6 +12,8 @@ import type {
   DiffStatsResponse,
   DiffDetailResponse,
   FileDiff,
+  GitStatus,
+  GitStatusResponse,
   PortForwarding,
   AddPortForwardingRequest,
   PortForwardingListResponse,
@@ -465,4 +467,31 @@ export function usePortForwarding(sessionId: string | null): UsePortForwardingRe
   }, [sessionId, listPorts]);
 
   return { ports, loading, error, listPorts, addPort, removePort };
+}
+
+export function useGitStatus(): {
+  fetchGitStatus: (sessionId: string) => Promise<GitStatus | null>;
+  loading: boolean;
+  error: string | null;
+} {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchGitStatus = useCallback(async (sessionId: string): Promise<GitStatus | null> => {
+    setLoading(true);
+    setError(null);
+
+    const response = await fetchApi<GitStatusResponse>(`/sessions/${sessionId}/git-status`);
+
+    setLoading(false);
+
+    if (response.success && response.data) {
+      return response.data.status;
+    } else {
+      setError(response.error || 'Failed to fetch git status');
+      return null;
+    }
+  }, []);
+
+  return { fetchGitStatus, loading, error };
 }
