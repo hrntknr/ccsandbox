@@ -1,16 +1,20 @@
 @import "tailwindcss";
 
-/* shadcn/ui CSS variables for streamdown */
+/* shadcn/ui CSS variables for streamdown - Dark theme */
 :root {
   /* Dark theme for streamdown */
-  --background: 20 14.3% 4.1%;
-  --foreground: 0 0% 89%;
-  --muted: 20 14.3% 14.1%;
-  --muted-foreground: 0 0% 63.9%;
+  --background: 0 0% 9%;
+  --foreground: 0 0% 95%;
+  --muted: 0 0% 15%;
+  --muted-foreground: 0 0% 65%;
   --primary: 47.9 95.8% 53.1%;
   --primary-foreground: 26 83.3% 14.1%;
-  --border: 12 6.5% 22%;
+  --border: 0 0% 20%;
   --radius: 0.5rem;
+
+  /* Code block specific colors for dark theme */
+  --code-background: 0 0% 12%;
+  --code-foreground: 0 0% 90%;
 }
 
 /* JetBrains Mono Nerd Font - self-hosted */
@@ -33,6 +37,38 @@
 /* Streamdown styles */
 @source "../../../node_modules/streamdown/dist/*.js";
 @source "../../../node_modules/@streamdown/code/dist/*.js";
+
+/* Dark theme overrides for streamdown code blocks */
+[data-streamdown="code-block"],
+.shiki,
+pre:has(.shiki) {
+  background-color: #0d0d0d !important;
+  border-color: #2a2a2a !important;
+}
+
+/* Inline code styling for dark theme */
+[data-streamdown="inline-code"] {
+  background-color: #1a1a1a !important;
+  color: #e4e4e4 !important;
+  border: 1px solid #333 !important;
+}
+
+/* Code block header/toolbar styling */
+[data-streamdown="code-block-copy-button"],
+[data-streamdown="code-block-download-button"] {
+  color: #888 !important;
+}
+
+[data-streamdown="code-block-copy-button"]:hover,
+[data-streamdown="code-block-download-button"]:hover {
+  color: #e4e4e4 !important;
+}
+
+/* Shiki theme background override for dark mode */
+.shiki,
+.shiki span {
+  background-color: transparent !important;
+}
 
 /* Custom theme configuration */
 @theme {
