@@ -52,7 +52,8 @@ src/                   # Backend (CLI + Server)
 │   ├── devcontainer.service.ts  # Container start/stop
 │   ├── terminal.service.ts      # PTY management
 │   ├── container-health.service.ts  # Health check
-│   └── claude.service.ts        # Claude CLI subprocess management
+│   ├── claude.service.ts        # Claude CLI subprocess management
+│   └── port-forwarding.service.ts  # Host→container port forwarding
 ├── persistence/
 │   ├── session-store.ts   # Session persistence (JSON)
 │   └── config-store.ts    # Config persistence (JSON)
@@ -87,7 +88,8 @@ web/                   # Frontend (React + Vite + Tailwind CSS)
 │   │   ├── PermissionDialog.tsx
 │   │   ├── PermissionModeSelector.tsx
 │   │   └── AnsiOutput.tsx
-│   └── DiffView/          # Git diff display
+│   ├── DiffView/          # Git diff display
+│   └── PortForwardingModal/  # Port forwarding settings
 └── hooks/
     ├── useApi.ts              # API requests
     ├── useSessionSync.ts      # Multi-tab sync
@@ -114,6 +116,9 @@ PUT  /api/sessions/:sessionId            # Update session
 DELETE /api/sessions/:sessionId          # Delete session
 GET  /api/sessions/:sessionId/diff-stats   # Git diff statistics
 GET  /api/sessions/:sessionId/diff-detail  # Git diff details
+GET  /api/sessions/:sessionId/ports        # List port forwardings
+POST /api/sessions/:sessionId/ports        # Add port forwarding
+DELETE /api/sessions/:sessionId/ports/:portId  # Remove port forwarding
 
 WS   /ws                                 # WebSocket (terminal + Claude)
 ```

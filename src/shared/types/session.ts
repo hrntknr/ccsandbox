@@ -18,6 +18,16 @@ export interface ClaudeStats {
   total: number; // Total number of Claude tabs in the session
 }
 
+/**
+ * Port forwarding configuration for a session.
+ */
+export interface PortForwarding {
+  id: string;
+  hostPort: number;      // Host port to listen on
+  containerPort: number; // Container port to forward to
+  label?: string;        // Optional label (e.g., "web", "api")
+}
+
 export interface Session {
   sessionId: string;
   title: string;
@@ -35,6 +45,8 @@ export interface Session {
   claudeStats?: ClaudeStats;
   /** Source of devcontainer configuration */
   devcontainerSource?: DevcontainerSource;
+  /** Port forwarding configurations */
+  portForwardings?: PortForwarding[];
 }
 
 /**

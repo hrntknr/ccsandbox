@@ -10,6 +10,7 @@ interface SessionListProps {
   onStartSession?: (sessionId: string) => void;
   onStopSession?: (sessionId: string) => void;
   onOpenSettings?: () => void;
+  onOpenPorts?: (sessionId: string) => void;
   loading?: boolean;
 }
 
@@ -35,6 +36,7 @@ export function SessionList({
   onStartSession,
   onStopSession,
   onOpenSettings,
+  onOpenPorts,
   loading = false,
 }: SessionListProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -162,6 +164,18 @@ export function SessionList({
                           <path d="M3.5 3.5A.5.5 0 0 1 4 3h8a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5H4a.5.5 0 0 1-.5-.5v-9Z" />
                         </svg>
                         Stop
+                      </button>
+                    )}
+                    {onOpenPorts && (
+                      <button
+                        className="flex items-center gap-2 w-full py-2 px-3 bg-transparent border-none text-vscode-text text-[13px] cursor-pointer text-left hover:bg-vscode-selection"
+                        onClick={(e) => handleMenuAction(() => onOpenPorts(session.sessionId), e)}
+                      >
+                        <svg viewBox="0 0 16 16" fill="currentColor" width="14" height="14" className="shrink-0">
+                          <path d="M6.5 9a.5.5 0 0 0-.5.5V14a.5.5 0 0 0 1 0V9.5a.5.5 0 0 0-.5-.5Zm3 0a.5.5 0 0 0-.5.5V14a.5.5 0 0 0 1 0V9.5a.5.5 0 0 0-.5-.5Z"/>
+                          <path d="M8 1a4 4 0 0 0-4 4v1H3a1 1 0 0 0-1 1v7a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7a1 1 0 0 0-1-1h-1V5a4 4 0 0 0-4-4Zm3 5V5a3 3 0 0 0-6 0v1h6ZM3 7h10v7a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7Z"/>
+                        </svg>
+                        Ports
                       </button>
                     )}
                     {onDeleteSession && (

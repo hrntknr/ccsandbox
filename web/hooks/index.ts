@@ -5,7 +5,9 @@ export {
   useRepositories,
   useClientConfig,
   useUpdateConfig,
+  usePortForwarding,
 } from './useApi';
+export type { UsePortForwardingReturn } from './useApi';
 
 export { useSessionCreate } from './useSessionCreate';
 

@@ -151,3 +151,14 @@ export interface DiffDetailResponse {
   files: FileDiff[];
   stats: DiffStats;
 }
+
+// Port forwarding types
+export interface AddPortForwardingRequest {
+  hostPort: number;
+  containerPort: number;
+  label?: string;
+}
+
+export interface PortForwardingListResponse {
+  portForwardings: import('./session.js').PortForwarding[];
+}
