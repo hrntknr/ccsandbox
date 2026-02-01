@@ -22,7 +22,7 @@ import {
   DockerOperationError,
 } from '../../services/devcontainer.service.js';
 import { getTerminalManager } from '../../services/terminal.service.js';
-import { getClaudeManager } from '../../services/claude.service.js';
+import { getClaudeManager } from '../../services/claude/index.js';
 import { getConnectionManager } from '../../websocket/connection-manager.js';
 
 const router = Router();

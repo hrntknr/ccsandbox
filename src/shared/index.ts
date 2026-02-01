@@ -8,25 +8,30 @@ export type {
 } from './types/session.js';
 
 export type {
+  // Permission mode (SDK-compatible)
+  PermissionMode,
+  ClaudePermissionMode, // deprecated alias
+
+  // SDK-compatible message types
+  ContentBlock,
+  SystemInitMessage,
+  StreamEventMessage,
+  AssistantMessage,
+  UserMessage,
+  ResultMessage,
+  ControlRequestMessage,
+  ClaudeEvent,
+
+  // UI types
+  ClaudeMessage,
+  ClaudePendingPermission,
+  TodoItem,
+  TodoWriteResult,
+
+  // AskUserQuestion types
   AskUserQuestion,
   AskUserQuestionInput,
   AskUserQuestionOption,
-  ClaudeAssistantEvent,
-  ClaudeContentBlock,
-  ClaudeControlRequestEvent,
-  ClaudeControlResponseEvent,
-  ClaudeEvent,
-  ClaudeMessage,
-  ClaudePendingPermission,
-  ClaudePermissionMode,
-  ClaudePermissionRequest,
-  ClaudeResultEvent,
-  ClaudeStreamEvent,
-  ClaudeStreamEventDetail,
-  ClaudeSystemInitEvent,
-  ClaudeUserEvent,
-  TodoItem,
-  TodoWriteResult,
 } from './types/claude.js';
 
 export type { Repository } from './types/github.js';

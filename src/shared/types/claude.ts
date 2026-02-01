@@ -1,69 +1,40 @@
 /**
- * Claude Code CLI related types
+ * Claude Code types
+ *
+ * These types are designed to be compatible with Claude Agent SDK types
+ * while remaining usable in the browser (no Node.js dependencies).
  */
 
 /**
- * Permission mode for Claude CLI
+ * Permission mode for Claude session
+ * Matches SDK's PermissionMode type
+ *
  * - 'default': Normal mode with permission prompts
  * - 'acceptEdits': Accept file edits automatically
  * - 'plan': Plan mode (no code edits)
- * - 'bypassPermissions': Auto mode (bypass permission prompts)
+ * - 'bypassPermissions': Bypass permission prompts
+ * - 'delegate': Delegate permission decisions
+ * - 'dontAsk': Don't prompt for permissions, deny if not pre-approved
  */
-export type ClaudePermissionMode = 'default' | 'acceptEdits' | 'plan' | 'bypassPermissions';
+export type PermissionMode =
+  | 'default'
+  | 'acceptEdits'
+  | 'plan'
+  | 'bypassPermissions'
+  | 'delegate'
+  | 'dontAsk';
 
 /**
- * Stream event types from Claude CLI stdout
+ * @deprecated Use PermissionMode instead
  */
-export interface ClaudeStreamEventBase {
-  session_id?: string;
-}
+export type ClaudePermissionMode = PermissionMode;
 
-export interface ClaudeSystemInitEvent extends ClaudeStreamEventBase {
-  type: 'system';
-  subtype: 'init';
-  tools: unknown[];
-  model: string;
-}
-
-export interface ClaudeStreamEventDetail {
-  type:
-    | 'message_start'
-    | 'content_block_start'
-    | 'content_block_delta'
-    | 'content_block_stop'
-    | 'message_delta'
-    | 'message_stop';
-  index?: number;
-  delta?: {
-    type: string;
-    text?: string;
-    partial_json?: string;
-  };
-  content_block?: {
-    type: string;
-    id?: string;
-    name?: string;
-    input?: Record<string, unknown>;
-  };
-  message?: {
-    id?: string;
-    role?: string;
-    model?: string;
-    stop_reason?: string;
-    usage?: {
-      input_tokens?: number;
-      output_tokens?: number;
-    };
-  };
-}
-
-export interface ClaudeStreamEvent extends ClaudeStreamEventBase {
-  type: 'stream_event';
-  event: ClaudeStreamEventDetail;
-}
-
-export interface ClaudeContentBlock {
-  type: 'text' | 'tool_use' | 'tool_result';
+/**
+ * Content block in a message (text, tool_use, or tool_result)
+ * Simplified version compatible with SDK's content block structure
+ */
+export interface ContentBlock {
+  type: 'text' | 'tool_use' | 'tool_result' | 'thinking';
   text?: string;
   id?: string;
   name?: string;
@@ -73,11 +44,59 @@ export interface ClaudeContentBlock {
   is_error?: boolean;
 }
 
-export interface ClaudeAssistantEvent extends ClaudeStreamEventBase {
+/**
+ * Base fields for SDK messages
+ */
+interface SDKMessageBase {
+  uuid?: string;
+  session_id: string;
+}
+
+/**
+ * System init message from SDK
+ */
+export interface SystemInitMessage extends SDKMessageBase {
+  type: 'system';
+  subtype: 'init';
+  tools: string[];
+  model: string;
+  permissionMode: PermissionMode;
+  cwd: string;
+  mcp_servers: { name: string; status: string }[];
+  claude_code_version: string;
+}
+
+/**
+ * Stream event (partial message) from SDK
+ */
+export interface StreamEventMessage extends SDKMessageBase {
+  type: 'stream_event';
+  event: {
+    type: string;
+    index?: number;
+    delta?: {
+      type: string;
+      text?: string;
+      partial_json?: string;
+    };
+    content_block?: {
+      type: string;
+      id?: string;
+      name?: string;
+      input?: Record<string, unknown>;
+    };
+  };
+  parent_tool_use_id: string | null;
+}
+
+/**
+ * Assistant message from SDK
+ */
+export interface AssistantMessage extends SDKMessageBase {
   type: 'assistant';
   message: {
     role: 'assistant';
-    content: ClaudeContentBlock[];
+    content: ContentBlock[];
     id?: string;
     model?: string;
     stop_reason?: string;
@@ -86,64 +105,62 @@ export interface ClaudeAssistantEvent extends ClaudeStreamEventBase {
       output_tokens?: number;
     };
   };
-}
-
-export interface ClaudeUserEvent extends ClaudeStreamEventBase {
-  type: 'user';
-  message: {
-    role: 'user';
-    content: ClaudeContentBlock[];
-  };
-  tool_use_result?: string;
-}
-
-export interface ClaudePermissionRequest {
-  subtype: 'can_use_tool';
-  tool_name: string;
-  input: Record<string, unknown>;
-  tool_use_id: string;
-  permission_suggestions?: unknown[];
-}
-
-export interface ClaudeControlRequestEvent extends ClaudeStreamEventBase {
-  type: 'control_request';
-  request_id: string;
-  request: ClaudePermissionRequest;
+  parent_tool_use_id: string | null;
 }
 
 /**
- * Response from CLI to a control_request sent by frontend
- * (e.g., response to set_permission_mode request)
+ * User message from SDK
  */
-export interface ClaudeControlResponseEvent extends ClaudeStreamEventBase {
-  type: 'control_response';
-  response: {
-    subtype: 'success' | 'error';
-    request_id: string;
-    response?: unknown;
-    error?: string;
+export interface UserMessage extends SDKMessageBase {
+  type: 'user';
+  message: {
+    role: 'user';
+    content: ContentBlock[];
+  };
+  parent_tool_use_id: string | null;
+  tool_use_result?: unknown;
+  isReplay?: boolean;
+}
+
+/**
+ * Result message from SDK
+ */
+export interface ResultMessage extends SDKMessageBase {
+  type: 'result';
+  subtype: 'success' | 'error_during_execution' | 'error_max_turns' | 'error_max_budget_usd';
+  result?: string;
+  duration_ms: number;
+  num_turns: number;
+  total_cost_usd: number;
+  is_error: boolean;
+}
+
+/**
+ * Permission request message (synthetic, generated by backend for frontend compatibility)
+ * This is not a native SDK type but is emitted by the backend when permission is needed.
+ */
+export interface ControlRequestMessage {
+  type: 'control_request';
+  request_id: string;
+  request: {
+    subtype: 'can_use_tool';
+    tool_name: string;
+    input: Record<string, unknown>;
+    tool_use_id: string;
   };
 }
 
-export interface ClaudeResultEvent extends ClaudeStreamEventBase {
-  type: 'result';
-  subtype: 'success' | 'error';
-  result?: string;
-  error?: string;
-  duration_ms?: number;
-  num_turns?: number;
-  total_cost_usd?: number;
-  is_error?: boolean;
-}
-
+/**
+ * Union of message types used by the frontend
+ * Includes SDK message types plus synthetic control_request for permissions
+ */
 export type ClaudeEvent =
-  | ClaudeSystemInitEvent
-  | ClaudeStreamEvent
-  | ClaudeAssistantEvent
-  | ClaudeUserEvent
-  | ClaudeControlRequestEvent
-  | ClaudeControlResponseEvent
-  | ClaudeResultEvent;
+  | SystemInitMessage
+  | StreamEventMessage
+  | AssistantMessage
+  | UserMessage
+  | ResultMessage
+  | ControlRequestMessage;
 
 /**
  * Processed message for UI display

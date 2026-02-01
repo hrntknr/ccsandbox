@@ -6,7 +6,7 @@ import type {
   ClaudeEvent,
   ClaudeMessage,
   ClaudePendingPermission,
-  ClaudePermissionMode,
+  PermissionMode,
   TodoItem,
   TodoWriteResult,
 } from '@shared/index.js';
@@ -20,20 +20,21 @@ import { TodoList } from './TodoList';
 interface ClaudeChatProps {
   tabId: string;
   isActive: boolean;
-  sendClaudeMessage: (content: string, permissionMode: ClaudePermissionMode) => void;
+  sendClaudeMessage: (content: string, permissionMode: PermissionMode) => void;
   respondToPermission: (
     requestId: string,
     permission: 'allow' | 'deny',
-    answers?: Record<string, string>
+    answers?: Record<string, string>,
+    permissionMode?: PermissionMode
   ) => void;
-  changePermissionMode: (mode: ClaudePermissionMode) => void;
+  changePermissionMode: (mode: PermissionMode) => void;
   onClaudeEvent: (
     tabId: string,
     callback: (event: ClaudeEvent) => void
   ) => () => void;
   onClaudeHistory: (
     tabId: string,
-    callback: (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[], todos: TodoItem[], permissionMode?: ClaudePermissionMode) => void
+    callback: (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[], todos: TodoItem[], permissionMode?: PermissionMode) => void
   ) => () => void;
   onClaudePermissionResolved: (
     tabId: string,
@@ -47,9 +48,9 @@ interface ClaudeChatProps {
     tabId: string,
     callback: (todos: TodoItem[]) => void
   ) => () => void;
-  onClaudePermissionModeChanged: (
+  onPermissionModeChanged: (
     tabId: string,
-    callback: (mode: ClaudePermissionMode) => void
+    callback: (mode: PermissionMode) => void
   ) => () => void;
 }
 
@@ -64,7 +65,7 @@ export function ClaudeChat({
   onClaudePermissionResolved,
   onClaudeUserMessage,
   onClaudeTodosUpdated,
-  onClaudePermissionModeChanged,
+  onPermissionModeChanged,
 }: ClaudeChatProps) {
   const [messages, setMessages] = useState<ClaudeMessage[]>([]);
   const [pendingPermissions, setPendingPermissions] = useState<ClaudePendingPermission[]>([]);
@@ -72,7 +73,7 @@ export function ClaudeChat({
   const [isLoading, setIsLoading] = useState(false);
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [bottomAreaHeight, setBottomAreaHeight] = useState(128);
-  const [backendPermissionMode, setBackendPermissionMode] = useState<ClaudePermissionMode | null>(null);
+  const [backendPermissionMode, setBackendPermissionMode] = useState<PermissionMode | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const bottomAreaRef = useRef<HTMLDivElement>(null);
   const historyLoadedRef = useRef(false);
@@ -218,10 +219,10 @@ export function ClaudeChat({
 
   // Handle permission mode changed from server (EnterPlanMode/ExitPlanMode)
   useEffect(() => {
-    return onClaudePermissionModeChanged(tabId, (mode) => {
+    return onPermissionModeChanged(tabId, (mode) => {
       setBackendPermissionMode(mode);
     });
-  }, [tabId, onClaudePermissionModeChanged]);
+  }, [tabId, onPermissionModeChanged]);
 
   // Track bottom area height for scroll spacer
   useEffect(() => {
@@ -246,7 +247,7 @@ export function ClaudeChat({
   }, [messages, streamingContent, isActive, todos]);
 
   const handleSubmit = useCallback(
-    (content: string, permissionMode: ClaudePermissionMode) => {
+    (content: string, permissionMode: PermissionMode) => {
       // Add user message to UI immediately
       const userMessage: ClaudeMessage = {
         id: uuidv4(),
@@ -261,8 +262,8 @@ export function ClaudeChat({
   );
 
   const handlePermissionResponse = useCallback(
-    (requestId: string, permission: 'allow' | 'deny', answers?: Record<string, string>) => {
-      respondToPermission(requestId, permission, answers);
+    (requestId: string, permission: 'allow' | 'deny', answers?: Record<string, string>, permissionMode?: PermissionMode) => {
+      respondToPermission(requestId, permission, answers, permissionMode);
       setPendingPermissions((prev) => prev.filter((p) => p.requestId !== requestId));
     },
     [respondToPermission]
@@ -301,7 +302,6 @@ export function ClaudeChat({
             <ExitPlanModeDialog
               permission={permission}
               onResponse={handlePermissionResponse}
-              onChangePermissionMode={changePermissionMode}
             />
           );
         }
@@ -309,6 +309,7 @@ export function ClaudeChat({
         return (
           <PermissionDialog
             permission={permission}
+            currentPermissionMode={backendPermissionMode ?? undefined}
             onResponse={handlePermissionResponse}
             onChangePermissionMode={changePermissionMode}
           />

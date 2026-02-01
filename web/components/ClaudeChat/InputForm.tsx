@@ -1,17 +1,17 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { ClaudePermissionMode } from '@shared/index.js';
+import type { PermissionMode } from '@shared/index.js';
 import { PermissionModeSelector } from './PermissionModeSelector';
 
 interface InputFormProps {
-  onSubmit: (content: string, permissionMode: ClaudePermissionMode) => void;
+  onSubmit: (content: string, permissionMode: PermissionMode) => void;
   disabled: boolean;
   isActive: boolean;
-  backendPermissionMode?: ClaudePermissionMode | null;
+  backendPermissionMode?: PermissionMode | null;
 }
 
 export function InputForm({ onSubmit, disabled, isActive, backendPermissionMode }: InputFormProps) {
   const [input, setInput] = useState('');
-  const [permissionMode, setPermissionMode] = useState<ClaudePermissionMode>('default');
+  const [permissionMode, setPermissionMode] = useState<PermissionMode>('default');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-focus when tab becomes active
@@ -50,7 +50,7 @@ export function InputForm({ onSubmit, disabled, isActive, backendPermissionMode 
   );
 
   const cyclePermissionMode = useCallback((reverse: boolean) => {
-    const modes: ClaudePermissionMode[] = ['default', 'acceptEdits', 'plan', 'bypassPermissions'];
+    const modes: PermissionMode[] = ['default', 'acceptEdits', 'plan', 'bypassPermissions'];
     const currentIndex = modes.indexOf(permissionMode);
     const nextIndex = reverse
       ? (currentIndex - 1 + modes.length) % modes.length

@@ -1,21 +1,21 @@
 import { useCallback, useState } from 'react';
-import type { ClaudePendingPermission, ClaudePermissionMode } from '@shared/index.js';
+import type { ClaudePendingPermission, PermissionMode } from '@shared/index.js';
 
 interface ExitPlanModeDialogProps {
   permission: ClaudePendingPermission;
   onResponse: (
     requestId: string,
     permission: 'allow' | 'deny',
-    answers?: Record<string, string>
+    answers?: Record<string, string>,
+    permissionMode?: PermissionMode
   ) => void;
-  onChangePermissionMode: (mode: ClaudePermissionMode) => void;
 }
 
 interface PlanOption {
   id: string;
   label: string;
   description: string;
-  mode: ClaudePermissionMode;
+  mode: PermissionMode;
 }
 
 const options: PlanOption[] = [
@@ -42,7 +42,6 @@ const options: PlanOption[] = [
 export function ExitPlanModeDialog({
   permission,
   onResponse,
-  onChangePermissionMode,
 }: ExitPlanModeDialogProps) {
   const [selectedOption, setSelectedOption] = useState<string>(options[0]!.id);
   const [customMessage, setCustomMessage] = useState('');
@@ -50,27 +49,25 @@ export function ExitPlanModeDialog({
   const handleConfirm = useCallback(() => {
     const option = options.find((o) => o.id === selectedOption);
     if (option) {
-      onChangePermissionMode(option.mode);
-      onResponse(permission.requestId, 'allow');
+      // Pass the selected mode with the response so backend sets it before allowing
+      onResponse(permission.requestId, 'allow', undefined, option.mode);
     }
-  }, [selectedOption, permission.requestId, onResponse, onChangePermissionMode]);
+  }, [selectedOption, permission.requestId, onResponse]);
 
   const handleDeny = useCallback(() => {
     // Deny and stay in plan mode
-    onChangePermissionMode('plan');
-    onResponse(permission.requestId, 'deny');
-  }, [permission.requestId, onResponse, onChangePermissionMode]);
+    onResponse(permission.requestId, 'deny', undefined, 'plan');
+  }, [permission.requestId, onResponse]);
 
   const handleCustomSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
       if (customMessage.trim()) {
         // Deny with feedback and stay in plan mode
-        onChangePermissionMode('plan');
-        onResponse(permission.requestId, 'deny', { feedback: customMessage.trim() });
+        onResponse(permission.requestId, 'deny', { feedback: customMessage.trim() }, 'plan');
       }
     },
-    [permission.requestId, onResponse, customMessage, onChangePermissionMode]
+    [permission.requestId, onResponse, customMessage]
   );
 
   // Extract allowedPrompts from input if available

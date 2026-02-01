@@ -1,19 +1,19 @@
-import type { ClaudePermissionMode } from '@shared/index.js';
+import type { PermissionMode } from '@shared/index.js';
 
 interface PermissionModeSelectorProps {
-  value: ClaudePermissionMode;
-  onChange: (mode: ClaudePermissionMode) => void;
+  value: PermissionMode;
+  onChange: (mode: PermissionMode) => void;
   disabled?: boolean;
 }
 
-const modes: { value: ClaudePermissionMode; label: string; shortLabel: string }[] = [
+const modes: { value: PermissionMode; label: string; shortLabel: string }[] = [
   { value: 'default', label: 'Default', shortLabel: 'Default' },
   { value: 'acceptEdits', label: '⏵⏵ accept edits on', shortLabel: '⏵⏵ edits' },
   { value: 'plan', label: '⏸ plan mode on', shortLabel: '⏸ plan' },
   { value: 'bypassPermissions', label: '⏵⏵ bypass permissions on', shortLabel: '⏵⏵ bypass' },
 ];
 
-function getModeActiveClasses(mode: ClaudePermissionMode): string {
+function getModeActiveClasses(mode: PermissionMode): string {
   switch (mode) {
     case 'default':
       return 'border-claude-text-secondary text-claude-text-secondary bg-transparent hover:border-claude-text-secondary hover:text-claude-text-secondary hover:bg-claude-bg-hover';
@@ -31,7 +31,7 @@ function getModeActiveClasses(mode: ClaudePermissionMode): string {
   }
 }
 
-function getModeSelectColor(mode: ClaudePermissionMode): string {
+function getModeSelectColor(mode: PermissionMode): string {
   switch (mode) {
     case 'acceptEdits':
       return '#a855f7';
@@ -77,7 +77,7 @@ export function PermissionModeSelector({
           backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
         }}
         value={value}
-        onChange={(e) => onChange(e.target.value as ClaudePermissionMode)}
+        onChange={(e) => onChange(e.target.value as PermissionMode)}
         disabled={disabled}
       >
         {modes.map((mode) => (

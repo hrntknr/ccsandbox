@@ -1,10 +1,10 @@
 import { useState, useCallback } from 'react';
-import type { ClaudePendingPermission, AskUserQuestion } from '@shared/index.js';
+import type { ClaudePendingPermission, AskUserQuestion, PermissionMode } from '@shared/index.js';
 
 interface AskUserQuestionDialogProps {
   permission: ClaudePendingPermission;
   questions: AskUserQuestion[];
-  onResponse: (requestId: string, permission: 'allow' | 'deny', answers?: Record<string, string>) => void;
+  onResponse: (requestId: string, permission: 'allow' | 'deny', answers?: Record<string, string>, permissionMode?: PermissionMode) => void;
 }
 
 export function AskUserQuestionDialog({
