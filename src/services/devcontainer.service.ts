@@ -255,6 +255,18 @@ async function createGitConfigFile(
 }
 
 /**
+ * Claude Code configuration for devcontainer.
+ */
+export interface ClaudeCodeConfig {
+  /** Path to .claude.json file on host */
+  claudeJsonPath: string;
+  /** Path to .claude directory on host */
+  claudeDirPath: string;
+  /** Remote user home directory (default: /home/vscode) */
+  remoteUserHome?: string;
+}
+
+/**
  * Options for starting a devcontainer.
  */
 export interface StartDevcontainerOptions {
@@ -274,6 +286,8 @@ export interface StartDevcontainerOptions {
   gitCredential?: GitCredentialConfig;
   /** External devcontainer config path (for templates) */
   configPath?: string;
+  /** Claude Code configuration to inject into container */
+  claudeConfig?: ClaudeCodeConfig;
 }
 
 /**
@@ -303,6 +317,7 @@ export async function startDevcontainer(
     dotfilesInstallCommand,
     gitCredential,
     configPath,
+    claudeConfig,
   } = options;
 
   // Verify devcontainer config exists (skip if external configPath is provided)
@@ -347,6 +362,23 @@ export async function startDevcontainer(
     args.push(
       '--mount',
       `type=bind,source=${gitconfigPath},target=${CONTAINER_GITCONFIG_PATH}`
+    );
+  }
+
+  // Add Claude Code configuration (mounts and feature)
+  if (claudeConfig) {
+    const remoteHome = claudeConfig.remoteUserHome ?? '/home/vscode';
+    args.push(
+      '--mount',
+      `type=bind,source=${claudeConfig.claudeJsonPath},target=${remoteHome}/.claude.json,consistency=cached`
+    );
+    args.push(
+      '--mount',
+      `type=bind,source=${claudeConfig.claudeDirPath},target=${remoteHome}/.claude,consistency=cached`
+    );
+    args.push(
+      '--additional-features',
+      JSON.stringify({ 'ghcr.io/devcontainers-extra/features/claude-code:1': {} })
     );
   }
 

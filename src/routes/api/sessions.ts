@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import { rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import type { CreateSessionRequest, ApiResponse, Session, DiffStatsResponse, DiffDetailResponse } from '../../shared/index.js';
 import { getConfig } from '../../config.js';
 import {
@@ -107,6 +109,7 @@ router.post(
 
       // Step 5: Start devcontainer
       try {
+        const homeDir = os.homedir();
         const containerInfo = await startDevcontainer({
           workspacePath: session.workspacePath,
           devcontainerCliPath: config.devcontainerCli,
@@ -119,6 +122,10 @@ router.post(
             username,
             configDir: config.configDir,
             sessionId: session.sessionId,
+          },
+          claudeConfig: {
+            claudeJsonPath: path.join(homeDir, '.claude.json'),
+            claudeDirPath: path.join(homeDir, '.claude'),
           },
         });
 
@@ -314,6 +321,7 @@ router.post(
         : undefined;
 
       // devcontainer up is idempotent - it starts stopped containers or reuses running ones
+      const homeDir = os.homedir();
       const containerInfo = await startDevcontainer({
         workspacePath: session.workspacePath,
         devcontainerCliPath: config.devcontainerCli,
@@ -323,6 +331,10 @@ router.post(
         gitCredential: config.pat && username
           ? { apiBase: config.apiBase, pat: config.pat, username, configDir: config.configDir, sessionId: id }
           : undefined,
+        claudeConfig: {
+          claudeJsonPath: path.join(homeDir, '.claude.json'),
+          claudeDirPath: path.join(homeDir, '.claude'),
+        },
       });
 
       const updatedSession = await store.update(id, {
