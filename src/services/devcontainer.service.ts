@@ -370,11 +370,11 @@ export async function startDevcontainer(
     const remoteHome = claudeConfig.remoteUserHome ?? '/home/vscode';
     args.push(
       '--mount',
-      `type=bind,source=${claudeConfig.claudeJsonPath},target=${remoteHome}/.claude.json,consistency=cached`
+      `type=bind,source=${claudeConfig.claudeJsonPath},target=${remoteHome}/.claude.json`
     );
     args.push(
       '--mount',
-      `type=bind,source=${claudeConfig.claudeDirPath},target=${remoteHome}/.claude,consistency=cached`
+      `type=bind,source=${claudeConfig.claudeDirPath},target=${remoteHome}/.claude`
     );
     args.push(
       '--additional-features',
