@@ -102,6 +102,12 @@ export function ClaudeChat({
             .map((c) => c.text ?? '')
             .join('');
 
+          // Extract thinking content
+          const thinkingContent = event.message.content
+            .filter((c) => c.type === 'thinking')
+            .map((c) => (c as { thinking?: string }).thinking ?? '')
+            .join('');
+
           // Filter out TodoWrite from tool use display
           const toolUse = event.message.content
             .filter((c) => c.type === 'tool_use' && c.name !== 'TodoWrite')
@@ -117,6 +123,10 @@ export function ClaudeChat({
             content: textContent,
             timestamp: new Date().toISOString(),
           };
+
+          if (thinkingContent) {
+            newMessage.thinking = thinkingContent;
+          }
 
           if (toolUse.length > 0) {
             newMessage.toolUse = toolUse;

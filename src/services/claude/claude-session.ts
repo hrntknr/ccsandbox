@@ -253,6 +253,12 @@ export class ClaudeSession extends EventEmitter {
         .map((c: ContentBlock & { type: 'text'; text: string }) => c.text)
         .join('');
 
+      // Extract thinking content
+      const thinkingContent = message.content
+        .filter((c: ContentBlock): c is ContentBlock & { type: 'thinking'; thinking: string } => c.type === 'thinking')
+        .map((c: ContentBlock & { type: 'thinking'; thinking: string }) => c.thinking)
+        .join('');
+
       // Extract tool use (filter out TodoWrite)
       const toolUse = message.content
         .filter((c: ContentBlock): c is ContentBlock & { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> } =>
@@ -276,6 +282,9 @@ export class ClaudeSession extends EventEmitter {
       if (this.currentStreamingMessage) {
         this.currentStreamingMessage.content = textContent;
         this.currentStreamingMessage.isStreaming = false;
+        if (thinkingContent) {
+          this.currentStreamingMessage.thinking = thinkingContent;
+        }
         if (toolUse.length > 0) {
           this.currentStreamingMessage.toolUse = toolUse;
         }
@@ -288,6 +297,9 @@ export class ClaudeSession extends EventEmitter {
           content: textContent,
           timestamp: new Date().toISOString(),
         };
+        if (thinkingContent) {
+          newMessage.thinking = thinkingContent;
+        }
         if (toolUse.length > 0) {
           newMessage.toolUse = toolUse;
         }
