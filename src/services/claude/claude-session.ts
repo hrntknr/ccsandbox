@@ -80,6 +80,8 @@ export class ClaudeSession extends EventEmitter {
         permissionMode: this._permissionMode,
         canUseTool: this.handlePermissionRequest.bind(this),
         includePartialMessages: true,
+        preset: 'claude_code',
+        settingSources: ['user', 'project'],
       },
     });
 
