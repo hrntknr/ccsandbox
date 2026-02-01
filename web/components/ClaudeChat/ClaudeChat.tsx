@@ -42,6 +42,10 @@ interface ClaudeChatProps {
     tabId: string,
     callback: (message: ClaudeMessage) => void
   ) => () => void;
+  onClaudeTodosUpdated: (
+    tabId: string,
+    callback: (todos: TodoItem[]) => void
+  ) => () => void;
 }
 
 export function ClaudeChat({
@@ -54,6 +58,7 @@ export function ClaudeChat({
   onClaudeHistory,
   onClaudePermissionResolved,
   onClaudeUserMessage,
+  onClaudeTodosUpdated,
 }: ClaudeChatProps) {
   const [messages, setMessages] = useState<ClaudeMessage[]>([]);
   const [pendingPermissions, setPendingPermissions] = useState<ClaudePendingPermission[]>([]);
@@ -193,6 +198,13 @@ export function ClaudeChat({
       setMessages((prev) => [...prev, message]);
     });
   }, [tabId, onClaudeUserMessage]);
+
+  // Handle todos updated from server (multi-tab sync)
+  useEffect(() => {
+    return onClaudeTodosUpdated(tabId, (updatedTodos) => {
+      setTodos(updatedTodos);
+    });
+  }, [tabId, onClaudeTodosUpdated]);
 
   // Track bottom area height for scroll spacer
   useEffect(() => {

@@ -1,5 +1,5 @@
 import type { WebSocket } from 'ws';
-import type { TerminalTab, TerminalServerMessage, ClaudeEvent } from '../shared/index.js';
+import type { TerminalTab, TerminalServerMessage, ClaudeEvent, TodoItem } from '../shared/index.js';
 import type { TerminalManager } from '../services/terminal.service.js';
 import type { ClaudeManager, ClaudeProcessingStats } from '../services/claude.service.js';
 import { getSessionSyncManager } from './session-sync-manager.js';
@@ -55,6 +55,7 @@ export class ConnectionManager {
     claudeManager.on('error', this.handleClaudeError);
     claudeManager.on('pendingPermissionsChanged', this.handlePendingPermissionsChanged);
     claudeManager.on('processingStateChanged', this.handleProcessingStateChanged);
+    claudeManager.on('todosChanged', this.handleTodosChanged);
 
     this.claudeListenersRegistered = true;
   }
@@ -164,6 +165,17 @@ export class ConnectionManager {
     } catch {
       // Session not found, ignore
     }
+  };
+
+  private handleTodosChanged = (tabId: string, todos: TodoItem[]): void => {
+    const sessionId = this.tabToSession.get(tabId);
+    if (!sessionId) return;
+
+    this.broadcastToTab(sessionId, tabId, {
+      type: 'claude-todos-updated',
+      tabId,
+      todos,
+    } satisfies TerminalServerMessage);
   };
 
   joinSession(
@@ -371,6 +383,7 @@ export class ConnectionManager {
       this.claudeManager.off('error', this.handleClaudeError);
       this.claudeManager.off('pendingPermissionsChanged', this.handlePendingPermissionsChanged);
       this.claudeManager.off('processingStateChanged', this.handleProcessingStateChanged);
+      this.claudeManager.off('todosChanged', this.handleTodosChanged);
       this.claudeListenersRegistered = false;
     }
     this.rooms.clear();
