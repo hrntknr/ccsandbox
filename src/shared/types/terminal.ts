@@ -56,6 +56,7 @@ export type TerminalServerMessage =
       pendingPermissions: ClaudePendingPermission[];
       todos: TodoItem[];
       permissionMode?: PermissionMode;
+      isProcessing?: boolean;
     }
   | { type: 'claude-permission-resolved'; tabId: string; requestId: string }
   | { type: 'claude-user-message'; tabId: string; message: ClaudeMessage }

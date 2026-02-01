@@ -35,7 +35,7 @@ interface ClaudeEventCallback {
 }
 
 interface ClaudeHistoryCallback {
-  (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[], todos: TodoItem[], permissionMode?: PermissionMode): void;
+  (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[], todos: TodoItem[], permissionMode?: PermissionMode, isProcessing?: boolean): void;
 }
 
 interface ClaudeEventSubscription {
@@ -242,7 +242,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
         case 'claude-history':
           for (const sub of claudeHistorySubscriptionsRef.current) {
             if (sub.tabId === message.tabId) {
-              sub.callback(message.messages, message.pendingPermissions, message.todos, message.permissionMode);
+              sub.callback(message.messages, message.pendingPermissions, message.todos, message.permissionMode, message.isProcessing);
             }
           }
           break;

@@ -278,6 +278,7 @@ export function createTerminalHandler(
         pendingPermissions,
         todos,
         permissionMode: instance?.permissionMode,
+        isProcessing: instance?.isProcessing,
       });
     } else {
       // Get terminal history BEFORE setting client tab to avoid race condition:
