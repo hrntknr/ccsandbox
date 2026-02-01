@@ -12,6 +12,9 @@ import type {
   DiffStatsResponse,
   DiffDetailResponse,
   FileDiff,
+  PortForwarding,
+  AddPortForwardingRequest,
+  PortForwardingListResponse,
 } from '@shared/index.js';
 
 
@@ -372,4 +375,94 @@ export function useDiffDetail(sessionId: string | null): UseApiReturn<{ files: F
   }, []);
 
   return { ...state, execute, reset };
+}
+
+export interface UsePortForwardingReturn {
+  ports: PortForwarding[];
+  loading: boolean;
+  error: string | null;
+  listPorts: () => Promise<PortForwarding[]>;
+  addPort: (request: AddPortForwardingRequest) => Promise<PortForwarding | null>;
+  removePort: (portId: string) => Promise<boolean>;
+}
+
+export function usePortForwarding(sessionId: string | null): UsePortForwardingReturn {
+  const [ports, setPorts] = useState<PortForwarding[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const listPorts = useCallback(async (): Promise<PortForwarding[]> => {
+    if (!sessionId) {
+      setPorts([]);
+      return [];
+    }
+
+    setLoading(true);
+    setError(null);
+
+    const response = await fetchApi<PortForwardingListResponse>(`/sessions/${sessionId}/ports`);
+
+    setLoading(false);
+
+    if (response.success && response.data) {
+      setPorts(response.data.portForwardings);
+      return response.data.portForwardings;
+    } else {
+      setError(response.error || 'Failed to list ports');
+      return [];
+    }
+  }, [sessionId]);
+
+  const addPort = useCallback(async (request: AddPortForwardingRequest): Promise<PortForwarding | null> => {
+    if (!sessionId) {
+      setError('No session selected');
+      return null;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    const response = await fetchApi<{ portForwarding: PortForwarding }>(`/sessions/${sessionId}/ports`, {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+
+    setLoading(false);
+
+    if (response.success && response.data) {
+      // Refresh the list
+      await listPorts();
+      return response.data.portForwarding;
+    } else {
+      setError(response.error || 'Failed to add port');
+      return null;
+    }
+  }, [sessionId, listPorts]);
+
+  const removePort = useCallback(async (portId: string): Promise<boolean> => {
+    if (!sessionId) {
+      setError('No session selected');
+      return false;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    const response = await fetchApi<null>(`/sessions/${sessionId}/ports/${portId}`, {
+      method: 'DELETE',
+    });
+
+    setLoading(false);
+
+    if (response.success) {
+      // Refresh the list
+      await listPorts();
+      return true;
+    } else {
+      setError(response.error || 'Failed to remove port');
+      return false;
+    }
+  }, [sessionId, listPorts]);
+
+  return { ports, loading, error, listPorts, addPort, removePort };
 }

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
-import type { CreateSessionRequest, ApiResponse, Session, DiffStatsResponse, DiffDetailResponse } from '../../shared/index.js';
+import type { CreateSessionRequest, ApiResponse, Session, DiffStatsResponse, DiffDetailResponse, AddPortForwardingRequest, PortForwardingListResponse, PortForwarding } from '../../shared/index.js';
 import { getConfig } from '../../config.js';
 import {
   getSessionStore,
@@ -25,6 +25,12 @@ import {
 import { getTerminalManager } from '../../services/terminal.service.js';
 import { getClaudeManager } from '../../services/claude/index.js';
 import { getConnectionManager } from '../../websocket/connection-manager.js';
+import {
+  getPortForwardingManager,
+  PortForwardingError,
+  PortInUseError,
+  PortForwardingNotFoundError,
+} from '../../services/port-forwarding.service.js';
 
 const router = Router();
 
@@ -393,9 +399,10 @@ router.post(
         return;
       }
 
-      // Clean up terminal and Claude processes and tabs for this session
+      // Clean up terminal, Claude processes, port forwardings, and tabs for this session
       getTerminalManager().killBySession(id);
       getClaudeManager().killBySession(id);
+      getPortForwardingManager().stopAll(id);
       getConnectionManager().clearSessionTabs(id);
 
       // Check if container is actually running
@@ -508,6 +515,174 @@ router.get(
         res.status(404).json(response);
         return;
       }
+      throw error;
+    }
+  })
+);
+
+/**
+ * GET /api/sessions/:id/ports
+ * List port forwardings for a session.
+ */
+router.get(
+  '/:id/ports',
+  asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
+    const { id } = req.params;
+    const store = getSessionStore(getConfig().configDir, getConfig().repoDir);
+
+    try {
+      // Verify session exists
+      await store.get(id);
+
+      const portForwardings = getPortForwardingManager().list(id);
+
+      const response: ApiResponse<PortForwardingListResponse> = {
+        success: true,
+        data: { portForwardings },
+      };
+      res.json(response);
+    } catch (error) {
+      if (error instanceof SessionNotFoundError) {
+        const response: ApiResponse<null> = {
+          success: false,
+          error: `Session not found: ${id}`,
+        };
+        res.status(404).json(response);
+        return;
+      }
+      throw error;
+    }
+  })
+);
+
+/**
+ * POST /api/sessions/:id/ports
+ * Add a new port forwarding for a session.
+ */
+router.post(
+  '/:id/ports',
+  asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
+    const { id } = req.params;
+    const body = req.body as AddPortForwardingRequest;
+    const store = getSessionStore(getConfig().configDir, getConfig().repoDir);
+
+    // Validate request
+    if (!body.hostPort || !body.containerPort) {
+      const response: ApiResponse<null> = {
+        success: false,
+        error: 'Missing required fields: hostPort, containerPort',
+      };
+      res.status(400).json(response);
+      return;
+    }
+
+    try {
+      const session = await store.get(id);
+
+      if (session.state !== 'RUNNING' || !session.containerId) {
+        const response: ApiResponse<null> = {
+          success: false,
+          error: 'Session must be running to add port forwarding',
+        };
+        res.status(400).json(response);
+        return;
+      }
+
+      // Start port forwarding
+      const portForwarding = await getPortForwardingManager().start(
+        id,
+        session.containerId,
+        body.hostPort,
+        body.containerPort,
+        body.label
+      );
+
+      // Update session with new port forwarding
+      const currentForwardings = getPortForwardingManager().list(id);
+      await store.update(id, { portForwardings: currentForwardings });
+
+      const response: ApiResponse<{ portForwarding: PortForwarding }> = {
+        success: true,
+        data: { portForwarding },
+      };
+      res.status(201).json(response);
+    } catch (error) {
+      if (error instanceof SessionNotFoundError) {
+        const response: ApiResponse<null> = {
+          success: false,
+          error: `Session not found: ${id}`,
+        };
+        res.status(404).json(response);
+        return;
+      }
+
+      if (error instanceof PortInUseError) {
+        const response: ApiResponse<null> = {
+          success: false,
+          error: `Port ${error.port} is already in use`,
+        };
+        res.status(409).json(response);
+        return;
+      }
+
+      if (error instanceof PortForwardingError) {
+        const response: ApiResponse<null> = {
+          success: false,
+          error: error.message,
+        };
+        res.status(400).json(response);
+        return;
+      }
+
+      throw error;
+    }
+  })
+);
+
+/**
+ * DELETE /api/sessions/:id/ports/:portId
+ * Remove a port forwarding from a session.
+ */
+router.delete(
+  '/:id/ports/:portId',
+  asyncHandler(async (req: Request<{ id: string; portId: string }>, res: Response) => {
+    const { id, portId } = req.params;
+    const store = getSessionStore(getConfig().configDir, getConfig().repoDir);
+
+    try {
+      // Verify session exists
+      await store.get(id);
+
+      // Stop port forwarding
+      getPortForwardingManager().stop(id, portId);
+
+      // Update session with remaining port forwardings
+      const currentForwardings = getPortForwardingManager().list(id);
+      await store.update(id, { portForwardings: currentForwardings });
+
+      const response: ApiResponse<null> = {
+        success: true,
+      };
+      res.json(response);
+    } catch (error) {
+      if (error instanceof SessionNotFoundError) {
+        const response: ApiResponse<null> = {
+          success: false,
+          error: `Session not found: ${id}`,
+        };
+        res.status(404).json(response);
+        return;
+      }
+
+      if (error instanceof PortForwardingNotFoundError) {
+        const response: ApiResponse<null> = {
+          success: false,
+          error: `Port forwarding not found: ${portId}`,
+        };
+        res.status(404).json(response);
+        return;
+      }
+
       throw error;
     }
   })

@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile, stat, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
-import type { Session, SessionState, DevcontainerSource } from '../shared/index.js';
+import type { Session, SessionState, DevcontainerSource, PortForwarding } from '../shared/index.js';
 import { generateWorkspacePath } from '../shared/index.js';
 
 /**
@@ -35,6 +35,7 @@ export interface UpdateSessionOptions {
   state?: SessionState;
   containerId?: string | null;
   containerName?: string | null;
+  portForwardings?: PortForwarding[];
 }
 
 /**
@@ -298,6 +299,9 @@ export class SessionStore extends EventEmitter {
         } else {
           session.containerName = options.containerName;
         }
+      }
+      if (options.portForwardings !== undefined) {
+        session.portForwardings = options.portForwardings;
       }
 
       await this.writeSessions(sessions);

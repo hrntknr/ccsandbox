@@ -5,6 +5,7 @@ export type {
   SessionSyncServerMessage,
   TabType,
   TerminalTab,
+  PortForwarding,
 } from './types/session.js';
 
 export type {
@@ -68,6 +69,8 @@ export type {
   FileDiff,
   DiffStatsResponse,
   DiffDetailResponse,
+  AddPortForwardingRequest,
+  PortForwardingListResponse,
 } from './types/api.js';
 
 export type {

@@ -4,6 +4,7 @@ import { SessionList } from './components/SessionList';
 import { TerminalPane } from './components/TerminalPane';
 import { NewSessionModal } from './components/NewSessionModal';
 import { SettingsModal } from './components/SettingsModal';
+import { PortForwardingModal } from './components/PortForwardingModal';
 import { useDeleteSession, useStartSession, useStopSession, useClientConfig } from './hooks/useApi';
 import { useSessionSync } from './hooks/useSessionSync';
 
@@ -18,6 +19,8 @@ export function App() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isPortsModalOpen, setIsPortsModalOpen] = useState(false);
+  const [portsSessionId, setPortsSessionId] = useState<string | null>(null);
   const [deleteConfirmSessionId, setDeleteConfirmSessionId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<MobileView>('sessions');
   const [clientConfig, setClientConfig] = useState<ClientConfig | null>(null);
@@ -99,6 +102,16 @@ export function App() {
     setIsSettingsModalOpen(false);
   }, []);
 
+  const handleOpenPorts = useCallback((sessionId: string) => {
+    setPortsSessionId(sessionId);
+    setIsPortsModalOpen(true);
+  }, []);
+
+  const handleClosePortsModal = useCallback(() => {
+    setIsPortsModalOpen(false);
+    setPortsSessionId(null);
+  }, []);
+
   const handleConfigUpdated = useCallback((config: ClientConfig) => {
     setClientConfig(config);
   }, []);
@@ -141,6 +154,10 @@ export function App() {
     ? sessions?.find((s) => s.sessionId === deleteConfirmSessionId)
     : null;
 
+  const portsSession = portsSessionId
+    ? sessions?.find((s) => s.sessionId === portsSessionId) ?? null
+    : null;
+
   // Determine if PAT is required (not yet configured)
   const requirePat = clientConfig !== null && !clientConfig.hasPat;
 
@@ -179,6 +196,7 @@ export function App() {
           onStartSession={handleStartSession}
           onStopSession={handleStopSession}
           onOpenSettings={handleOpenSettings}
+          onOpenPorts={handleOpenPorts}
           loading={loading}
         />
       </div>
@@ -204,6 +222,12 @@ export function App() {
         initialConfig={clientConfig}
         onConfigUpdated={handleConfigUpdated}
         requirePat={requirePat}
+      />
+
+      <PortForwardingModal
+        isOpen={isPortsModalOpen}
+        onClose={handleClosePortsModal}
+        session={portsSession}
       />
 
       {deleteConfirmSessionId && (
