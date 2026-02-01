@@ -27,6 +27,24 @@ function isValidWorkspacePath(workspacePath: string): boolean {
 }
 
 /**
+ * Pending control request callback
+ */
+interface PendingControlRequest {
+  resolve: (response: ControlResponsePayload) => void;
+  reject: (error: Error) => void;
+}
+
+/**
+ * Control response payload from CLI
+ */
+interface ControlResponsePayload {
+  subtype: 'success' | 'error';
+  request_id: string;
+  response?: unknown;
+  error?: string;
+}
+
+/**
  * Information about an active Claude instance
  */
 export interface ClaudeInstance {
@@ -37,6 +55,8 @@ export interface ClaudeInstance {
   process: ChildProcess | null;
   messages: ClaudeMessage[];
   pendingPermissions: Map<string, ClaudePendingPermission>;
+  /** Pending control requests waiting for response from CLI */
+  pendingControlRequests: Map<string, PendingControlRequest>;
   isProcessing: boolean;
   currentStreamingMessage: ClaudeMessage | null;
   permissionMode: ClaudePermissionMode;
@@ -119,6 +139,7 @@ export class ClaudeManager extends EventEmitter {
       process: null,
       messages: [],
       pendingPermissions: new Map(),
+      pendingControlRequests: new Map(),
       isProcessing: false,
       currentStreamingMessage: null,
       permissionMode,
@@ -141,10 +162,8 @@ export class ClaudeManager extends EventEmitter {
 
   /**
    * Start the Claude CLI process
-   * @param instance - The Claude instance
-   * @param resume - If true, use --resume instead of --session-id to resume existing session
    */
-  private async startClaudeProcess(instance: ClaudeInstance, resume = false): Promise<void> {
+  private async startClaudeProcess(instance: ClaudeInstance): Promise<void> {
     const args = [
       'exec',
       '--workspace-folder',
@@ -163,16 +182,11 @@ export class ClaudeManager extends EventEmitter {
       }
     }
 
-    args.push('claude', '-p');
-
-    // Use --resume for resuming existing session, --session-id for new session
-    if (resume) {
-      args.push('--resume', instance.claudeSessionId);
-    } else {
-      args.push('--session-id', instance.claudeSessionId);
-    }
-
     args.push(
+      'claude',
+      '-p',
+      '--session-id',
+      instance.claudeSessionId,
       '--input-format',
       'stream-json',
       '--output-format',
@@ -183,7 +197,6 @@ export class ClaudeManager extends EventEmitter {
       'stdio',
     );
 
-    // Add permission mode option
     if (instance.permissionMode !== 'default') {
       args.push('--permission-mode', instance.permissionMode);
     }
@@ -237,7 +250,23 @@ export class ClaudeManager extends EventEmitter {
    * Handle incoming events from Claude CLI
    */
   private handleEvent(instance: ClaudeInstance, event: ClaudeEvent): void {
-    // Track pending permissions
+    // Handle control_response (response to our control_request, e.g., setPermissionMode)
+    if (event.type === 'control_response') {
+      const response = event.response as ControlResponsePayload;
+      const pending = instance.pendingControlRequests.get(response.request_id);
+      if (pending) {
+        instance.pendingControlRequests.delete(response.request_id);
+        if (response.subtype === 'success') {
+          pending.resolve(response);
+        } else {
+          pending.reject(new Error(response.error ?? 'Control request failed'));
+        }
+      }
+      // Don't emit this event to clients, it's internal
+      return;
+    }
+
+    // Track pending permissions (permission requests FROM CLI)
     if (event.type === 'control_request') {
       const hadPending = instance.pendingPermissions.size > 0;
       instance.pendingPermissions.set(event.request_id, {
@@ -478,7 +507,52 @@ export class ClaudeManager extends EventEmitter {
   }
 
   /**
-   * Set permission mode and restart Claude process if changed
+   * Send a control_request to the CLI and wait for response
+   */
+  private sendControlRequest(
+    instance: ClaudeInstance,
+    request: Record<string, unknown>,
+    timeoutMs = 10000
+  ): Promise<ControlResponsePayload> {
+    return new Promise((resolve, reject) => {
+      if (!instance.process?.stdin?.writable) {
+        reject(new Error('Process stdin not writable'));
+        return;
+      }
+
+      const requestId = uuidv4();
+      const controlRequest = {
+        type: 'control_request',
+        request_id: requestId,
+        request,
+      };
+
+      // Set up timeout
+      const timeout = setTimeout(() => {
+        instance.pendingControlRequests.delete(requestId);
+        reject(new Error('Control request timed out'));
+      }, timeoutMs);
+
+      // Register pending request
+      instance.pendingControlRequests.set(requestId, {
+        resolve: (response) => {
+          clearTimeout(timeout);
+          resolve(response);
+        },
+        reject: (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        },
+      });
+
+      // Send request
+      instance.process.stdin.write(JSON.stringify(controlRequest) + '\n');
+    });
+  }
+
+  /**
+   * Set permission mode dynamically without restarting the process
+   * Uses control_request to change mode mid-session
    */
   async setPermissionMode(
     tabId: string,
@@ -494,19 +568,26 @@ export class ClaudeManager extends EventEmitter {
       return true;
     }
 
-    // Kill existing process
-    if (instance.process) {
-      instance.process.kill('SIGTERM');
-      instance.process = null;
+    // If process is not running, just update the mode (will be used on next start)
+    if (!instance.process?.stdin?.writable) {
+      instance.permissionMode = permissionMode;
+      return true;
     }
 
-    // Update mode
-    instance.permissionMode = permissionMode;
+    try {
+      // Send control_request to change permission mode
+      await this.sendControlRequest(instance, {
+        subtype: 'set_permission_mode',
+        mode: permissionMode,
+      });
 
-    // Restart process with new mode, using --resume to continue existing session
-    await this.startClaudeProcess(instance, true);
-
-    return true;
+      // Update local state
+      instance.permissionMode = permissionMode;
+      return true;
+    } catch (error) {
+      console.error(`Failed to set permission mode for ${tabId}:`, error);
+      return false;
+    }
   }
 
   /**

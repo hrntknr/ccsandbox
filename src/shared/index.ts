@@ -14,6 +14,7 @@ export type {
   ClaudeAssistantEvent,
   ClaudeContentBlock,
   ClaudeControlRequestEvent,
+  ClaudeControlResponseEvent,
   ClaudeEvent,
   ClaudeMessage,
   ClaudePendingPermission,

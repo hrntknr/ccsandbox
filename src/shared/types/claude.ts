@@ -111,6 +111,20 @@ export interface ClaudeControlRequestEvent extends ClaudeStreamEventBase {
   request: ClaudePermissionRequest;
 }
 
+/**
+ * Response from CLI to a control_request sent by frontend
+ * (e.g., response to set_permission_mode request)
+ */
+export interface ClaudeControlResponseEvent extends ClaudeStreamEventBase {
+  type: 'control_response';
+  response: {
+    subtype: 'success' | 'error';
+    request_id: string;
+    response?: unknown;
+    error?: string;
+  };
+}
+
 export interface ClaudeResultEvent extends ClaudeStreamEventBase {
   type: 'result';
   subtype: 'success' | 'error';
@@ -128,6 +142,7 @@ export type ClaudeEvent =
   | ClaudeAssistantEvent
   | ClaudeUserEvent
   | ClaudeControlRequestEvent
+  | ClaudeControlResponseEvent
   | ClaudeResultEvent;
 
 /**
