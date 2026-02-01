@@ -1,7 +1,8 @@
 import { useState } from 'react';
 
 interface ThinkingBlockProps {
-  thinking: string;
+  /** Single thinking content or array of thinking contents to display */
+  thinkings: string[];
   previewLines?: number;
 }
 
@@ -10,14 +11,18 @@ interface ThinkingBlockProps {
  * - Collapsed by default
  * - Shows last N lines as preview when collapsed
  * - Expands to show full thinking content
+ * - Supports multiple thinking blocks merged into one collapsible group
  */
-export function ThinkingBlock({ thinking, previewLines = 3 }: ThinkingBlockProps) {
+export function ThinkingBlock({ thinkings, previewLines = 3 }: ThinkingBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const lines = thinking.split('\n');
+  // Merge all thinking contents with separator
+  const fullContent = thinkings.join('\n\n---\n\n');
+  const lines = fullContent.split('\n');
   const totalLines = lines.length;
   const previewText = lines.slice(-previewLines).join('\n');
   const hasMoreContent = totalLines > previewLines;
+  const blockCount = thinkings.length;
 
   return (
     <div className="bg-claude-bg-tertiary border border-claude-border rounded-lg overflow-hidden my-2">
@@ -28,7 +33,7 @@ export function ThinkingBlock({ thinking, previewLines = 3 }: ThinkingBlockProps
       >
         <span className="text-claude-text-muted text-[10px]">💭</span>
         <span className="text-claude-text-muted text-[11px] font-medium">
-          Thinking
+          Thinking{blockCount > 1 ? ` (${blockCount})` : ''}
         </span>
         {!isExpanded && hasMoreContent && (
           <span className="text-claude-text-muted/60 text-[10px]">
@@ -49,7 +54,7 @@ export function ThinkingBlock({ thinking, previewLines = 3 }: ThinkingBlockProps
         {isExpanded ? (
           // Full content when expanded
           <pre className="font-mono text-xs m-0 p-3 overflow-x-auto text-claude-text-secondary whitespace-pre-wrap max-h-[400px] overflow-y-auto">
-            {thinking}
+            {fullContent}
           </pre>
         ) : (
           // Preview (last N lines) when collapsed
