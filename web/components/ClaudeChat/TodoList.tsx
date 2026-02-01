@@ -32,7 +32,7 @@ export function TodoList({ todos }: TodoListProps) {
             />
           </svg>
           <span className="text-[10px] font-medium text-claude-text-secondary uppercase tracking-wide">
-            Tasks
+            Todo
           </span>
         </div>
         <div className="flex items-center gap-2 text-[10px] text-claude-text-secondary">
@@ -51,7 +51,7 @@ export function TodoList({ todos }: TodoListProps) {
         </div>
       </div>
 
-      {/* Task list */}
+      {/* Todo list */}
       <div className="max-h-24 overflow-y-auto scrollbar-thin">
         {todos.map((todo, index) => (
           <TodoItemRow key={index} todo={todo} />
