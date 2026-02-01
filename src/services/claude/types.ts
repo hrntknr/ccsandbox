@@ -2,22 +2,25 @@
  * Types for Claude session management using Agent SDK
  */
 
-import type { SDKMessage, PermissionResult, PermissionMode } from '@anthropic-ai/claude-agent-sdk';
+import type {
+  SDKMessage,
+  SDKUserMessage,
+  PermissionResult,
+  PermissionMode,
+} from '@anthropic-ai/claude-agent-sdk';
 import type {
   ClaudeMessage,
   ClaudePendingPermission,
-  ClaudePermissionMode,
   TodoItem,
 } from '../../shared/types/claude.js';
 
 // Re-export SDK types for convenience
-export type { SDKMessage, PermissionResult, PermissionMode };
+export type { SDKMessage, SDKUserMessage, PermissionResult, PermissionMode };
 
 // Re-export internal types from shared
 export type {
   ClaudeMessage,
   ClaudePendingPermission,
-  ClaudePermissionMode,
   TodoItem,
 };
 
@@ -34,7 +37,7 @@ export interface CreateSessionOptions {
   /** Path to devcontainer CLI executable */
   devcontainerCliPath?: string;
   /** Initial permission mode */
-  permissionMode?: ClaudePermissionMode;
+  permissionMode?: PermissionMode;
   /** Path to devcontainer.json config (for template-based sessions) */
   configPath?: string;
   /** Remote environment variables to pass to the container */
@@ -71,41 +74,5 @@ export interface ClaudeSessionManagerEvents {
   pendingPermissionsChanged: (sessionId: string, hasPending: boolean) => void;
   processingStateChanged: (sessionId: string, stats: ClaudeProcessingStats) => void;
   todosChanged: (tabId: string, todos: TodoItem[]) => void;
-  permissionModeChanged: (tabId: string, mode: ClaudePermissionMode) => void;
-}
-
-/**
- * Map internal ClaudePermissionMode to SDK PermissionMode
- */
-export function toSdkPermissionMode(mode: ClaudePermissionMode): PermissionMode {
-  switch (mode) {
-    case 'default':
-      return 'default';
-    case 'acceptEdits':
-      return 'acceptEdits';
-    case 'plan':
-      return 'plan';
-    case 'bypassPermissions':
-      return 'bypassPermissions';
-    default:
-      return 'default';
-  }
-}
-
-/**
- * Map SDK PermissionMode to internal ClaudePermissionMode
- */
-export function fromSdkPermissionMode(mode: PermissionMode): ClaudePermissionMode {
-  switch (mode) {
-    case 'default':
-      return 'default';
-    case 'acceptEdits':
-      return 'acceptEdits';
-    case 'plan':
-      return 'plan';
-    case 'bypassPermissions':
-      return 'bypassPermissions';
-    default:
-      return 'default';
-  }
+  permissionModeChanged: (tabId: string, mode: PermissionMode) => void;
 }

@@ -15,7 +15,7 @@ import type {
   ClaudeSessionManagerEvents,
   ClaudeMessage,
   ClaudePendingPermission,
-  ClaudePermissionMode,
+  PermissionMode,
   TodoItem,
 } from './types.js';
 
@@ -25,7 +25,7 @@ export type {
   ClaudeProcessingStats,
   ClaudeMessage,
   ClaudePendingPermission,
-  ClaudePermissionMode,
+  PermissionMode,
   TodoItem,
 };
 
@@ -52,7 +52,7 @@ export interface CreateClaudeOptions {
   workspacePath: string;
   devcontainerCliPath?: string;
   tabId?: string;
-  permissionMode?: ClaudePermissionMode;
+  permissionMode?: PermissionMode;
   configPath?: string;
   remoteEnv?: string[];
   scratchDir?: string;
@@ -65,7 +65,7 @@ export interface ClaudeSessionInfo {
   tabId: string;
   sessionId: string;
   isProcessing: boolean;
-  permissionMode: ClaudePermissionMode;
+  permissionMode: PermissionMode;
 }
 
 /**
@@ -243,7 +243,7 @@ export class ClaudeSessionManager extends EventEmitter {
   /**
    * Set permission mode dynamically
    */
-  async setPermissionMode(tabId: string, permissionMode: ClaudePermissionMode): Promise<boolean> {
+  async setPermissionMode(tabId: string, permissionMode: PermissionMode): Promise<boolean> {
     const session = this.sessions.get(tabId);
     if (!session) {
       return false;

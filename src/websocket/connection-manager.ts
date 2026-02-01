@@ -1,5 +1,5 @@
 import type { WebSocket } from 'ws';
-import type { TerminalTab, TerminalServerMessage, TodoItem, ClaudePermissionMode } from '../shared/index.js';
+import type { TerminalTab, TerminalServerMessage, TodoItem, PermissionMode } from '../shared/index.js';
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
 import type { TerminalManager } from '../services/terminal.service.js';
 import type { ClaudeManager, ClaudeProcessingStats } from '../services/claude/index.js';
@@ -181,7 +181,7 @@ export class ConnectionManager {
     } satisfies TerminalServerMessage);
   };
 
-  private handlePermissionModeChanged = (tabId: string, mode: ClaudePermissionMode): void => {
+  private handlePermissionModeChanged = (tabId: string, mode: PermissionMode): void => {
     const sessionId = this.tabToSession.get(tabId);
     if (!sessionId) return;
 

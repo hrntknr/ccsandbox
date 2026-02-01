@@ -1,7 +1,7 @@
 import { WebSocket } from 'ws';
 import { join } from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
-import type { TerminalClientMessage, TerminalServerMessage, TerminalTab, TabType, ClaudePermissionMode, Session } from '../shared/index.js';
+import type { TerminalClientMessage, TerminalServerMessage, TerminalTab, TabType, PermissionMode, Session } from '../shared/index.js';
 import { getTerminalManager } from '../services/terminal.service.js';
 import { getClaudeManager } from '../services/claude/index.js';
 import { SessionStore } from '../persistence/session-store.js';
@@ -472,7 +472,7 @@ export function createTerminalHandler(
   /**
    * Handle claude-message - send a message to Claude
    */
-  async function handleClaudeMessage(content: string, permissionMode?: ClaudePermissionMode): Promise<void> {
+  async function handleClaudeMessage(content: string, permissionMode?: PermissionMode): Promise<void> {
     if (!currentTabId || !currentSessionId || !clientId) {
       sendError(ws, 'Not attached to a Claude tab');
       return;
@@ -514,7 +514,7 @@ export function createTerminalHandler(
     requestId: string,
     permission: 'allow' | 'deny',
     answers?: Record<string, string>,
-    permissionMode?: ClaudePermissionMode
+    permissionMode?: PermissionMode
   ): Promise<void> {
     if (!currentTabId || !currentSessionId) {
       sendError(ws, 'Not attached to a Claude tab');
@@ -546,7 +546,7 @@ export function createTerminalHandler(
   /**
    * Handle claude-change-permission-mode - change permission mode for current Claude tab
    */
-  async function handleClaudeChangePermissionMode(permissionMode: ClaudePermissionMode): Promise<void> {
+  async function handleClaudeChangePermissionMode(permissionMode: PermissionMode): Promise<void> {
     if (!currentTabId) {
       sendError(ws, 'Not attached to a Claude tab');
       return;

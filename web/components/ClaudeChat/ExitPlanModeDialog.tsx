@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { ClaudePendingPermission, ClaudePermissionMode } from '@shared/index.js';
+import type { ClaudePendingPermission, PermissionMode } from '@shared/index.js';
 
 interface ExitPlanModeDialogProps {
   permission: ClaudePendingPermission;
@@ -7,7 +7,7 @@ interface ExitPlanModeDialogProps {
     requestId: string,
     permission: 'allow' | 'deny',
     answers?: Record<string, string>,
-    permissionMode?: ClaudePermissionMode
+    permissionMode?: PermissionMode
   ) => void;
 }
 
@@ -15,7 +15,7 @@ interface PlanOption {
   id: string;
   label: string;
   description: string;
-  mode: ClaudePermissionMode;
+  mode: PermissionMode;
 }
 
 const options: PlanOption[] = [

@@ -9,12 +9,11 @@ import { createWrapper, removeWrapper } from './devcontainer-wrapper.js';
 import type {
   CreateSessionOptions,
   PermissionResolver,
+  PermissionMode,
   ClaudeMessage,
   ClaudePendingPermission,
-  ClaudePermissionMode,
   TodoItem,
 } from './types.js';
-import { toSdkPermissionMode } from './types.js';
 
 /**
  * Represents a single Claude session running inside a devcontainer
@@ -32,7 +31,7 @@ export class ClaudeSession extends EventEmitter {
   private pendingPermissions = new Map<string, ClaudePendingPermission>();
   private permissionResolvers = new Map<string, PermissionResolver>();
   private _isProcessing = false;
-  private _permissionMode: ClaudePermissionMode;
+  private _permissionMode: PermissionMode;
   private currentStreamingMessage: ClaudeMessage | null = null;
   private todos: TodoItem[] = [];
   private closed = false;
@@ -62,7 +61,7 @@ export class ClaudeSession extends EventEmitter {
     return this._isProcessing;
   }
 
-  get permissionMode(): ClaudePermissionMode {
+  get permissionMode(): PermissionMode {
     return this._permissionMode;
   }
 
@@ -78,7 +77,7 @@ export class ClaudeSession extends EventEmitter {
       prompt: messageGenerator,
       options: {
         pathToClaudeCodeExecutable: this.wrapperPath,
-        permissionMode: toSdkPermissionMode(this._permissionMode),
+        permissionMode: this._permissionMode,
         canUseTool: this.handlePermissionRequest.bind(this),
         includePartialMessages: true,
       },
@@ -398,25 +397,23 @@ export class ClaudeSession extends EventEmitter {
   /**
    * Set permission mode dynamically
    */
-  async setPermissionMode(mode: ClaudePermissionMode): Promise<boolean> {
+  async setPermissionMode(mode: PermissionMode): Promise<boolean> {
     if (this._permissionMode === mode) {
       return true;
     }
 
     if (this.queryInstance) {
       try {
-        await this.queryInstance.setPermissionMode(toSdkPermissionMode(mode));
-        this._permissionMode = mode;
-        this.emit('permissionModeChanged', mode);
-        return true;
+        await this.queryInstance.setPermissionMode(mode);
       } catch (error) {
         console.error(`Failed to set permission mode:`, error);
         return false;
       }
     }
 
-    // If query not running, just update local state
+    // Update local state and emit event
     this._permissionMode = mode;
+    this.emit('permissionModeChanged', mode);
     return true;
   }
 

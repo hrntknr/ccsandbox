@@ -1,4 +1,4 @@
-import type { ClaudePermissionMode } from '@shared/index.js';
+import type { PermissionMode } from '@shared/index.js';
 
 interface ToolInputDisplayProps {
   toolName: string;
@@ -363,7 +363,7 @@ function getToolIcon(toolName: string): string {
 /**
  * Get permission mode display info
  */
-export function getPermissionModeInfo(mode: ClaudePermissionMode): {
+export function getPermissionModeInfo(mode: PermissionMode): {
   label: string;
   color: string;
   bgColor: string;

@@ -1,5 +1,5 @@
 import type { Session, TabType, TerminalTab } from './session.js';
-import type { ClaudeMessage, ClaudePendingPermission, ClaudePermissionMode, TodoItem } from './claude.js';
+import type { ClaudeMessage, ClaudePendingPermission, PermissionMode, TodoItem } from './claude.js';
 import type { DevcontainerSource } from './template.js';
 
 /**
@@ -20,7 +20,7 @@ export type TerminalClientMessage =
   | { type: 'resize'; cols: number; rows: number }
   | { type: 'detach' }
   // Claude-specific messages
-  | { type: 'claude-message'; content: string; permissionMode?: ClaudePermissionMode }
+  | { type: 'claude-message'; content: string; permissionMode?: PermissionMode }
   | {
       type: 'claude-permission-response';
       requestId: string;
@@ -28,9 +28,9 @@ export type TerminalClientMessage =
       /** Answers for AskUserQuestion tool (key: question text, value: selected label(s)) */
       answers?: Record<string, string>;
       /** Permission mode to set (for ExitPlanMode) */
-      permissionMode?: ClaudePermissionMode;
+      permissionMode?: PermissionMode;
     }
-  | { type: 'claude-change-permission-mode'; permissionMode: ClaudePermissionMode };
+  | { type: 'claude-change-permission-mode'; permissionMode: PermissionMode };
 
 /**
  * Messages sent from server to client
@@ -55,12 +55,12 @@ export type TerminalServerMessage =
       messages: ClaudeMessage[];
       pendingPermissions: ClaudePendingPermission[];
       todos: TodoItem[];
-      permissionMode?: ClaudePermissionMode;
+      permissionMode?: PermissionMode;
     }
   | { type: 'claude-permission-resolved'; tabId: string; requestId: string }
   | { type: 'claude-user-message'; tabId: string; message: ClaudeMessage }
   | { type: 'claude-todos-updated'; tabId: string; todos: TodoItem[] }
-  | { type: 'claude-permission-mode-changed'; tabId: string; mode: ClaudePermissionMode };
+  | { type: 'claude-permission-mode-changed'; tabId: string; mode: PermissionMode };
 
 /**
  * Session creation WebSocket message types

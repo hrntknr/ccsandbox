@@ -8,7 +8,7 @@ import type {
   ClaudeEvent,
   ClaudeMessage,
   ClaudePendingPermission,
-  ClaudePermissionMode,
+  PermissionMode,
   TodoItem,
 } from '@shared/index.js';
 
@@ -35,7 +35,7 @@ interface ClaudeEventCallback {
 }
 
 interface ClaudeHistoryCallback {
-  (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[], todos: TodoItem[], permissionMode?: ClaudePermissionMode): void;
+  (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[], todos: TodoItem[], permissionMode?: PermissionMode): void;
 }
 
 interface ClaudeEventSubscription {
@@ -75,13 +75,13 @@ interface ClaudeTodosUpdatedSubscription {
   callback: ClaudeTodosUpdatedCallback;
 }
 
-interface ClaudePermissionModeChangedCallback {
-  (mode: ClaudePermissionMode): void;
+interface PermissionModeChangedCallback {
+  (mode: PermissionMode): void;
 }
 
-interface ClaudePermissionModeChangedSubscription {
+interface PermissionModeChangedSubscription {
   tabId: string;
-  callback: ClaudePermissionModeChangedCallback;
+  callback: PermissionModeChangedCallback;
 }
 
 export interface UseTerminalWebSocketReturn {
@@ -99,7 +99,7 @@ export interface UseTerminalWebSocketReturn {
   onResizeSync: (tabId: string, callback: ResizeSyncCallback) => () => void;
   onOwnTabAdded: (callback: (tab: TerminalTab) => void) => () => void;
   // Claude-specific
-  sendClaudeMessage: (content: string, permissionMode?: ClaudePermissionMode) => void;
+  sendClaudeMessage: (content: string, permissionMode?: PermissionMode) => void;
   /**
    * Respond to a permission request
    * @param requestId - The permission request ID
@@ -111,18 +111,18 @@ export interface UseTerminalWebSocketReturn {
     requestId: string,
     permission: 'allow' | 'deny',
     answers?: Record<string, string>,
-    permissionMode?: ClaudePermissionMode
+    permissionMode?: PermissionMode
   ) => void;
   /**
    * Change permission mode for the current Claude tab
    */
-  changePermissionMode: (permissionMode: ClaudePermissionMode) => void;
+  changePermissionMode: (permissionMode: PermissionMode) => void;
   onClaudeEvent: (tabId: string, callback: ClaudeEventCallback) => () => void;
   onClaudeHistory: (tabId: string, callback: ClaudeHistoryCallback) => () => void;
   onClaudePermissionResolved: (tabId: string, callback: ClaudePermissionResolvedCallback) => () => void;
   onClaudeUserMessage: (tabId: string, callback: ClaudeUserMessageCallback) => () => void;
   onClaudeTodosUpdated: (tabId: string, callback: ClaudeTodosUpdatedCallback) => () => void;
-  onClaudePermissionModeChanged: (tabId: string, callback: ClaudePermissionModeChangedCallback) => () => void;
+  onPermissionModeChanged: (tabId: string, callback: PermissionModeChangedCallback) => () => void;
 }
 
 export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSocketReturn {
@@ -142,7 +142,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
   const claudePermissionResolvedSubscriptionsRef = useRef<ClaudePermissionResolvedSubscription[]>([]);
   const claudeUserMessageSubscriptionsRef = useRef<ClaudeUserMessageSubscription[]>([]);
   const claudeTodosUpdatedSubscriptionsRef = useRef<ClaudeTodosUpdatedSubscription[]>([]);
-  const claudePermissionModeChangedSubscriptionsRef = useRef<ClaudePermissionModeChangedSubscription[]>([]);
+  const claudePermissionModeChangedSubscriptionsRef = useRef<PermissionModeChangedSubscription[]>([]);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sendMessage = useCallback((message: TerminalClientMessage) => {
@@ -502,21 +502,21 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
 
   // Claude-specific functions
   const sendClaudeMessage = useCallback(
-    (content: string, permissionMode?: ClaudePermissionMode) => {
+    (content: string, permissionMode?: PermissionMode) => {
       sendMessage({ type: 'claude-message', content, permissionMode });
     },
     [sendMessage]
   );
 
   const respondToPermission = useCallback(
-    (requestId: string, permission: 'allow' | 'deny', answers?: Record<string, string>, permissionMode?: ClaudePermissionMode) => {
+    (requestId: string, permission: 'allow' | 'deny', answers?: Record<string, string>, permissionMode?: PermissionMode) => {
       sendMessage({ type: 'claude-permission-response', requestId, permission, answers, permissionMode });
     },
     [sendMessage]
   );
 
   const changePermissionMode = useCallback(
-    (permissionMode: ClaudePermissionMode) => {
+    (permissionMode: PermissionMode) => {
       sendMessage({ type: 'claude-change-permission-mode', permissionMode });
     },
     [sendMessage]
@@ -592,8 +592,8 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     []
   );
 
-  const onClaudePermissionModeChanged = useCallback(
-    (tabId: string, callback: ClaudePermissionModeChangedCallback): (() => void) => {
+  const onPermissionModeChanged = useCallback(
+    (tabId: string, callback: PermissionModeChangedCallback): (() => void) => {
       const subscription = { tabId, callback };
       claudePermissionModeChangedSubscriptionsRef.current.push(subscription);
 
@@ -629,6 +629,6 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     onClaudePermissionResolved,
     onClaudeUserMessage,
     onClaudeTodosUpdated,
-    onClaudePermissionModeChanged,
+    onPermissionModeChanged,
   };
 }
