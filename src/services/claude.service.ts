@@ -311,15 +311,13 @@ export class ClaudeManager extends EventEmitter {
 
     // Handle assistant message completion
     if (event.type === 'assistant') {
-      // Detect EnterPlanMode/ExitPlanMode tool use and update permission mode
+      // Detect EnterPlanMode tool use and update permission mode
+      // Note: ExitPlanMode is handled via permission dialog - mode change depends on user's choice
       for (const content of event.message.content) {
         if (content.type === 'tool_use') {
           if (content.name === 'EnterPlanMode') {
             instance.permissionMode = 'plan';
             this.emit('permissionModeChanged', instance.tabId, 'plan');
-          } else if (content.name === 'ExitPlanMode') {
-            instance.permissionMode = 'default';
-            this.emit('permissionModeChanged', instance.tabId, 'default');
           }
         }
       }

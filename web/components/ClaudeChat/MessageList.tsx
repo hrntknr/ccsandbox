@@ -101,9 +101,12 @@ function groupConsecutiveMessages(messages: ClaudeMessage[]): GroupedMessage[] {
       items.push({ type: 'text', text: message.content });
     }
 
-    // Tool use (added after text)
+    // Tool use (added after text, excluding EnterPlanMode/ExitPlanMode)
     if (message.toolUse) {
       for (const tool of message.toolUse) {
+        if (tool.name === 'EnterPlanMode' || tool.name === 'ExitPlanMode') {
+          continue;
+        }
         const result = message.toolResults?.find((r) => r.toolUseId === tool.id);
         items.push({ type: 'tool', tool, result });
       }

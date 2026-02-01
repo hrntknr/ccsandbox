@@ -14,6 +14,7 @@ import { MessageList } from './MessageList';
 import { InputForm } from './InputForm';
 import { PermissionDialog } from './PermissionDialog';
 import { AskUserQuestionDialog } from './AskUserQuestionDialog';
+import { ExitPlanModeDialog } from './ExitPlanModeDialog';
 import { TodoList } from './TodoList';
 
 interface ClaudeChatProps {
@@ -293,6 +294,16 @@ export function ClaudeChat({
               />
             );
           }
+        }
+        // Check if this is an ExitPlanMode tool request
+        if (permission.toolName === 'ExitPlanMode') {
+          return (
+            <ExitPlanModeDialog
+              permission={permission}
+              onResponse={handlePermissionResponse}
+              onChangePermissionMode={changePermissionMode}
+            />
+          );
         }
         // Default permission dialog for other tools
         return (
