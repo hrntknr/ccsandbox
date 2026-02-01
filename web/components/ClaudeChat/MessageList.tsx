@@ -188,9 +188,11 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
             {/* Display items in order */}
             {message.items.map((item, index) => {
               if (item.type === 'text') {
+                // Convert newlines to Markdown line breaks for user messages
+                const text = message.role === 'user' ? item.text.replace(/\n/g, '  \n') : item.text;
                 return (
                   <div key={index} className={`break-words leading-relaxed text-claude-text-primary prose prose-invert max-w-none ${index > 0 ? 'mt-3 pt-3 border-t border-dashed border-claude-border' : ''}`}>
-                    <Streamdown plugins={{ code }}>{item.text}</Streamdown>
+                    <Streamdown plugins={{ code }}>{text}</Streamdown>
                   </div>
                 );
               } else {
