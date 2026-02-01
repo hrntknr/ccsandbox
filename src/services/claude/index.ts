@@ -56,6 +56,8 @@ export interface CreateClaudeOptions {
   configPath?: string;
   remoteEnv?: string[];
   scratchDir?: string;
+  /** Maximum thinking tokens for extended thinking (0 or undefined to disable) */
+  maxThinkingTokens?: number;
 }
 
 /**
@@ -93,6 +95,7 @@ export class ClaudeSessionManager extends EventEmitter {
       configPath,
       remoteEnv,
       scratchDir = this.defaultScratchDir,
+      maxThinkingTokens,
     } = options;
 
     if (!isValidWorkspacePath(workspacePath)) {
@@ -108,6 +111,7 @@ export class ClaudeSessionManager extends EventEmitter {
       configPath,
       remoteEnv,
       scratchDir,
+      maxThinkingTokens,
     };
 
     const session = new ClaudeSession(sessionOptions);
