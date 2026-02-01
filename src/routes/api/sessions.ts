@@ -2,7 +2,7 @@ import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
-import type { CreateSessionRequest, ApiResponse, Session, DiffStatsResponse, DiffDetailResponse, AddPortForwardingRequest, PortForwardingListResponse, PortForwarding } from '../../shared/index.js';
+import type { CreateSessionRequest, ApiResponse, Session, DiffStatsResponse, DiffDetailResponse, GitStatusResponse, AddPortForwardingRequest, PortForwardingListResponse, PortForwarding } from '../../shared/index.js';
 import { getConfig } from '../../config.js';
 import {
   getSessionStore,
@@ -10,7 +10,7 @@ import {
   SessionNotFoundError,
   WorkspaceExistsError,
 } from '../../persistence/session-store.js';
-import { cloneRepository, GitOperationError, getDiffStats, getDiffDetail } from '../../services/git.service.js';
+import { cloneRepository, GitOperationError, getDiffStats, getDiffDetail, getGitStatus } from '../../services/git.service.js';
 import { getAuthenticatedUsername } from '../../services/github.service.js';
 import {
   hasDevcontainerConfig,
@@ -504,6 +504,40 @@ router.get(
       const response: ApiResponse<DiffDetailResponse> = {
         success: true,
         data: { files, stats },
+      };
+      res.json(response);
+    } catch (error) {
+      if (error instanceof SessionNotFoundError) {
+        const response: ApiResponse<null> = {
+          success: false,
+          error: `Session not found: ${id}`,
+        };
+        res.status(404).json(response);
+        return;
+      }
+      throw error;
+    }
+  })
+);
+
+/**
+ * GET /api/sessions/:id/git-status
+ * Get git status for a session (for deletion warnings).
+ */
+router.get(
+  '/:id/git-status',
+  asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
+    const { id } = req.params;
+    const store = getSessionStore(getConfig().configDir, getConfig().repoDir);
+
+    try {
+      const session = await store.get(id);
+
+      const status = await getGitStatus(session.workspacePath);
+
+      const response: ApiResponse<GitStatusResponse> = {
+        success: true,
+        data: { status },
       };
       res.json(response);
     } catch (error) {

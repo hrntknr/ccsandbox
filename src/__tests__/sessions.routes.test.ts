@@ -12,6 +12,7 @@ import * as devcontainerService from '../services/devcontainer.service.js';
 // Mock git, github, and devcontainer services
 vi.mock('../services/git.service.js', () => ({
   cloneRepository: vi.fn(),
+  getGitStatus: vi.fn(),
   GitOperationError: class GitOperationError extends Error {
     constructor(
       public operation: string,
@@ -356,6 +357,101 @@ describe('sessions routes', () => {
         .expect(404);
 
       expect(response.body.success).toBe(false);
+    });
+  });
+
+  describe('GET /api/sessions/:id/git-status', () => {
+    it('returns git status with uncommitted changes', async () => {
+      // Create a session first
+      const createRequest = {
+        title: 'Test Session',
+        repo: 'owner/repo',
+        baseBranch: 'main',
+        workBranch: 'feature/git-status-test',
+      };
+
+      vi.mocked(gitService.cloneRepository).mockImplementation(async (options) => {
+        await mkdir(options.workspacePath, { recursive: true });
+      });
+      vi.mocked(devcontainerService.hasDevcontainerConfig).mockResolvedValue(true);
+      vi.mocked(devcontainerService.startDevcontainer).mockResolvedValue({
+        containerId: 'container123',
+      });
+      vi.mocked(gitService.getGitStatus).mockResolvedValue({
+        hasUncommittedChanges: true,
+        hasUnpushedCommits: true,
+        uncommittedFileCount: 3,
+        unpushedCommitCount: 2,
+        currentBranch: 'feature/git-status-test',
+      });
+
+      const createResponse = await request(app)
+        .post('/api/sessions')
+        .send(createRequest)
+        .expect(201);
+
+      const sessionId = createResponse.body.data.session.sessionId;
+
+      const response = await request(app)
+        .get(`/api/sessions/${sessionId}/git-status`)
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.status).toEqual({
+        hasUncommittedChanges: true,
+        hasUnpushedCommits: true,
+        uncommittedFileCount: 3,
+        unpushedCommitCount: 2,
+        currentBranch: 'feature/git-status-test',
+      });
+    });
+
+    it('returns git status with no changes', async () => {
+      const createRequest = {
+        title: 'Clean Session',
+        repo: 'owner/repo',
+        baseBranch: 'main',
+        workBranch: 'feature/clean-status',
+      };
+
+      vi.mocked(gitService.cloneRepository).mockImplementation(async (options) => {
+        await mkdir(options.workspacePath, { recursive: true });
+      });
+      vi.mocked(devcontainerService.hasDevcontainerConfig).mockResolvedValue(true);
+      vi.mocked(devcontainerService.startDevcontainer).mockResolvedValue({
+        containerId: 'container456',
+      });
+      vi.mocked(gitService.getGitStatus).mockResolvedValue({
+        hasUncommittedChanges: false,
+        hasUnpushedCommits: false,
+        uncommittedFileCount: 0,
+        unpushedCommitCount: 0,
+        currentBranch: 'feature/clean-status',
+      });
+
+      const createResponse = await request(app)
+        .post('/api/sessions')
+        .send(createRequest)
+        .expect(201);
+
+      const sessionId = createResponse.body.data.session.sessionId;
+
+      const response = await request(app)
+        .get(`/api/sessions/${sessionId}/git-status`)
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.status.hasUncommittedChanges).toBe(false);
+      expect(response.body.data.status.hasUnpushedCommits).toBe(false);
+    });
+
+    it('returns 404 when session not found', async () => {
+      const response = await request(app)
+        .get('/api/sessions/nonexistent-id/git-status')
+        .expect(404);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toContain('Session not found');
     });
   });
 });
