@@ -157,7 +157,7 @@ describe('devcontainer.service', () => {
 
       expect(childProcess.spawn).toHaveBeenCalledWith(
         'devcontainer',
-        ['up', '--workspace-folder', testDir],
+        ['up', '--workspace-folder', testDir, '--additional-features', '{"ghcr.io/devcontainers-extra/features/claude-code:1":{}}'],
         expect.any(Object)
       );
     });
@@ -177,7 +177,7 @@ describe('devcontainer.service', () => {
 
       expect(childProcess.spawn).toHaveBeenCalledWith(
         '/custom/path/devcontainer',
-        ['up', '--workspace-folder', testDir],
+        ['up', '--workspace-folder', testDir, '--additional-features', '{"ghcr.io/devcontainers-extra/features/claude-code:1":{}}'],
         expect.any(Object)
       );
     });
