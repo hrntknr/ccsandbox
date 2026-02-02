@@ -66,6 +66,7 @@ export function Terminal({
   onResizeSync,
   closeTab,
 }: TerminalProps) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -74,6 +75,8 @@ export function Terminal({
   const isMobile = useIsMobile();
   const [ctrlState, setCtrlState] = useState<ModifierState>('off');
   const [altState, setAltState] = useState<ModifierState>('off');
+  const [terminalHeight, setTerminalHeight] = useState<number | null>(null);
+  const [terminalTop, setTerminalTop] = useState<number | null>(null);
 
   // Handle modifier key press (Ctrl/Alt)
   const handleModifierPress = useCallback((modifier: 'ctrl' | 'alt') => {
@@ -263,12 +266,22 @@ export function Terminal({
 
   useEffect(() => {
     window.addEventListener('resize', handleResize);
+
+    // Also listen to visualViewport changes for iOS keyboard
+    const visualViewport = window.visualViewport;
+    if (visualViewport) {
+      visualViewport.addEventListener('resize', handleResize);
+    }
+
     return () => {
       window.removeEventListener('resize', handleResize);
+      if (visualViewport) {
+        visualViewport.removeEventListener('resize', handleResize);
+      }
     };
   }, [handleResize]);
 
-  // Fit when becoming active
+  // Fit when becoming active or terminal height changes (iOS keyboard)
   useEffect(() => {
     if (isActive && fitAddonRef.current) {
       // Use setTimeout to ensure the container is visible before fitting
@@ -280,17 +293,99 @@ export function Terminal({
         }
       }, 0);
     }
-  }, [isActive, resizeTerminal]);
+  }, [isActive, resizeTerminal, terminalHeight]);
+
+  // iOS keyboard height handling - only for terminal
+  useEffect(() => {
+    if (!isMobile) return;
+
+    const updateLayout = () => {
+      const visualViewport = window.visualViewport;
+      const wrapper = wrapperRef.current;
+      if (visualViewport && wrapper) {
+        // Get the wrapper's position relative to viewport
+        const wrapperRect = wrapper.parentElement?.getBoundingClientRect();
+        const top = wrapperRect?.top ?? 0;
+
+        // Calculate the available height for terminal
+        const availableHeight = visualViewport.height - top;
+
+        setTerminalTop(top);
+        setTerminalHeight(availableHeight > 0 ? availableHeight : null);
+
+        // Reset scroll position to prevent content from being pushed up
+        if (visualViewport.offsetTop > 0) {
+          window.scrollTo(0, 0);
+        }
+      }
+    };
+
+    // Initial calculation after mount
+    setTimeout(updateLayout, 0);
+
+    const visualViewport = window.visualViewport;
+    if (visualViewport) {
+      visualViewport.addEventListener('resize', updateLayout);
+      visualViewport.addEventListener('scroll', updateLayout);
+    }
+
+    return () => {
+      if (visualViewport) {
+        visualViewport.removeEventListener('resize', updateLayout);
+        visualViewport.removeEventListener('scroll', updateLayout);
+      }
+    };
+  }, [isMobile]);
+
+  // Prevent body scroll when terminal is active on iOS (but allow terminal internal scroll)
+  useEffect(() => {
+    if (!isMobile || !isActive) return;
+
+    // Prevent touchmove on document to stop body scrolling
+    const preventScroll = (e: TouchEvent) => {
+      const target = e.target as HTMLElement;
+      // Allow scrolling within the special key bar (horizontal scroll)
+      if (target.closest('[data-special-key-bar]')) {
+        return;
+      }
+      // Allow scrolling within xterm.js terminal (viewport handles scroll)
+      if (target.closest('.xterm-viewport')) {
+        return;
+      }
+      // Prevent default to stop body scroll
+      e.preventDefault();
+    };
+
+    // Add to document to catch all touch events
+    document.addEventListener('touchmove', preventScroll, { passive: false });
+
+    return () => {
+      document.removeEventListener('touchmove', preventScroll);
+    };
+  }, [isMobile, isActive]);
+
+  // Apply style for iOS keyboard handling - use position:fixed to escape body scroll
+  const useFixedLayout = isMobile && terminalHeight !== null && terminalTop !== null;
+  const wrapperStyle: React.CSSProperties = useFixedLayout
+    ? { position: 'fixed', top: terminalTop, left: 0, right: 0, height: terminalHeight }
+    : {};
 
   return (
-    <div className={`w-full h-full absolute inset-0 flex flex-col ${isActive ? 'visible z-[1]' : 'invisible z-0'}`}>
+    <div
+      ref={wrapperRef}
+      className={`flex flex-col ${isActive ? 'visible z-[1]' : 'invisible z-0'} ${useFixedLayout ? '' : 'w-full h-full absolute inset-0'}`}
+      style={wrapperStyle}
+    >
       <div
         ref={containerRef}
         className="flex-1 min-h-0"
       />
       {/* Mobile special key bar */}
       {isMobile && (
-        <div className="flex-shrink-0 bg-[#2d2d2d] border-t border-vscode-border overflow-x-auto relative z-10">
+        <div
+          data-special-key-bar
+          className="flex-shrink-0 bg-[#2d2d2d] border-t border-vscode-border overflow-x-auto relative z-10"
+        >
           <div className="flex gap-1 p-1.5">
             {/* Ctrl button */}
             <button

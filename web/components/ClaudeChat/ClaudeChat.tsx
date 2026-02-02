@@ -94,7 +94,6 @@ export function ClaudeChat({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const bottomAreaRef = useRef<HTMLDivElement>(null);
-  const historyLoadedRef = useRef(false);
   const isAtBottomRef = useRef(true);
   const isScrollingRef = useRef(false);
 
@@ -231,23 +230,20 @@ export function ClaudeChat({
     });
   }, [tabId, onClaudeEvent]);
 
-  // Handle history on attach
+  // Handle history on attach (always update to sync state after reconnection)
   useEffect(() => {
     return onClaudeHistory(tabId, (history, permissions, historyTodos, permissionMode, isProcessing, historyPlanFilePath) => {
-      if (!historyLoadedRef.current) {
-        setMessages(history);
-        setPendingPermissions(permissions);
-        setTodos(historyTodos);
-        if (permissionMode) {
-          setBackendPermissionMode(permissionMode);
-        }
-        if (isProcessing !== undefined) {
-          setIsLoading(isProcessing);
-        }
-        if (historyPlanFilePath) {
-          setPlanFilePath(historyPlanFilePath);
-        }
-        historyLoadedRef.current = true;
+      setMessages(history);
+      setPendingPermissions(permissions);
+      setTodos(historyTodos);
+      if (permissionMode) {
+        setBackendPermissionMode(permissionMode);
+      }
+      if (isProcessing !== undefined) {
+        setIsLoading(isProcessing);
+      }
+      if (historyPlanFilePath) {
+        setPlanFilePath(historyPlanFilePath);
       }
     });
   }, [tabId, onClaudeHistory]);
