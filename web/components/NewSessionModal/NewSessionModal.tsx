@@ -735,7 +735,7 @@ export function NewSessionModal({
             </div>
           )}
 
-          <div className="flex-1 bg-[#0d0d0d] border border-[#333] rounded-lg overflow-hidden min-h-0" ref={terminalContainerRef} />
+          <div className="flex-1 bg-[#1e1e1e] border border-[#333] rounded-lg overflow-hidden min-h-0" ref={terminalContainerRef} />
 
           <div className="flex justify-between items-center gap-3 mt-3">
             {createError ? (
