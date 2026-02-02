@@ -54,7 +54,7 @@ export function ExitPlanModeDialog({
   planFilePath,
   onResponse,
 }: ExitPlanModeDialogProps) {
-  const [selectedOption, setSelectedOption] = useState<string>(options[0]!.id);
+  const [selectedOption, setSelectedOption] = useState<string | null>(options[0]!.id);
   const [customMessage, setCustomMessage] = useState('');
   const [planContent, setPlanContent] = useState<string | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
@@ -83,7 +83,10 @@ export function ExitPlanModeDialog({
   }, [sessionId, planFilePath]);
 
   const handleConfirm = useCallback(() => {
-    const option = options.find((o) => o.id === selectedOption);
+    // Use selected option, or fall back to first option if custom input is focused
+    const option = selectedOption
+      ? options.find((o) => o.id === selectedOption)
+      : options[0];
     if (option) {
       // Pass the selected mode with the response so backend sets it before allowing
       onResponse(permission.requestId, 'allow', undefined, option.mode);
@@ -216,10 +219,22 @@ export function ExitPlanModeDialog({
             {/* Custom message input */}
             <form
               onSubmit={handleCustomSubmit}
-              className="w-full p-3.5 rounded-lg border border-claude-border bg-claude-bg-tertiary transition-all focus-within:border-claude-accent"
+              className={`w-full p-3.5 rounded-lg border transition-all ${
+                selectedOption === null
+                  ? 'border-claude-accent bg-claude-accent/10'
+                  : 'border-claude-border bg-claude-bg-tertiary focus-within:border-claude-accent'
+              }`}
             >
               <div className="flex items-start gap-3">
-                <div className="mt-0.5 w-4 h-4 rounded-full border-2 border-claude-text-tertiary flex items-center justify-center flex-shrink-0" />
+                <div
+                  className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                    selectedOption === null ? 'border-claude-accent' : 'border-claude-text-tertiary'
+                  }`}
+                >
+                  {selectedOption === null && (
+                    <div className="w-2 h-2 rounded-full bg-claude-accent" />
+                  )}
+                </div>
                 <div className="flex-1 min-w-0">
                   <input
                     type="text"
@@ -227,6 +242,7 @@ export function ExitPlanModeDialog({
                     placeholder="Type here to tell Claude what to change..."
                     value={customMessage}
                     onChange={(e) => setCustomMessage(e.target.value)}
+                    onFocus={() => setSelectedOption(null)}
                   />
                 </div>
               </div>

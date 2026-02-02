@@ -204,7 +204,9 @@ export class ClaudeSession extends EventEmitter {
             const updatedInput = answers ? { ...input, answers } : input;
             resolve({ behavior: 'allow', updatedInput });
           } else {
-            resolve({ behavior: 'deny', message: 'User denied the operation' });
+            // Use feedback from answers if provided, otherwise use default message
+            const feedbackMessage = answers?.['feedback'] ?? 'User denied the operation';
+            resolve({ behavior: 'deny', message: feedbackMessage });
           }
         },
       };
