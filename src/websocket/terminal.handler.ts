@@ -195,6 +195,7 @@ export function createTerminalHandler(
             remoteEnv: config.pat ? [`GITHUB_TOKEN=${config.pat}`] : undefined,
             maxThinkingTokens: persistedConfig.maxThinkingTokens,
             permissionMode: persistedConfig.defaultPermissionMode,
+            scratchDir: join(config.configDir, 'sessions', sessionId, 'wrappers'),
           });
         }).then(() => {
           connectionManager.updateTab(sessionId, tabId, {
