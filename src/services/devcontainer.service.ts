@@ -353,7 +353,7 @@ export async function startDevcontainer(
   // Add Claude Code feature
   args.push(
     '--additional-features',
-    JSON.stringify({ 'ghcr.io/devcontainers-extra/features/claude-code:1': {} })
+    JSON.stringify({ 'ghcr.io/anthropics/devcontainer-features/claude-code:1': {} })
   );
 
   // Run devcontainer up
