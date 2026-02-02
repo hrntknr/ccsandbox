@@ -321,15 +321,9 @@ export class ConnectionManager {
     }
 
     const data = JSON.stringify(message);
-    let sentCount = 0;
     for (const [clientId, client] of room.clients) {
       if (excludeClientId && clientId === excludeClientId) continue;
-      if (this.safeSend(client.ws, data, clientId)) {
-        sentCount++;
-      }
-    }
-    if (sentCount === 0 && room.clients.size > 0) {
-      console.warn(`[broadcast] No clients received message for session ${sessionId}`);
+      this.safeSend(client.ws, data, clientId);
     }
   }
 
@@ -341,19 +335,11 @@ export class ConnectionManager {
     }
 
     const data = JSON.stringify(message);
-    let sentCount = 0;
-    let targetCount = 0;
     for (const client of room.clients.values()) {
       if (excludeClientId && client.clientId === excludeClientId) continue;
       if (client.currentTabId === tabId) {
-        targetCount++;
-        if (this.safeSend(client.ws, data, client.clientId)) {
-          sentCount++;
-        }
+        this.safeSend(client.ws, data, client.clientId);
       }
-    }
-    if (sentCount === 0 && targetCount > 0) {
-      console.warn(`[broadcastToTab] No clients received message for tab ${tabId}`);
     }
   }
 
