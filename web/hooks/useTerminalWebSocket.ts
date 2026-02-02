@@ -8,6 +8,7 @@ import type {
   ClaudeEvent,
   ClaudeMessage,
   ClaudePendingPermission,
+  ImageAttachment,
   PermissionMode,
   TodoItem,
 } from '@shared/index.js';
@@ -113,7 +114,7 @@ export interface UseTerminalWebSocketReturn {
   onResizeSync: (tabId: string, callback: ResizeSyncCallback) => () => void;
   onOwnTabAdded: (callback: (tab: TerminalTab) => void) => () => void;
   // Claude-specific
-  sendClaudeMessage: (content: string, permissionMode?: PermissionMode) => void;
+  sendClaudeMessage: (content: string, images?: ImageAttachment[], permissionMode?: PermissionMode) => void;
   /**
    * Respond to a permission request
    * @param requestId - The permission request ID
@@ -271,6 +272,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
           break;
 
         case 'claude-event':
+          console.debug('[WS] claude-event received:', message.tabId, (message.event as { type?: string })?.type);
           for (const sub of claudeEventSubscriptionsRef.current) {
             if (sub.tabId === message.tabId) {
               // SDK events are compatible with ClaudeEvent type
@@ -595,8 +597,8 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
 
   // Claude-specific functions
   const sendClaudeMessage = useCallback(
-    (content: string, permissionMode?: PermissionMode) => {
-      sendMessage({ type: 'claude-message', content, permissionMode });
+    (content: string, images?: ImageAttachment[], permissionMode?: PermissionMode) => {
+      sendMessage({ type: 'claude-message', content, images, permissionMode });
     },
     [sendMessage]
   );

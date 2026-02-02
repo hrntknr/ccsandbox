@@ -15,6 +15,7 @@ import type {
   ClaudeSessionManagerEvents,
   ClaudeMessage,
   ClaudePendingPermission,
+  ImageAttachment,
   PermissionMode,
   TodoItem,
 } from './types.js';
@@ -25,6 +26,7 @@ export type {
   ClaudeProcessingStats,
   ClaudeMessage,
   ClaudePendingPermission,
+  ImageAttachment,
   PermissionMode,
   TodoItem,
 };
@@ -183,14 +185,14 @@ export class ClaudeSessionManager extends EventEmitter {
   }
 
   /**
-   * Send a user message to Claude
+   * Send a user message to Claude with optional image attachments
    */
-  sendMessage(tabId: string, content: string): ClaudeMessage | null {
+  sendMessage(tabId: string, content: string, images?: ImageAttachment[]): ClaudeMessage | null {
     const session = this.sessions.get(tabId);
     if (!session) {
       return null;
     }
-    return session.send(content);
+    return session.send(content, images);
   }
 
   /**

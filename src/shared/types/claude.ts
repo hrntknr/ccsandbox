@@ -181,6 +181,8 @@ export interface ClaudeMessage {
     content: string;
     isError?: boolean;
   }[];
+  /** Image attachments for user messages */
+  images?: ImageAttachment[];
   timestamp: string;
   isStreaming?: boolean;
 }
@@ -228,6 +230,16 @@ export interface TodoItem {
   content: string;
   status: 'pending' | 'in_progress' | 'completed';
   activeForm?: string;
+}
+
+/**
+ * Image attachment for Claude messages
+ */
+export interface ImageAttachment {
+  /** Base64-encoded image data (without data URL prefix) */
+  data: string;
+  /** MIME type of the image (e.g., 'image/png', 'image/jpeg') */
+  mediaType: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp';
 }
 
 /**

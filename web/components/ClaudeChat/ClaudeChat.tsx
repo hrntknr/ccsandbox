@@ -6,6 +6,7 @@ import type {
   ClaudeEvent,
   ClaudeMessage,
   ClaudePendingPermission,
+  ImageAttachment,
   PermissionMode,
   TodoItem,
   TodoWriteResult,
@@ -23,7 +24,7 @@ interface ClaudeChatProps {
   isActive: boolean;
   isConnected: boolean;
   defaultPermissionMode?: PermissionMode;
-  sendClaudeMessage: (content: string, permissionMode: PermissionMode) => void;
+  sendClaudeMessage: (content: string, images?: ImageAttachment[], permissionMode?: PermissionMode) => void;
   respondToPermission: (
     requestId: string,
     permission: 'allow' | 'deny',
@@ -325,6 +326,15 @@ export function ClaudeChat({
     messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
   }, []);
 
+  // Adjust scroll position when bottom area height changes (e.g., TodoList appears)
+  useEffect(() => {
+    if (!isActive) return;
+
+    if (isAtBottomRef.current) {
+      scrollToBottom('instant');
+    }
+  }, [bottomAreaHeight, isActive, scrollToBottom]);
+
   // Track scroll position to detect if user is at bottom
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -390,7 +400,7 @@ export function ClaudeChat({
   }, [isActive, scrollToBottom, messages.length]);
 
   const handleSubmit = useCallback(
-    (content: string, permissionMode: PermissionMode) => {
+    (content: string, permissionMode: PermissionMode, images?: ImageAttachment[]) => {
       // Skip if not connected - message won't be sent
       if (!isConnected) {
         return;
@@ -401,10 +411,11 @@ export function ClaudeChat({
         id: uuidv4(),
         role: 'user',
         content,
+        images,
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, userMessage]);
-      sendClaudeMessage(content, permissionMode);
+      sendClaudeMessage(content, images, permissionMode);
 
       // When user sends a message, snap to bottom and follow new messages
       isAtBottomRef.current = true;

@@ -1,7 +1,7 @@
 import { WebSocket } from 'ws';
 import { join } from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
-import type { TerminalClientMessage, TerminalServerMessage, TerminalTab, TabType, PermissionMode, Session } from '../shared/index.js';
+import type { TerminalClientMessage, TerminalServerMessage, TerminalTab, TabType, ImageAttachment, PermissionMode, Session } from '../shared/index.js';
 import { getTerminalManager } from '../services/terminal.service.js';
 import { getClaudeManager } from '../services/claude/index.js';
 import { SessionStore } from '../persistence/session-store.js';
@@ -479,9 +479,9 @@ export function createTerminalHandler(
   }
 
   /**
-   * Handle claude-message - send a message to Claude
+   * Handle claude-message - send a message to Claude with optional images
    */
-  async function handleClaudeMessage(content: string, permissionMode?: PermissionMode): Promise<void> {
+  async function handleClaudeMessage(content: string, images?: ImageAttachment[], permissionMode?: PermissionMode): Promise<void> {
     if (!currentTabId || !currentSessionId || !clientId) {
       sendError(ws, 'Not attached to a Claude tab');
       return;
@@ -498,7 +498,7 @@ export function createTerminalHandler(
       await claudeManager.setPermissionMode(currentTabId, permissionMode);
     }
 
-    const userMessage = claudeManager.sendMessage(currentTabId, content);
+    const userMessage = claudeManager.sendMessage(currentTabId, content, images);
     if (!userMessage) {
       sendError(ws, 'Failed to send message to Claude');
       return;
@@ -674,7 +674,7 @@ export function createTerminalHandler(
         break;
 
       case 'claude-message':
-        handleClaudeMessage(message.content, message.permissionMode).catch((error) => {
+        handleClaudeMessage(message.content, message.images, message.permissionMode).catch((error) => {
           const errorMessage = error instanceof Error ? error.message : 'Failed to send Claude message';
           sendError(ws, errorMessage);
         });

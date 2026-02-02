@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Streamdown } from 'streamdown';
 import { createCodePlugin } from '@streamdown/code';
-import type { ClaudeMessage } from '@shared/index.js';
+import type { ClaudeMessage, ImageAttachment } from '@shared/index.js';
 import { AnsiOutput } from './AnsiOutput';
 import { ThinkingBlock } from './ThinkingBlock';
 
@@ -33,43 +33,84 @@ interface ToolItemProps {
   result?: ToolResult;
 }
 
-function ToolItem({ tool, result, isFirst, isLast }: ToolItemProps & { isFirst: boolean; isLast: boolean }) {
+function ToolBadge({ tool, result }: ToolItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const getStatus = () => {
-    if (!result) return { label: 'Running', icon: '●', className: 'text-claude-accent' };
-    if (result.isError) return { label: 'Error', icon: '✕', className: 'text-claude-error' };
-    return { label: 'Done', icon: '✓', className: 'text-claude-success' };
+    if (!result) return { icon: '●', className: 'bg-claude-accent/20 text-claude-accent border-claude-accent/30' };
+    if (result.isError) return { icon: '✕', className: 'bg-claude-error/10 text-claude-error border-claude-error/30' };
+    return { icon: '✓', className: 'bg-claude-success/10 text-claude-success border-claude-success/30' };
   };
+
+  // Close when clicking outside
+  useEffect(() => {
+    if (!isExpanded) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsExpanded(false);
+      }
+    };
+    // Use setTimeout to avoid immediate close from the toggle button click
+    const timer = setTimeout(() => {
+      document.addEventListener('click', handleClickOutside);
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [isExpanded]);
+
+  // Close on ESC key
+  useEffect(() => {
+    if (!isExpanded) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsExpanded(false);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isExpanded]);
 
   const status = getStatus();
 
   return (
-    <div className={`${!isFirst ? 'border-t border-claude-border/50' : ''}`}>
-      <div
-        className="flex items-center gap-1.5 py-1.5 px-2.5 cursor-pointer select-none hover:bg-claude-bg-hover/50"
+    <div className="relative" ref={containerRef}>
+      <button
+        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border cursor-pointer select-none hover:opacity-80 transition-opacity ${status.className}`}
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <span className={`text-[10px] ${status.className}`}>{status.icon}</span>
-        <span className="font-medium text-[12px] text-claude-text-primary">{tool.name}</span>
-        <span className={`ml-auto text-claude-text-muted transition-transform duration-200 text-[10px] ${isExpanded ? 'rotate-90' : ''}`}>
-          ▶
-        </span>
-      </div>
+        <span className="text-[9px]">{status.icon}</span>
+        <span>{tool.name}</span>
+      </button>
       {isExpanded && (
-        <div className="border-t border-claude-border/30 bg-claude-code-bg">
-          <pre className="font-mono text-xs m-0 p-2 overflow-x-auto text-claude-text-secondary max-h-[150px] overflow-y-auto">
-            {JSON.stringify(tool.input, null, 2)}
-          </pre>
-          {result && (
-            <div className="border-t border-claude-border/30">
-              <div className={`flex items-center gap-1 py-1 px-2 text-[11px] ${result.isError ? 'text-claude-error' : 'text-claude-success'}`}>
-                <span>{result.isError ? '✕' : '✓'}</span>
-                <span>Output</span>
+        <div className="absolute left-0 top-full mt-1 z-10 min-w-[300px] max-w-[500px] bg-claude-bg-tertiary border border-claude-border rounded-lg shadow-lg overflow-hidden">
+          <div className="flex items-center justify-between py-1.5 px-2.5 bg-claude-bg-hover text-claude-text-muted text-[11px] border-b border-claude-border/50">
+            <span className="font-medium text-claude-text-primary">{tool.name}</span>
+            <button
+              className="text-claude-text-muted hover:text-claude-text-primary text-xs"
+              onClick={(e) => { e.stopPropagation(); setIsExpanded(false); }}
+            >
+              ✕
+            </button>
+          </div>
+          <div className="bg-claude-code-bg">
+            <pre className="font-mono text-xs m-0 p-2 overflow-x-auto text-claude-text-secondary max-h-[150px] overflow-y-auto">
+              {JSON.stringify(tool.input, null, 2)}
+            </pre>
+            {result && (
+              <div className="border-t border-claude-border/30">
+                <div className={`flex items-center gap-1 py-1 px-2 text-[11px] ${result.isError ? 'text-claude-error' : 'text-claude-success'}`}>
+                  <span>{result.isError ? '✕' : '✓'}</span>
+                  <span>Output</span>
+                </div>
+                <AnsiOutput content={result.content} />
               </div>
-              <AnsiOutput content={result.content} />
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -84,22 +125,14 @@ function ToolGroup({ tools }: ToolGroupProps) {
   if (tools.length === 0) return null;
 
   return (
-    <div className="bg-claude-bg-tertiary border border-claude-border rounded-lg mt-2 overflow-hidden">
-      <div className="flex items-center gap-1.5 py-1 px-2.5 bg-claude-bg-hover text-claude-text-muted text-[11px]">
-        <span className="text-claude-accent text-[10px]">⚡</span>
-        <span>Tools ({tools.length})</span>
-      </div>
-      <div>
-        {tools.map((item, index) => (
-          <ToolItem
-            key={item.tool.id}
-            tool={item.tool}
-            result={item.result}
-            isFirst={index === 0}
-            isLast={index === tools.length - 1}
-          />
-        ))}
-      </div>
+    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+      {tools.map((item) => (
+        <ToolBadge
+          key={item.tool.id}
+          tool={item.tool}
+          result={item.result}
+        />
+      ))}
     </div>
   );
 }
@@ -108,13 +141,64 @@ function ToolGroup({ tools }: ToolGroupProps) {
 type ContentItem =
   | { type: 'text'; text: string }
   | { type: 'thinking'; thinking: string }
-  | { type: 'tool'; tool: ToolInfo; result?: ToolResult };
+  | { type: 'tool'; tool: ToolInfo; result?: ToolResult }
+  | { type: 'images'; images: ImageAttachment[] };
 
 interface GroupedMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
   items: ContentItem[];
   timestamp: string;
+}
+
+/**
+ * Component to display image attachments
+ */
+function ImageGallery({ images }: { images: ImageAttachment[] }) {
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+
+  return (
+    <>
+      <div className="flex flex-wrap gap-2 mt-2">
+        {images.map((img, index) => (
+          <button
+            key={index}
+            onClick={() => setExpandedIndex(index)}
+            className="relative group cursor-pointer"
+          >
+            <img
+              src={`data:${img.mediaType};base64,${img.data}`}
+              alt={`Attachment ${index + 1}`}
+              className="w-24 h-24 object-cover rounded-lg border border-claude-border hover:border-claude-accent transition-colors"
+            />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 rounded-lg transition-colors flex items-center justify-center">
+              <span className="opacity-0 group-hover:opacity-100 text-white text-xs">Click to expand</span>
+            </div>
+          </button>
+        ))}
+      </div>
+      {/* Expanded image modal */}
+      {expandedIndex !== null && images[expandedIndex] && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setExpandedIndex(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white text-2xl hover:text-gray-300"
+            onClick={() => setExpandedIndex(null)}
+          >
+            ×
+          </button>
+          <img
+            src={`data:${images[expandedIndex].mediaType};base64,${images[expandedIndex].data}`}
+            alt={`Attachment ${expandedIndex + 1}`}
+            className="max-w-full max-h-full object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+    </>
+  );
 }
 
 function groupConsecutiveMessages(messages: ClaudeMessage[]): GroupedMessage[] {
@@ -129,6 +213,11 @@ function groupConsecutiveMessages(messages: ClaudeMessage[]): GroupedMessage[] {
     // Thinking content (shown first, before text)
     if (message.thinking?.trim()) {
       items.push({ type: 'thinking', thinking: message.thinking });
+    }
+
+    // Images (for user messages, shown before text)
+    if (message.images && message.images.length > 0) {
+      items.push({ type: 'images', images: message.images });
     }
 
     // Text content
@@ -255,13 +344,20 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
                   // Flush tools before accumulating thinking
                   flushTools();
                   thinkingBuffer.push(item.thinking);
+                } else if (item.type === 'images') {
+                  // Flush both buffers before images
+                  flushThinkings();
+                  flushTools();
+                  rendered.push(
+                    <ImageGallery key={`images-${keyIndex++}`} images={item.images} />
+                  );
                 } else if (item.type === 'text') {
                   // Flush both buffers before text
                   flushThinkings();
                   flushTools();
                   const text = message.role === 'user' ? item.text.replace(/\n/g, '  \n') : item.text;
                   rendered.push(
-                    <div key={`text-${keyIndex++}`} className={`break-words leading-relaxed text-claude-text-primary prose prose-invert max-w-none ${rendered.length > 0 ? 'mt-3 pt-3 border-t border-dashed border-claude-border' : ''}`}>
+                    <div key={`text-${keyIndex++}`} className={`break-words leading-relaxed text-claude-text-primary prose prose-invert max-w-none ${rendered.length > 0 ? 'mt-3' : ''}`}>
                       <Streamdown plugins={{ code: darkCodePlugin }}>{text}</Streamdown>
                     </div>
                   );
@@ -280,7 +376,7 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
 
             {/* Streaming content */}
             {showStreamingHere && (
-              <div className={`break-words leading-relaxed text-claude-text-primary prose prose-invert max-w-none ${message.items.length > 0 ? 'mt-3 pt-3 border-t border-dashed border-claude-border' : ''}`}>
+              <div className={`break-words leading-relaxed text-claude-text-primary prose prose-invert max-w-none ${message.items.length > 0 ? 'mt-3' : ''}`}>
                 <Streamdown plugins={{ code: darkCodePlugin }} isAnimating>{streamingContent}</Streamdown>
               </div>
             )}

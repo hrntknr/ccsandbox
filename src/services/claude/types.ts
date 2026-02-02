@@ -11,6 +11,7 @@ import type {
 import type {
   ClaudeMessage,
   ClaudePendingPermission,
+  ImageAttachment,
   TodoItem,
 } from '../../shared/types/claude.js';
 
@@ -21,6 +22,7 @@ export type { SDKMessage, SDKUserMessage, PermissionResult, PermissionMode };
 export type {
   ClaudeMessage,
   ClaudePendingPermission,
+  ImageAttachment,
   TodoItem,
 };
 

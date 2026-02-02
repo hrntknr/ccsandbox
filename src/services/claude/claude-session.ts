@@ -13,6 +13,7 @@ import type {
   ClaudeMessage,
   ClaudePendingPermission,
   TodoItem,
+  ImageAttachment,
 } from './types.js';
 
 /**
@@ -398,16 +399,34 @@ export class ClaudeSession extends EventEmitter {
   }
 
   /**
-   * Send a user message
+   * Send a user message with optional image attachments
    */
-  send(content: string): ClaudeMessage | null {
+  send(content: string, images?: ImageAttachment[]): ClaudeMessage | null {
     if (this.closed || !this.queryInstance) {
       return null;
     }
 
+    // Build content: either string (text only) or array (text + images)
+    let messageContent: string | Array<{ type: string; text?: string; source?: { type: string; media_type: string; data: string } }>;
+    if (images && images.length > 0) {
+      messageContent = [
+        { type: 'text', text: content },
+        ...images.map((img) => ({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: img.mediaType,
+            data: img.data,
+          },
+        })),
+      ];
+    } else {
+      messageContent = content;
+    }
+
     const userMessage: SDKUserMessage = {
       type: 'user',
-      message: { role: 'user', content },
+      message: { role: 'user', content: messageContent },
       parent_tool_use_id: null,
       session_id: this.claudeSessionId,
     };
@@ -424,6 +443,7 @@ export class ClaudeSession extends EventEmitter {
       id: uuidv4(),
       role: 'user',
       content,
+      images,
       timestamp: new Date().toISOString(),
     };
     this.messages.push(message);

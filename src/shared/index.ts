@@ -26,6 +26,7 @@ export type {
   // UI types
   ClaudeMessage,
   ClaudePendingPermission,
+  ImageAttachment,
   TodoItem,
   TodoWriteResult,
 

@@ -1,5 +1,5 @@
 import type { Session, TabType, TerminalTab } from './session.js';
-import type { ClaudeMessage, ClaudePendingPermission, PermissionMode, TodoItem } from './claude.js';
+import type { ClaudeMessage, ClaudePendingPermission, ImageAttachment, PermissionMode, TodoItem } from './claude.js';
 import type { DevcontainerSource } from './template.js';
 
 /**
@@ -22,7 +22,7 @@ export type TerminalClientMessage =
   // Heartbeat
   | { type: 'pong'; timestamp: number }
   // Claude-specific messages
-  | { type: 'claude-message'; content: string; permissionMode?: PermissionMode }
+  | { type: 'claude-message'; content: string; images?: ImageAttachment[]; permissionMode?: PermissionMode }
   | {
       type: 'claude-permission-response';
       requestId: string;

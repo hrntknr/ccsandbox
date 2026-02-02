@@ -108,7 +108,10 @@ export class ConnectionManager {
 
   private handleClaudeEvent = (tabId: string, event: SDKMessage): void => {
     const sessionId = this.tabToSession.get(tabId);
-    if (!sessionId) return;
+    if (!sessionId) {
+      console.warn(`[handleClaudeEvent] No session mapping for tab ${tabId}`);
+      return;
+    }
 
     // SDK events are compatible with the existing ClaudeEvent structure
     this.broadcastToTab(sessionId, tabId, {
@@ -270,28 +273,54 @@ export class ConnectionManager {
     excludeClientId?: string
   ): void {
     const room = this.rooms.get(sessionId);
-    if (!room) return;
+    if (!room) {
+      console.warn(`[broadcast] Room not found: session=${sessionId}`);
+      return;
+    }
 
     const data = JSON.stringify(message);
+    let skippedCount = 0;
     for (const [clientId, client] of room.clients) {
       if (excludeClientId && clientId === excludeClientId) continue;
       if (client.ws.readyState === 1) {
         // WebSocket.OPEN = 1
         client.ws.send(data);
+      } else {
+        console.warn(`[broadcast] Skip client ${clientId}: readyState=${client.ws.readyState}`);
+        skippedCount++;
       }
+    }
+    if (skippedCount > 0 && room.clients.size === skippedCount) {
+      console.warn(`[broadcast] No clients received message for session ${sessionId}`);
     }
   }
 
   broadcastToTab(sessionId: string, tabId: string, message: unknown, excludeClientId?: string): void {
     const room = this.rooms.get(sessionId);
-    if (!room) return;
+    if (!room) {
+      console.warn(`[broadcastToTab] Room not found: session=${sessionId}`);
+      return;
+    }
 
     const data = JSON.stringify(message);
+    let sentCount = 0;
+    let skippedCount = 0;
     for (const client of room.clients.values()) {
       if (excludeClientId && client.clientId === excludeClientId) continue;
-      if (client.currentTabId === tabId && client.ws.readyState === 1) {
-        client.ws.send(data);
+      if (client.currentTabId === tabId) {
+        if (client.ws.readyState === 1) {
+          client.ws.send(data);
+          sentCount++;
+        } else {
+          console.warn(
+            `[broadcastToTab] Skip client ${client.clientId}: readyState=${client.ws.readyState}`
+          );
+          skippedCount++;
+        }
       }
+    }
+    if (sentCount === 0 && skippedCount > 0) {
+      console.warn(`[broadcastToTab] No clients received message for tab ${tabId}`);
     }
   }
 

@@ -1,9 +1,16 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { PermissionMode } from '@shared/index.js';
+import type { ImageAttachment, PermissionMode } from '@shared/index.js';
 import { PermissionModeSelector } from './PermissionModeSelector';
 
+/** Maximum file size in bytes (5MB) */
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+/** Maximum number of images per message */
+const MAX_IMAGES = 10;
+/** Allowed MIME types */
+const ALLOWED_TYPES: ImageAttachment['mediaType'][] = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+
 interface InputFormProps {
-  onSubmit: (content: string, permissionMode: PermissionMode) => void;
+  onSubmit: (content: string, permissionMode: PermissionMode, images?: ImageAttachment[]) => void;
   onInterrupt: () => void;
   disabled: boolean;
   isActive: boolean;
@@ -11,10 +18,37 @@ interface InputFormProps {
   defaultPermissionMode?: PermissionMode;
 }
 
+/**
+ * Convert a File to ImageAttachment (base64)
+ */
+async function fileToImageAttachment(file: File): Promise<ImageAttachment> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove data URL prefix (e.g., "data:image/png;base64,")
+      const base64 = result.split(',')[1];
+      if (!base64) {
+        reject(new Error('Failed to read file'));
+        return;
+      }
+      resolve({
+        data: base64,
+        mediaType: file.type as ImageAttachment['mediaType'],
+      });
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPermissionMode, defaultPermissionMode = 'default' }: InputFormProps) {
   const [input, setInput] = useState('');
   const [permissionMode, setPermissionMode] = useState<PermissionMode>(defaultPermissionMode);
+  const [images, setImages] = useState<ImageAttachment[]>([]);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-focus when tab becomes active
   useEffect(() => {
@@ -51,13 +85,79 @@ export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPe
     (e?: React.FormEvent) => {
       e?.preventDefault();
       const trimmed = input.trim();
-      if (trimmed && !disabled) {
-        onSubmit(trimmed, permissionMode);
+      if ((trimmed || images.length > 0) && !disabled) {
+        onSubmit(trimmed, permissionMode, images.length > 0 ? images : undefined);
         setInput('');
+        // Clear images after submit
+        setImages([]);
+        // Revoke object URLs to free memory
+        imageUrls.forEach((url) => URL.revokeObjectURL(url));
+        setImageUrls([]);
       }
     },
-    [input, disabled, onSubmit, permissionMode]
+    [input, images, imageUrls, disabled, onSubmit, permissionMode]
   );
+
+  const handleFileSelect = useCallback(async (files: FileList | null) => {
+    if (!files) return;
+
+    const newImages: ImageAttachment[] = [];
+    const newUrls: string[] = [];
+
+    for (const file of Array.from(files)) {
+      // Check total count
+      if (images.length + newImages.length >= MAX_IMAGES) {
+        console.warn(`Maximum ${MAX_IMAGES} images allowed`);
+        break;
+      }
+
+      // Validate file type
+      if (!ALLOWED_TYPES.includes(file.type as ImageAttachment['mediaType'])) {
+        console.warn(`Unsupported file type: ${file.type}`);
+        continue;
+      }
+
+      // Validate file size
+      if (file.size > MAX_FILE_SIZE) {
+        console.warn(`File too large: ${file.name} (max 5MB)`);
+        continue;
+      }
+
+      try {
+        const attachment = await fileToImageAttachment(file);
+        newImages.push(attachment);
+        newUrls.push(URL.createObjectURL(file));
+      } catch (error) {
+        console.error('Failed to process image:', error);
+      }
+    }
+
+    if (newImages.length > 0) {
+      setImages((prev) => [...prev, ...newImages]);
+      setImageUrls((prev) => [...prev, ...newUrls]);
+    }
+  }, [images.length]);
+
+  const handleRemoveImage = useCallback((index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+    setImageUrls((prev) => {
+      const newUrls = prev.filter((_, i) => i !== index);
+      // Revoke the removed URL
+      if (prev[index]) {
+        URL.revokeObjectURL(prev[index]);
+      }
+      return newUrls;
+    });
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    handleFileSelect(e.dataTransfer.files);
+  }, [handleFileSelect]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+  }, []);
 
   const cyclePermissionMode = useCallback((reverse: boolean) => {
     const modes: PermissionMode[] = ['default', 'acceptEdits', 'plan', 'bypassPermissions'];
@@ -84,8 +184,29 @@ export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPe
   );
 
   return (
-    <form className="flex gap-0" onSubmit={handleSubmit}>
+    <form className="flex gap-0" onSubmit={handleSubmit} onDrop={handleDrop} onDragOver={handleDragOver}>
       <div className="flex-1 relative bg-claude-bg-secondary/95 backdrop-blur-sm border border-claude-border rounded-2xl shadow-lg shadow-black/20 transition-colors focus-within:border-claude-accent">
+        {/* Image previews */}
+        {imageUrls.length > 0 && (
+          <div className="flex flex-wrap gap-2 p-2 border-b border-claude-border/50">
+            {imageUrls.map((url, index) => (
+              <div key={index} className="relative group">
+                <img
+                  src={url}
+                  alt={`Attachment ${index + 1}`}
+                  className="w-16 h-16 object-cover rounded-lg border border-claude-border"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleRemoveImage(index)}
+                  className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <textarea
           ref={textareaRef}
           className="w-full bg-transparent border-none pt-3 pb-2 px-3.5 text-claude-text-primary font-sans text-base resize-none min-h-[44px] max-h-[200px] leading-normal focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed placeholder:text-claude-text-muted"
@@ -97,11 +218,34 @@ export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPe
           rows={1}
         />
         <div className="flex items-center justify-between py-1.5 px-3 border-t border-claude-border/50 bg-claude-bg-tertiary/50 rounded-b-[15px]">
-          <PermissionModeSelector
-            value={permissionMode}
-            onChange={setPermissionMode}
-            disabled={disabled}
-          />
+          <div className="flex items-center gap-2">
+            <PermissionModeSelector
+              value={permissionMode}
+              onChange={setPermissionMode}
+              disabled={disabled}
+            />
+            {/* File input button */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              multiple
+              onChange={(e) => handleFileSelect(e.target.files)}
+              className="hidden"
+              disabled={disabled}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled || images.length >= MAX_IMAGES}
+              className="p-1.5 text-claude-text-muted hover:text-claude-text-primary hover:bg-claude-bg-hover rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={images.length >= MAX_IMAGES ? `Maximum ${MAX_IMAGES} images` : 'Attach image'}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              </svg>
+            </button>
+          </div>
           {disabled ? (
             <button
               type="button"
@@ -115,7 +259,7 @@ export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPe
             <button
               type="submit"
               className="py-1.5 px-3.5 bg-claude-accent text-white border-none rounded-xl cursor-pointer text-[13px] font-medium transition-all flex items-center gap-1.5 hover:bg-claude-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!input.trim()}
+              disabled={!input.trim() && images.length === 0}
             >
               <span className="text-sm">↑</span>
             </button>
