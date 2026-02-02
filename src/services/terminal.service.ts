@@ -151,6 +151,9 @@ export class TerminalManager extends EventEmitter {
       execArgs.push('--config', configPath);
     }
     execArgs.push('--remote-env', 'TERM=xterm-256color');
+    execArgs.push('--remote-env', 'LANG=C.UTF-8');
+    execArgs.push('--remote-env', 'LC_ALL=C.UTF-8');
+    execArgs.push('--remote-env', 'LC_CTYPE=C.UTF-8');
     if (options.remoteEnv) {
       for (const env of options.remoteEnv) {
         execArgs.push('--remote-env', env);
@@ -166,6 +169,9 @@ export class TerminalManager extends EventEmitter {
       env: {
         ...global.process.env,
         TERM: 'xterm-256color',
+        LANG: 'C.UTF-8',
+        LC_ALL: 'C.UTF-8',
+        LC_CTYPE: 'C.UTF-8',
       },
     });
 
