@@ -38,9 +38,17 @@
 @source "../../../node_modules/streamdown/dist/*.js";
 @source "../../../node_modules/@streamdown/code/dist/*.js";
 
-/* streamdown互換: Tailwind v4で削除された list-inside を追加 */
+/* streamdown互換: Tailwind v4で削除されたリストユーティリティを追加 */
 .list-inside {
   list-style-position: inside;
+}
+
+.list-disc {
+  list-style-type: disc;
+}
+
+.list-decimal {
+  list-style-type: decimal;
 }
 
 /* Dark theme overrides for streamdown code blocks */
