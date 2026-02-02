@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { ImageAttachment, PermissionMode } from '@shared/index.js';
 import { PermissionModeSelector } from './PermissionModeSelector';
 import { SPEECH_DISABLED } from '../SettingsModal';
+import { useIsMobile } from '../../hooks';
 import '../../types/speech-recognition.d.ts';
 
 /** Maximum file size in bytes (5MB) */
@@ -80,6 +81,15 @@ export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPe
   const isSpeechSupported = useMemo(() => {
     return typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
   }, []);
+
+  const isMobile = useIsMobile();
+
+  // Auto-focus when tab becomes active (desktop only)
+  useEffect(() => {
+    if (isActive && !disabled && !isMobile) {
+      textareaRef.current?.focus();
+    }
+  }, [isActive, disabled, isMobile]);
 
   // Sync permission mode when backend mode changes (EnterPlanMode/ExitPlanMode)
   useEffect(() => {
