@@ -4,9 +4,10 @@ import {
   listRepositories,
   getRepository,
   refreshRepositoriesCache,
+  listBranches,
   GitHubApiError,
 } from '../../services/github.service.js';
-import type { ApiResponse, Repository } from '../../shared/index.js';
+import type { ApiResponse, Repository, Branch } from '../../shared/index.js';
 
 const router = Router();
 
@@ -82,6 +83,29 @@ router.get('/repos/:owner/:repo', requirePat, async (req, res) => {
     const response: ApiResponse<Repository> = {
       success: true,
       data: repository,
+    };
+    res.json(response);
+  } catch (error) {
+    const response: ApiResponse<never> = {
+      success: false,
+      error: formatError(error),
+    };
+    res.status(getStatusCode(error)).json(response);
+  }
+});
+
+/**
+ * GET /api/github/repos/:owner/:repo/branches
+ * List branches for a repository.
+ */
+router.get('/repos/:owner/:repo/branches', requirePat, async (req, res) => {
+  try {
+    const { pat, apiBase } = getConfig();
+    const { owner, repo } = req.params;
+    const branches = await listBranches(pat!, apiBase, owner, repo);
+    const response: ApiResponse<Branch[]> = {
+      success: true,
+      data: branches,
     };
     res.json(response);
   } catch (error) {

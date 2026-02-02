@@ -38,6 +38,11 @@
 @source "../../../node_modules/streamdown/dist/*.js";
 @source "../../../node_modules/@streamdown/code/dist/*.js";
 
+/* streamdown互換: Tailwind v4で削除された list-inside を追加 */
+.list-inside {
+  list-style-position: inside;
+}
+
 /* Dark theme overrides for streamdown code blocks */
 [data-streamdown="code-block"],
 .shiki,

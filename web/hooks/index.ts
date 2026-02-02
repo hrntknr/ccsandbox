@@ -6,8 +6,9 @@ export {
   useClientConfig,
   useUpdateConfig,
   usePortForwarding,
+  useBranches,
 } from './useApi';
-export type { UsePortForwardingReturn } from './useApi';
+export type { UsePortForwardingReturn, UseBranchesReturn } from './useApi';
 
 export { useSessionCreate } from './useSessionCreate';
 

@@ -29,6 +29,37 @@ export class ConnectionManager {
   private listenersRegistered = false;
   private claudeListenersRegistered = false;
 
+  // Backpressure thresholds for WebSocket send
+  private readonly MAX_BUFFERED_AMOUNT = 64 * 1024; // 64KB - drop messages above this
+  private readonly SLOW_CLIENT_WARNING_THRESHOLD = 32 * 1024; // 32KB - warn above this
+
+  /**
+   * Safely send data to a WebSocket client with backpressure handling.
+   * Returns true if message was sent, false if dropped or failed.
+   */
+  private safeSend(ws: WebSocket, data: string, clientId: string): boolean {
+    try {
+      if (ws.readyState !== 1) return false; // WebSocket.OPEN = 1
+
+      if (ws.bufferedAmount > this.MAX_BUFFERED_AMOUNT) {
+        console.warn(
+          `[safeSend] Dropping message for slow client ${clientId}: bufferedAmount=${ws.bufferedAmount}`
+        );
+        return false;
+      }
+
+      if (ws.bufferedAmount > this.SLOW_CLIENT_WARNING_THRESHOLD) {
+        console.warn(`[safeSend] Slow client ${clientId}: bufferedAmount=${ws.bufferedAmount}`);
+      }
+
+      ws.send(data);
+      return true;
+    } catch (error) {
+      console.warn(`[safeSend] Failed to send to client ${clientId}:`, error);
+      return false;
+    }
+  }
+
   /**
    * Initialize with TerminalManager and register event listeners
    */
@@ -279,18 +310,14 @@ export class ConnectionManager {
     }
 
     const data = JSON.stringify(message);
-    let skippedCount = 0;
+    let sentCount = 0;
     for (const [clientId, client] of room.clients) {
       if (excludeClientId && clientId === excludeClientId) continue;
-      if (client.ws.readyState === 1) {
-        // WebSocket.OPEN = 1
-        client.ws.send(data);
-      } else {
-        console.warn(`[broadcast] Skip client ${clientId}: readyState=${client.ws.readyState}`);
-        skippedCount++;
+      if (this.safeSend(client.ws, data, clientId)) {
+        sentCount++;
       }
     }
-    if (skippedCount > 0 && room.clients.size === skippedCount) {
+    if (sentCount === 0 && room.clients.size > 0) {
       console.warn(`[broadcast] No clients received message for session ${sessionId}`);
     }
   }
@@ -304,22 +331,17 @@ export class ConnectionManager {
 
     const data = JSON.stringify(message);
     let sentCount = 0;
-    let skippedCount = 0;
+    let targetCount = 0;
     for (const client of room.clients.values()) {
       if (excludeClientId && client.clientId === excludeClientId) continue;
       if (client.currentTabId === tabId) {
-        if (client.ws.readyState === 1) {
-          client.ws.send(data);
+        targetCount++;
+        if (this.safeSend(client.ws, data, client.clientId)) {
           sentCount++;
-        } else {
-          console.warn(
-            `[broadcastToTab] Skip client ${client.clientId}: readyState=${client.ws.readyState}`
-          );
-          skippedCount++;
         }
       }
     }
-    if (sentCount === 0 && skippedCount > 0) {
+    if (sentCount === 0 && targetCount > 0) {
       console.warn(`[broadcastToTab] No clients received message for tab ${tabId}`);
     }
   }
@@ -473,9 +495,9 @@ export class ConnectionManager {
         // Check if client has timed out
         if (now - client.lastPongTime > timeoutMs) {
           timedOut.push({ sessionId, clientId, ws: client.ws });
-        } else if (client.ws.readyState === 1) {
-          // Send ping to active clients
-          client.ws.send(pingMessage);
+        } else {
+          // Send ping to active clients using safeSend for backpressure handling
+          this.safeSend(client.ws, pingMessage, clientId);
         }
       }
     }

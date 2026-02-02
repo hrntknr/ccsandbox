@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import type {
   Session,
   Repository,
+  Branch,
   ApiResponse,
   SessionListResponse,
   SessionResponse,
@@ -494,4 +495,44 @@ export function useGitStatus(): {
   }, []);
 
   return { fetchGitStatus, loading, error };
+}
+
+export interface UseBranchesReturn {
+  branches: Branch[];
+  loading: boolean;
+  error: string | null;
+  fetchBranches: (owner: string, repo: string) => Promise<Branch[]>;
+  reset: () => void;
+}
+
+export function useBranches(): UseBranchesReturn {
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchBranches = useCallback(async (owner: string, repo: string): Promise<Branch[]> => {
+    setLoading(true);
+    setError(null);
+
+    const response = await fetchApi<Branch[]>(`/github/repos/${owner}/${repo}/branches`);
+
+    setLoading(false);
+
+    if (response.success && response.data) {
+      setBranches(response.data);
+      return response.data;
+    } else {
+      setError(response.error || 'Failed to fetch branches');
+      setBranches([]);
+      return [];
+    }
+  }, []);
+
+  const reset = useCallback(() => {
+    setBranches([]);
+    setLoading(false);
+    setError(null);
+  }, []);
+
+  return { branches, loading, error, fetchBranches, reset };
 }

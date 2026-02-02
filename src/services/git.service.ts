@@ -202,18 +202,22 @@ export async function cloneRepository(
       throw error;
     }
 
-    // Step 3: Create and checkout work branch
-    onLog?.(`Creating work branch: ${workBranch} from ${baseBranch}\n`);
-    try {
-      await execCommand('git', ['checkout', '-b', workBranch, baseBranch], {
-        cwd: workspacePath,
-        onLog,
-      });
-    } catch (error) {
-      if (error instanceof GitOperationError) {
-        throw new GitOperationError('checkout', error.exitCode, error.stderr);
+    // Step 3: Create and checkout work branch (skip if using existing branch)
+    if (baseBranch !== workBranch) {
+      onLog?.(`Creating work branch: ${workBranch} from ${baseBranch}\n`);
+      try {
+        await execCommand('git', ['checkout', '-b', workBranch, baseBranch], {
+          cwd: workspacePath,
+          onLog,
+        });
+      } catch (error) {
+        if (error instanceof GitOperationError) {
+          throw new GitOperationError('checkout', error.exitCode, error.stderr);
+        }
+        throw error;
       }
-      throw error;
+    } else {
+      onLog?.(`Using existing branch: ${workBranch}\n`);
     }
     onLog?.(`Git clone completed successfully\n`);
   } finally {

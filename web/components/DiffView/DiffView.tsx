@@ -192,7 +192,7 @@ function FileDiffContent({ file }: FileDiffContentProps) {
   return (
     <div className="font-mono text-xs sm:text-sm">
       {/* File header */}
-      <div className="sticky top-0 bg-vscode-bg-secondary px-2 sm:px-4 py-2 border-b border-vscode-border">
+      <div className="sticky top-0 z-10 bg-vscode-bg-secondary px-2 sm:px-4 py-2 border-b border-vscode-border">
         <span className="text-vscode-text-secondary break-all">{file.path}</span>
       </div>
 

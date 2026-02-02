@@ -302,3 +302,55 @@ export async function getAuthenticatedUsername(
   const user = await githubFetch<GitHubUserResponse>(pat, apiBase, '/user');
   return user.login;
 }
+
+/**
+ * Response from GitHub /repos/:owner/:repo/branches endpoint.
+ */
+interface GitHubBranchResponse {
+  name: string;
+  protected: boolean;
+}
+
+/**
+ * Branch information.
+ */
+export interface Branch {
+  name: string;
+  isProtected: boolean;
+}
+
+/**
+ * List branches for a repository.
+ */
+export async function listBranches(
+  pat: string,
+  apiBase: string,
+  owner: string,
+  repo: string
+): Promise<Branch[]> {
+  const branches: Branch[] = [];
+  let page = 1;
+  const perPage = 100;
+
+  while (true) {
+    const rawBranches = await githubFetch<GitHubBranchResponse[]>(
+      pat,
+      apiBase,
+      `/repos/${owner}/${repo}/branches?per_page=${perPage}&page=${page}`
+    );
+
+    branches.push(
+      ...rawBranches.map((b) => ({
+        name: b.name,
+        isProtected: b.protected,
+      }))
+    );
+
+    if (rawBranches.length < perPage) {
+      break;
+    }
+    page++;
+  }
+
+  return branches;
+}
