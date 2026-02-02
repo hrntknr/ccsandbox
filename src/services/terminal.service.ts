@@ -73,6 +73,7 @@ export interface CreateTerminalOptions {
   remoteEnv?: string[];
   /** Path to devcontainer.json config (for template-based sessions) */
   configPath?: string;
+  initialCommand?: string;
 }
 
 /**
@@ -159,7 +160,11 @@ export class TerminalManager extends EventEmitter {
         execArgs.push('--remote-env', env);
       }
     }
-    execArgs.push(shell, '-l');
+    if (options.initialCommand) {
+      execArgs.push(shell, '-lc', options.initialCommand);
+    } else {
+      execArgs.push(shell, '-l');
+    }
 
     // Spawn devcontainer exec with node-pty for real PTY support
     const ptyProcess = pty.spawn(devcontainerCliPath, execArgs, {

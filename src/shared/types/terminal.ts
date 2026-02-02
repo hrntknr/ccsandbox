@@ -12,7 +12,7 @@ import type { DevcontainerSource } from './template.js';
 export type TerminalClientMessage =
   | { type: 'join-session'; sessionId: string; clientId: string }
   | { type: 'attach'; tabId: string }
-  | { type: 'add-tab'; title?: string; tabType?: TabType }
+  | { type: 'add-tab'; title?: string; tabType?: TabType; initialCommand?: string }
   | { type: 'close-tab'; tabId: string }
   | { type: 'rename-tab'; tabId: string; title: string }
   | { type: 'switch-tab'; tabId: string }

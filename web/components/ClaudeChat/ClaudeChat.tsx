@@ -62,6 +62,7 @@ interface ClaudeChatProps {
     tabId: string,
     callback: (planFilePath: string) => void
   ) => () => void;
+  onOpenLoginShell?: () => void;
 }
 
 export function ClaudeChat({
@@ -82,6 +83,7 @@ export function ClaudeChat({
   onClaudeTodosUpdated,
   onPermissionModeChanged,
   onPlanFilePathChanged,
+  onOpenLoginShell,
 }: ClaudeChatProps) {
   const [messages, setMessages] = useState<ClaudeMessage[]>([]);
   const [pendingPermissions, setPendingPermissions] = useState<ClaudePendingPermission[]>([]);
@@ -422,6 +424,11 @@ export function ClaudeChat({
         return;
       }
 
+      if (content.trim() === '/login' && onOpenLoginShell) {
+        onOpenLoginShell();
+        return;
+      }
+
       // Add user message to UI immediately
       const userMessage: ClaudeMessage = {
         id: uuidv4(),
@@ -437,7 +444,7 @@ export function ClaudeChat({
       isAtBottomRef.current = true;
       scrollToBottom('smooth');
     },
-    [isConnected, sendClaudeMessage, scrollToBottom]
+    [isConnected, sendClaudeMessage, scrollToBottom, onOpenLoginShell]
   );
 
   const handlePermissionResponse = useCallback(

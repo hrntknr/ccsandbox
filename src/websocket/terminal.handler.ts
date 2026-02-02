@@ -142,7 +142,7 @@ export function createTerminalHandler(
    * Uses 2-phase response: immediately broadcasts tab-added (ready: false),
    * then broadcasts tab-ready after terminal/claude creation completes.
    */
-  async function handleAddTab(title?: string, tabType: TabType = 'shell'): Promise<void> {
+  async function handleAddTab(title?: string, tabType: TabType = 'shell', initialCommand?: string): Promise<void> {
     if (!currentSessionId || !clientId) {
       sendError(ws, 'Not joined to a session');
       return;
@@ -224,6 +224,7 @@ export function createTerminalHandler(
           shell: session.shell,
           remoteEnv: config.pat ? [`GITHUB_TOKEN=${config.pat}`] : undefined,
           configPath: getSessionConfigPath(session, config.configDir),
+          initialCommand,
         }).then(() => {
           const terminal = terminalManager.get(tabId);
           connectionManager.updateTab(sessionId, tabId, {
@@ -609,7 +610,7 @@ export function createTerminalHandler(
           sendError(ws, 'Invalid title');
           return;
         }
-        handleAddTab(message.title, message.tabType).catch((error) => {
+        handleAddTab(message.title, message.tabType, message.initialCommand).catch((error) => {
           const errorMessage = error instanceof Error ? error.message : 'Add tab failed';
           sendError(ws, errorMessage);
         });

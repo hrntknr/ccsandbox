@@ -111,7 +111,7 @@ export interface UseTerminalWebSocketReturn {
   justReconnected: boolean;
   tabs: TerminalTab[];
   sendInput: (tabId: string, data: string) => void;
-  addTab: (title?: string, tabType?: TabType) => void;
+  addTab: (title?: string, tabType?: TabType, initialCommand?: string) => void;
   closeTab: (tabId: string) => void;
   renameTab: (tabId: string, title: string) => void;
   attachToTab: (tabId: string) => void;
@@ -521,8 +521,8 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
   );
 
   const addTab = useCallback(
-    (title?: string, tabType?: TabType) => {
-      sendMessage({ type: 'add-tab', title, tabType });
+    (title?: string, tabType?: TabType, initialCommand?: string) => {
+      sendMessage({ type: 'add-tab', title, tabType, initialCommand });
     },
     [sendMessage]
   );
