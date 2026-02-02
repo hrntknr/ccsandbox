@@ -495,7 +495,7 @@ export function ClaudeChat({
         );
       })()}
 
-      <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 pointer-events-none">
+      <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 pointer-events-none z-20">
         <div ref={bottomAreaRef} className="pointer-events-auto max-w-3xl mx-auto">
           {/* Todo List - above input form */}
           <TodoList todos={todos} />
