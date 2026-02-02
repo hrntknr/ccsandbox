@@ -45,6 +45,9 @@ export function TerminalPane({ session, defaultPermissionMode }: TerminalPanePro
   }, [session?.sessionId, session?.state, listPorts]);
   const {
     isConnected,
+    connectionState,
+    reconnectAttempt,
+    justReconnected,
     tabs: remoteTabs,
     addTab,
     closeTab,
@@ -240,6 +243,22 @@ export function TerminalPane({ session, defaultPermissionMode }: TerminalPanePro
       </div>
 
       <div className="flex-1 overflow-hidden relative bg-vscode-bg border-t border-vscode-border-light">
+        {/* Reconnection banner */}
+        {connectionState === 'reconnecting' && (
+          <div className="absolute top-0 left-0 right-0 z-20 bg-yellow-900/90 text-yellow-100 text-xs px-3 py-1.5 flex items-center justify-center gap-2 border-b border-yellow-700/50">
+            <span className="inline-block w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+            再接続中... (試行 {reconnectAttempt})
+          </div>
+        )}
+
+        {/* Just reconnected banner */}
+        {justReconnected && (
+          <div className="absolute top-0 left-0 right-0 z-20 bg-green-900/90 text-green-100 text-xs px-3 py-1.5 flex items-center justify-center gap-2 border-b border-green-700/50">
+            <span className="inline-block w-2 h-2 bg-green-400 rounded-full" />
+            接続復旧
+          </div>
+        )}
+
         {!isRunning ? (
           <div className="text-vscode-text-muted text-[13px] flex items-center justify-center h-full">
             Container is not running. Start the container to use the terminal.

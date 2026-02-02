@@ -705,6 +705,13 @@ export function createTerminalHandler(
         });
         break;
 
+      case 'pong':
+        // Update pong time for heartbeat tracking
+        if (currentSessionId && clientId) {
+          connectionManager.updatePongTime(currentSessionId, clientId);
+        }
+        break;
+
       default:
         sendError(ws, 'Unknown message type');
     }

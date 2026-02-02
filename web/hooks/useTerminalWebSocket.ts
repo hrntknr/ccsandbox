@@ -93,8 +93,13 @@ interface PlanFilePathChangedSubscription {
   callback: PlanFilePathChangedCallback;
 }
 
+export type ConnectionState = 'connected' | 'disconnected' | 'reconnecting';
+
 export interface UseTerminalWebSocketReturn {
   isConnected: boolean;
+  connectionState: ConnectionState;
+  reconnectAttempt: number;
+  justReconnected: boolean;
   tabs: TerminalTab[];
   sendInput: (tabId: string, data: string) => void;
   addTab: (title?: string, tabType?: TabType) => void;
@@ -145,8 +150,15 @@ const RECONNECT_MAX_DELAY = 30000;
 const RECONNECT_MULTIPLIER = 2;
 
 export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSocketReturn {
-  const [isConnected, setIsConnected] = useState(false);
+  const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
+  const [justReconnected, setJustReconnected] = useState(false);
   const [tabs, setTabs] = useState<TerminalTab[]>([]);
+  const wasReconnectingRef = useRef(false);
+  const justReconnectedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Derived state for backward compatibility
+  const isConnected = connectionState === 'connected';
 
   const wsRef = useRef<WebSocket | null>(null);
   const clientIdRef = useRef<string>(uuidv4());
@@ -315,6 +327,11 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
           }
           break;
 
+        case 'ping':
+          // Respond to heartbeat ping with pong
+          sendMessage({ type: 'pong', timestamp: message.timestamp });
+          break;
+
         case 'error':
           console.error('Terminal WebSocket error:', message.message);
           break;
@@ -338,7 +355,14 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
       wsRef.current = null;
     }
     setTabs([]);
-    setIsConnected(false);
+    setConnectionState('disconnected');
+    setReconnectAttempt(0);
+    setJustReconnected(false);
+    wasReconnectingRef.current = false;
+    if (justReconnectedTimeoutRef.current) {
+      clearTimeout(justReconnectedTimeoutRef.current);
+      justReconnectedTimeoutRef.current = null;
+    }
     currentTabIdRef.current = null;
     reconnectDelayRef.current = RECONNECT_BASE_DELAY;
     outputSubscriptionsRef.current = [];
@@ -377,9 +401,24 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
         ws.close();
         return;
       }
-      // Reset backoff delay on successful connection
+      // Reset backoff delay and reconnect attempt on successful connection
       reconnectDelayRef.current = RECONNECT_BASE_DELAY;
-      setIsConnected(true);
+      setConnectionState('connected');
+      setReconnectAttempt(0);
+
+      // Show "just reconnected" indicator if this was a reconnection
+      if (wasReconnectingRef.current) {
+        wasReconnectingRef.current = false;
+        setJustReconnected(true);
+        // Clear after 2 seconds
+        if (justReconnectedTimeoutRef.current) {
+          clearTimeout(justReconnectedTimeoutRef.current);
+        }
+        justReconnectedTimeoutRef.current = setTimeout(() => {
+          setJustReconnected(false);
+        }, 2000);
+      }
+
       ws.send(JSON.stringify({
         type: 'join-session',
         sessionId,
@@ -392,7 +431,6 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     ws.onclose = () => {
       // Only update state if this is still the current connection
       if (wsRef.current === ws) {
-        setIsConnected(false);
         wsRef.current = null;
 
         // Only reconnect if sessionId hasn't changed
@@ -403,6 +441,11 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
             currentDelay * RECONNECT_MULTIPLIER,
             RECONNECT_MAX_DELAY
           );
+
+          // Update state to reconnecting
+          setConnectionState('reconnecting');
+          setReconnectAttempt((prev) => prev + 1);
+          wasReconnectingRef.current = true;
 
           reconnectTimeoutRef.current = setTimeout(() => {
             // Double-check sessionId before reconnecting
@@ -417,6 +460,10 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
               newWs.onerror = ws.onerror;
             }
           }, currentDelay);
+        } else {
+          // Session changed, just disconnect
+          setConnectionState('disconnected');
+          setReconnectAttempt(0);
         }
       }
     };
@@ -672,6 +719,9 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
 
   return {
     isConnected,
+    connectionState,
+    reconnectAttempt,
+    justReconnected,
     tabs,
     sendInput,
     addTab,

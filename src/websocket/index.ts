@@ -58,6 +58,8 @@ function isValidTerminalClientMessage(message: unknown): message is TerminalClie
       return typeof msg['permissionMode'] === 'string';
     case 'claude-interrupt':
       return true;
+    case 'pong':
+      return typeof msg['timestamp'] === 'number';
     default:
       return false;
   }
@@ -275,11 +277,30 @@ export function setupWebSocketServer(server: http.Server): WebSocketServerInstan
     console.error('WebSocket server error (sessions sync):', error.message);
   });
 
+  // Heartbeat interval: ping every 10 seconds, timeout after 20 seconds
+  const HEARTBEAT_INTERVAL_MS = 10_000;
+  const HEARTBEAT_TIMEOUT_MS = 20_000;
+
+  const heartbeatInterval = setInterval(() => {
+    const timedOutClients = connectionManager.sendPingAndGetTimedOutClients(HEARTBEAT_TIMEOUT_MS);
+
+    // Close timed out connections
+    for (const { sessionId, clientId, ws } of timedOutClients) {
+      console.log(`Heartbeat timeout: closing connection for client ${clientId} in session ${sessionId}`);
+      connectionManager.leaveSession(sessionId, clientId);
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close(1000, 'Heartbeat timeout');
+      }
+    }
+  }, HEARTBEAT_INTERVAL_MS);
+
   return {
     terminalWss,
     sessionWss,
     sessionsSyncWss,
     close: () => {
+      // Clear heartbeat interval
+      clearInterval(heartbeatInterval);
       // Close all terminal connections
       terminalWss.clients.forEach((client) => {
         client.close();

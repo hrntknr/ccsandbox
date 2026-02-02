@@ -19,6 +19,8 @@ export type TerminalClientMessage =
   | { type: 'input'; data: string }
   | { type: 'resize'; cols: number; rows: number }
   | { type: 'detach' }
+  // Heartbeat
+  | { type: 'pong'; timestamp: number }
   // Claude-specific messages
   | { type: 'claude-message'; content: string; permissionMode?: PermissionMode }
   | {
@@ -48,6 +50,8 @@ export type TerminalServerMessage =
   | { type: 'error'; message: string }
   | { type: 'exit'; tabId: string; code: number }
   | { type: 'resize-sync'; cols: number; rows: number }
+  // Heartbeat
+  | { type: 'ping'; timestamp: number }
   // Claude-specific messages (event is SDK's SDKMessage type)
   | { type: 'claude-event'; tabId: string; event: unknown }
   | {

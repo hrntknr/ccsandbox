@@ -12,6 +12,7 @@ export interface ClientConnection {
   currentTabId: string | null;
   cols: number | null;
   rows: number | null;
+  lastPongTime: number;
 }
 
 export interface SessionRoom {
@@ -223,6 +224,7 @@ export class ConnectionManager {
     const existingClient = room.clients.get(clientId);
     if (existingClient) {
       existingClient.ws = ws;
+      existingClient.lastPongTime = Date.now();
     } else {
       room.clients.set(clientId, {
         ws,
@@ -230,6 +232,7 @@ export class ConnectionManager {
         currentTabId: null,
         cols: null,
         rows: null,
+        lastPongTime: Date.now(),
       });
     }
 
@@ -416,6 +419,39 @@ export class ConnectionManager {
     }
     this.rooms.clear();
     this.tabToSession.clear();
+  }
+
+  /**
+   * Update last pong time for a client
+   */
+  updatePongTime(sessionId: string, clientId: string): void {
+    const client = this.getClient(sessionId, clientId);
+    if (client) {
+      client.lastPongTime = Date.now();
+    }
+  }
+
+  /**
+   * Send ping to all clients and return list of timed out clients
+   */
+  sendPingAndGetTimedOutClients(timeoutMs: number): Array<{ sessionId: string; clientId: string; ws: WebSocket }> {
+    const now = Date.now();
+    const timedOut: Array<{ sessionId: string; clientId: string; ws: WebSocket }> = [];
+    const pingMessage = JSON.stringify({ type: 'ping', timestamp: now });
+
+    for (const [sessionId, room] of this.rooms) {
+      for (const [clientId, client] of room.clients) {
+        // Check if client has timed out
+        if (now - client.lastPongTime > timeoutMs) {
+          timedOut.push({ sessionId, clientId, ws: client.ws });
+        } else if (client.ws.readyState === 1) {
+          // Send ping to active clients
+          client.ws.send(pingMessage);
+        }
+      }
+    }
+
+    return timedOut;
   }
 }
 
