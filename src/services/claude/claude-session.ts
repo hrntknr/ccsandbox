@@ -367,9 +367,20 @@ export class ClaudeSession extends EventEmitter {
           }));
 
         if (toolResults.length > 0) {
-          const lastMessage = this.messages[this.messages.length - 1];
-          if (lastMessage && lastMessage.role === 'assistant') {
-            lastMessage.toolResults = toolResults;
+          // Match each tool result to the correct assistant message by toolUseId
+          for (const result of toolResults) {
+            // Search from the end to find the message with matching toolUse
+            for (let i = this.messages.length - 1; i >= 0; i--) {
+              const msg = this.messages[i];
+              if (msg && msg.role === 'assistant' && msg.toolUse?.some((t) => t.id === result.toolUseId)) {
+                // Merge with existing toolResults
+                const existingResults = msg.toolResults ?? [];
+                if (!existingResults.some((r) => r.toolUseId === result.toolUseId)) {
+                  msg.toolResults = [...existingResults, result];
+                }
+                break;
+              }
+            }
           }
         }
       }

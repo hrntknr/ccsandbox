@@ -260,6 +260,7 @@ export function TerminalPane({ session, defaultPermissionMode }: TerminalPanePro
                 tabId={tab.tabId}
                 sessionId={session!.sessionId}
                 isActive={tab.tabId === activeTabId}
+                isConnected={isConnected}
                 defaultPermissionMode={defaultPermissionMode}
                 sendClaudeMessage={sendClaudeMessage}
                 respondToPermission={respondToPermission}

@@ -12,6 +12,7 @@ interface ExitPlanModeDialogProps {
   permission: ClaudePendingPermission;
   sessionId: string;
   planFilePath?: string | null;
+  disabled?: boolean;
   onResponse: (
     requestId: string,
     permission: 'allow' | 'deny',
@@ -52,6 +53,7 @@ export function ExitPlanModeDialog({
   permission,
   sessionId,
   planFilePath,
+  disabled,
   onResponse,
 }: ExitPlanModeDialogProps) {
   const [selectedOption, setSelectedOption] = useState<string | null>(options[0]!.id);
@@ -255,15 +257,17 @@ export function ExitPlanModeDialog({
           <div className="flex items-center justify-end gap-3">
             <button
               type="button"
-              className="py-2.5 px-5 bg-transparent text-claude-text-secondary border border-claude-border rounded-lg cursor-pointer text-sm font-medium transition-all hover:bg-claude-bg-hover hover:text-claude-text-primary"
+              className="py-2.5 px-5 bg-transparent text-claude-text-secondary border border-claude-border rounded-lg cursor-pointer text-sm font-medium transition-all hover:bg-claude-bg-hover hover:text-claude-text-primary disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handleDeny}
+              disabled={disabled}
             >
               Deny
             </button>
             <button
               type="button"
-              className="py-2.5 px-5 bg-claude-accent text-white border-none rounded-lg cursor-pointer text-sm font-medium transition-all hover:bg-[#b04a2a]"
+              className="py-2.5 px-5 bg-claude-accent text-white border-none rounded-lg cursor-pointer text-sm font-medium transition-all hover:bg-[#b04a2a] disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handleConfirm}
+              disabled={disabled}
             >
               OK
             </button>

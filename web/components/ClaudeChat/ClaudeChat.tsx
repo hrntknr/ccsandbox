@@ -21,6 +21,7 @@ interface ClaudeChatProps {
   tabId: string;
   sessionId: string;
   isActive: boolean;
+  isConnected: boolean;
   defaultPermissionMode?: PermissionMode;
   sendClaudeMessage: (content: string, permissionMode: PermissionMode) => void;
   respondToPermission: (
@@ -65,6 +66,7 @@ export function ClaudeChat({
   tabId,
   sessionId,
   isActive,
+  isConnected,
   defaultPermissionMode,
   sendClaudeMessage,
   respondToPermission,
@@ -174,26 +176,33 @@ export function ClaudeChat({
             }));
 
           if (toolResults.length > 0) {
-            setMessages((prev) => {
-              const newMessages = [...prev];
-              // Find the assistant message that contains the corresponding toolUse
-              // (not just the last one, to handle parallel tool execution correctly)
-              for (const result of toolResults) {
-                // Search from the end to find the message with matching toolUse
-                for (let i = newMessages.length - 1; i >= 0; i--) {
-                  const msg = newMessages[i];
-                  if (msg && msg.role === 'assistant' && msg.toolUse?.some((t) => t.id === result.toolUseId)) {
-                    // Merge with existing toolResults
-                    const existingResults = msg.toolResults ?? [];
-                    if (!existingResults.some((r) => r.toolUseId === result.toolUseId)) {
-                      msg.toolResults = [...existingResults, result];
-                    }
-                    break;
-                  }
-                }
-              }
-              return newMessages;
-            });
+            // Use immutable update pattern to ensure React detects changes
+            setMessages((prev) =>
+              prev.map((msg) => {
+                if (msg.role !== 'assistant' || !msg.toolUse) return msg;
+
+                // Collect tool results that belong to this message
+                const matchingResults = toolResults.filter((result) =>
+                  msg.toolUse?.some((t) => t.id === result.toolUseId)
+                );
+
+                if (matchingResults.length === 0) return msg;
+
+                // Merge with existing results (exclude duplicates)
+                const existingResults = msg.toolResults ?? [];
+                const newResults = matchingResults.filter(
+                  (r) => !existingResults.some((e) => e.toolUseId === r.toolUseId)
+                );
+
+                if (newResults.length === 0) return msg;
+
+                // Return new object (immutable)
+                return {
+                  ...msg,
+                  toolResults: [...existingResults, ...newResults],
+                };
+              })
+            );
           }
           break;
         }
@@ -301,18 +310,20 @@ export function ClaudeChat({
 
   // Scroll to bottom helper - use scrollIntoView on the dummy element
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    // Always set isAtBottom to true when programmatically scrolling to bottom
+    // This prevents DOM height changes (e.g., markdown rendering) from breaking snap
+    isAtBottomRef.current = true;
+
     if (behavior === 'smooth') {
       // Mark as scrolling to prevent scroll events from clearing isAtBottom
       isScrollingRef.current = true;
       // Clear after animation completes (smooth scroll typically takes ~300-500ms)
       setTimeout(() => {
         isScrollingRef.current = false;
-        // Re-check position after scroll completes
-        isAtBottomRef.current = checkIsAtBottom();
       }, 500);
     }
     messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
-  }, [checkIsAtBottom]);
+  }, []);
 
   // Track scroll position to detect if user is at bottom
   useEffect(() => {
@@ -380,6 +391,11 @@ export function ClaudeChat({
 
   const handleSubmit = useCallback(
     (content: string, permissionMode: PermissionMode) => {
+      // Skip if not connected - message won't be sent
+      if (!isConnected) {
+        return;
+      }
+
       // Add user message to UI immediately
       const userMessage: ClaudeMessage = {
         id: uuidv4(),
@@ -394,15 +410,20 @@ export function ClaudeChat({
       isAtBottomRef.current = true;
       scrollToBottom('smooth');
     },
-    [sendClaudeMessage, scrollToBottom]
+    [isConnected, sendClaudeMessage, scrollToBottom]
   );
 
   const handlePermissionResponse = useCallback(
     (requestId: string, permission: 'allow' | 'deny', answers?: Record<string, string>, permissionMode?: PermissionMode) => {
+      // Skip if not connected - response won't be sent
+      if (!isConnected) {
+        return;
+      }
+
       respondToPermission(requestId, permission, answers, permissionMode);
       setPendingPermissions((prev) => prev.filter((p) => p.requestId !== requestId));
     },
-    [respondToPermission]
+    [isConnected, respondToPermission]
   );
 
   return (
@@ -431,6 +452,7 @@ export function ClaudeChat({
               <AskUserQuestionDialog
                 permission={permission}
                 questions={input.questions}
+                disabled={!isConnected}
                 onResponse={handlePermissionResponse}
               />
             );
@@ -443,6 +465,7 @@ export function ClaudeChat({
               permission={permission}
               sessionId={sessionId}
               planFilePath={planFilePath}
+              disabled={!isConnected}
               onResponse={handlePermissionResponse}
             />
           );
@@ -452,6 +475,7 @@ export function ClaudeChat({
           <PermissionDialog
             permission={permission}
             currentPermissionMode={backendPermissionMode ?? undefined}
+            disabled={!isConnected}
             onResponse={handlePermissionResponse}
             onChangePermissionMode={changePermissionMode}
           />
@@ -465,7 +489,7 @@ export function ClaudeChat({
           <InputForm
             onSubmit={handleSubmit}
             onInterrupt={interruptClaude}
-            disabled={isLoading || pendingPermissions.length > 0}
+            disabled={isLoading || pendingPermissions.length > 0 || !isConnected}
             isActive={isActive}
             backendPermissionMode={backendPermissionMode}
             defaultPermissionMode={defaultPermissionMode}

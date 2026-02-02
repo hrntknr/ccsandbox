@@ -4,12 +4,14 @@ import type { ClaudePendingPermission, AskUserQuestion, PermissionMode } from '@
 interface AskUserQuestionDialogProps {
   permission: ClaudePendingPermission;
   questions: AskUserQuestion[];
+  disabled?: boolean;
   onResponse: (requestId: string, permission: 'allow' | 'deny', answers?: Record<string, string>, permissionMode?: PermissionMode) => void;
 }
 
 export function AskUserQuestionDialog({
   permission,
   questions,
+  disabled,
   onResponse,
 }: AskUserQuestionDialogProps) {
   // State for each question's answer(s)
@@ -228,19 +230,20 @@ export function AskUserQuestionDialog({
         <div className="flex gap-2 justify-end py-3 px-4 bg-claude-bg-tertiary border-t border-claude-border">
           <button
             type="button"
-            className="py-2 px-4 bg-transparent text-claude-text-secondary border border-claude-border rounded-lg cursor-pointer text-[13px] font-medium transition-all hover:bg-claude-bg-hover hover:text-claude-text-primary"
+            className="py-2 px-4 bg-transparent text-claude-text-secondary border border-claude-border rounded-lg cursor-pointer text-[13px] font-medium transition-all hover:bg-claude-bg-hover hover:text-claude-text-primary disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={handleDeny}
+            disabled={disabled}
           >
             Skip
           </button>
           <button
             type="submit"
-            className={`py-2 px-4 border-none rounded-lg cursor-pointer text-[13px] font-medium transition-all ${
-              allAnswered
+            className={`py-2 px-4 border-none rounded-lg cursor-pointer text-[13px] font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+              allAnswered && !disabled
                 ? 'bg-claude-accent text-white hover:bg-[#b04a2a]'
                 : 'bg-claude-bg-hover text-claude-text-tertiary cursor-not-allowed'
             }`}
-            disabled={!allAnswered}
+            disabled={!allAnswered || disabled}
           >
             Submit
           </button>
