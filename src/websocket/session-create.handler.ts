@@ -74,7 +74,7 @@ export function createSessionCreateHandler(ws: WebSocket): SessionCreateHandler 
     const config = getConfig();
     const sessionStore = getSessionStore(config.configDir, config.repoDir);
 
-    const { title, repo, baseBranch, workBranch, shell, devcontainerSource } = message;
+    const { title, repo, baseBranch, workBranch, shell, devcontainerSource, mountClaudeSettings } = message;
 
     // Validate required fields
     if (!repo || !baseBranch || !workBranch) {
@@ -158,6 +158,9 @@ export function createSessionCreateHandler(ws: WebSocket): SessionCreateHandler 
       // Step 5: Start devcontainer
       sendLog(ws, `=== Starting devcontainer ===\n`);
       try {
+        // Mount Claude settings if enabled (default: true)
+        const shouldMountClaudeSettings = mountClaudeSettings !== false;
+
         const containerInfo = await startDevcontainer({
           workspacePath: session.workspacePath,
           devcontainerCliPath: config.devcontainerCli,
@@ -173,6 +176,7 @@ export function createSessionCreateHandler(ws: WebSocket): SessionCreateHandler 
             sessionId: session.sessionId,
           },
           configPath: templateConfigPath,
+          mountClaudeSettings: shouldMountClaudeSettings,
         });
 
         // Update session with container info

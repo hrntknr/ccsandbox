@@ -9,6 +9,8 @@ export interface SessionCreateRequest {
   shell?: string;
   /** Source of devcontainer configuration (default: { type: 'project' }) */
   devcontainerSource?: DevcontainerSource;
+  /** Whether to mount Claude settings from host to container (default: true) */
+  mountClaudeSettings?: boolean;
 }
 
 export interface UseSessionCreateReturn {
@@ -94,6 +96,7 @@ export function useSessionCreate(): UseSessionCreateReturn {
         workBranch: request.workBranch,
         shell: request.shell,
         devcontainerSource: request.devcontainerSource,
+        mountClaudeSettings: request.mountClaudeSettings,
       };
       ws.send(JSON.stringify(message));
     };
