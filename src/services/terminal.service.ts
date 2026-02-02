@@ -156,7 +156,7 @@ export class TerminalManager extends EventEmitter {
         execArgs.push('--remote-env', env);
       }
     }
-    execArgs.push(shell);
+    execArgs.push(shell, '-l');
 
     // Spawn devcontainer exec with node-pty for real PTY support
     const ptyProcess = pty.spawn(devcontainerCliPath, execArgs, {

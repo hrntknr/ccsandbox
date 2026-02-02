@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
 import '@xterm/xterm/css/xterm.css';
 
 interface TerminalProps {
@@ -39,6 +40,7 @@ export function Terminal({
     if (!containerRef.current) return;
 
     const terminal = new XTerm({
+      allowProposedApi: true,
       cursorBlink: true,
       fontSize: 14,
       fontFamily: '"JetBrainsMono NF", "JetBrainsMono Nerd Font", "FiraCode Nerd Font", "MesloLGS NF", "Hack Nerd Font", Menlo, Monaco, "Courier New", monospace',
@@ -52,7 +54,10 @@ export function Terminal({
     });
 
     const fitAddon = new FitAddon();
+    const unicode11Addon = new Unicode11Addon();
     terminal.loadAddon(fitAddon);
+    terminal.loadAddon(unicode11Addon);
+    terminal.unicode.activeVersion = '11';
 
     terminal.open(containerRef.current);
     fitAddon.fit();
