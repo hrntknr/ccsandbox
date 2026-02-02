@@ -50,6 +50,7 @@ export function TerminalPane({ session, defaultPermissionMode }: TerminalPanePro
     sendClaudeMessage,
     respondToPermission,
     changePermissionMode,
+    interruptClaude,
     onClaudeEvent,
     onClaudeHistory,
     onClaudePermissionResolved,
@@ -250,6 +251,7 @@ export function TerminalPane({ session, defaultPermissionMode }: TerminalPanePro
                 sendClaudeMessage={sendClaudeMessage}
                 respondToPermission={respondToPermission}
                 changePermissionMode={changePermissionMode}
+                interruptClaude={interruptClaude}
                 onClaudeEvent={onClaudeEvent}
                 onClaudeHistory={onClaudeHistory}
                 onClaudePermissionResolved={onClaudePermissionResolved}

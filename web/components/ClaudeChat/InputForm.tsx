@@ -4,13 +4,14 @@ import { PermissionModeSelector } from './PermissionModeSelector';
 
 interface InputFormProps {
   onSubmit: (content: string, permissionMode: PermissionMode) => void;
+  onInterrupt: () => void;
   disabled: boolean;
   isActive: boolean;
   backendPermissionMode?: PermissionMode | null;
   defaultPermissionMode?: PermissionMode;
 }
 
-export function InputForm({ onSubmit, disabled, isActive, backendPermissionMode, defaultPermissionMode = 'default' }: InputFormProps) {
+export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPermissionMode, defaultPermissionMode = 'default' }: InputFormProps) {
   const [input, setInput] = useState('');
   const [permissionMode, setPermissionMode] = useState<PermissionMode>(defaultPermissionMode);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -101,13 +102,24 @@ export function InputForm({ onSubmit, disabled, isActive, backendPermissionMode,
             onChange={setPermissionMode}
             disabled={disabled}
           />
-          <button
-            type="submit"
-            className="py-1.5 px-3.5 bg-claude-accent text-white border-none rounded-xl cursor-pointer text-[13px] font-medium transition-all flex items-center gap-1.5 hover:bg-claude-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={disabled || !input.trim()}
-          >
-            <span className="text-sm">↑</span>
-          </button>
+          {disabled ? (
+            <button
+              type="button"
+              onClick={onInterrupt}
+              className="py-1.5 px-3.5 bg-red-500 text-white border-none rounded-xl cursor-pointer text-[13px] font-medium transition-all flex items-center gap-1.5 hover:bg-red-600"
+            >
+              <span className="text-sm">■</span>
+              <span>Cancel</span>
+            </button>
+          ) : (
+            <button
+              type="submit"
+              className="py-1.5 px-3.5 bg-claude-accent text-white border-none rounded-xl cursor-pointer text-[13px] font-medium transition-all flex items-center gap-1.5 hover:bg-claude-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!input.trim()}
+            >
+              <span className="text-sm">↑</span>
+            </button>
+          )}
         </div>
       </div>
     </form>

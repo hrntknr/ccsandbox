@@ -572,6 +572,17 @@ export function createTerminalHandler(
   }
 
   /**
+   * Handle claude-interrupt - interrupt current processing
+   */
+  async function handleClaudeInterrupt(): Promise<void> {
+    if (!currentTabId) {
+      sendError(ws, 'Not attached to a Claude tab');
+      return;
+    }
+    await claudeManager.interrupt(currentTabId);
+  }
+
+  /**
    * Process incoming WebSocket messages
    */
   function handleMessage(message: TerminalClientMessage): void {
@@ -682,6 +693,13 @@ export function createTerminalHandler(
       case 'claude-change-permission-mode':
         handleClaudeChangePermissionMode(message.permissionMode).catch((error) => {
           const errorMessage = error instanceof Error ? error.message : 'Failed to change permission mode';
+          sendError(ws, errorMessage);
+        });
+        break;
+
+      case 'claude-interrupt':
+        handleClaudeInterrupt().catch((error) => {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to interrupt Claude';
           sendError(ws, errorMessage);
         });
         break;

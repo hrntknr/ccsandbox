@@ -30,7 +30,8 @@ export type TerminalClientMessage =
       /** Permission mode to set (for ExitPlanMode) */
       permissionMode?: PermissionMode;
     }
-  | { type: 'claude-change-permission-mode'; permissionMode: PermissionMode };
+  | { type: 'claude-change-permission-mode'; permissionMode: PermissionMode }
+  | { type: 'claude-interrupt' };
 
 /**
  * Messages sent from server to client

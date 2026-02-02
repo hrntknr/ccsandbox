@@ -29,6 +29,7 @@ interface ClaudeChatProps {
     permissionMode?: PermissionMode
   ) => void;
   changePermissionMode: (mode: PermissionMode) => void;
+  interruptClaude: () => void;
   onClaudeEvent: (
     tabId: string,
     callback: (event: ClaudeEvent) => void
@@ -62,6 +63,7 @@ export function ClaudeChat({
   sendClaudeMessage,
   respondToPermission,
   changePermissionMode,
+  interruptClaude,
   onClaudeEvent,
   onClaudeHistory,
   onClaudePermissionResolved,
@@ -418,6 +420,7 @@ export function ClaudeChat({
           <TodoList todos={todos} />
           <InputForm
             onSubmit={handleSubmit}
+            onInterrupt={interruptClaude}
             disabled={isLoading || pendingPermissions.length > 0}
             isActive={isActive}
             backendPermissionMode={backendPermissionMode}

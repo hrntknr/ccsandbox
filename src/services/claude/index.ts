@@ -287,6 +287,18 @@ export class ClaudeSessionManager extends EventEmitter {
   }
 
   /**
+   * Interrupt the current processing for a Claude tab
+   * Unlike kill(), this keeps the session alive for continued conversation
+   */
+  async interrupt(tabId: string): Promise<boolean> {
+    const session = this.sessions.get(tabId);
+    if (!session) {
+      return false;
+    }
+    return session.interrupt();
+  }
+
+  /**
    * Kill a session
    */
   kill(tabId: string): boolean {

@@ -117,6 +117,10 @@ export interface UseTerminalWebSocketReturn {
    * Change permission mode for the current Claude tab
    */
   changePermissionMode: (permissionMode: PermissionMode) => void;
+  /**
+   * Interrupt the current Claude processing
+   */
+  interruptClaude: () => void;
   onClaudeEvent: (tabId: string, callback: ClaudeEventCallback) => () => void;
   onClaudeHistory: (tabId: string, callback: ClaudeHistoryCallback) => () => void;
   onClaudePermissionResolved: (tabId: string, callback: ClaudePermissionResolvedCallback) => () => void;
@@ -545,6 +549,10 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     [sendMessage]
   );
 
+  const interruptClaude = useCallback(() => {
+    sendMessage({ type: 'claude-interrupt' });
+  }, [sendMessage]);
+
   const onClaudeEvent = useCallback(
     (tabId: string, callback: ClaudeEventCallback): (() => void) => {
       const subscription = { tabId, callback };
@@ -647,6 +655,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     sendClaudeMessage,
     respondToPermission,
     changePermissionMode,
+    interruptClaude,
     onClaudeEvent,
     onClaudeHistory,
     onClaudePermissionResolved,

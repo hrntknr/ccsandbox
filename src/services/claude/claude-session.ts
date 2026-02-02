@@ -466,6 +466,22 @@ export class ClaudeSession extends EventEmitter {
   }
 
   /**
+   * Interrupt the current processing
+   * Unlike close(), this keeps the session alive for continued conversation
+   */
+  async interrupt(): Promise<boolean> {
+    if (!this.queryInstance || !this._isProcessing) {
+      return false;
+    }
+    try {
+      await this.queryInstance.interrupt();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Close the session
    */
   close(): void {
