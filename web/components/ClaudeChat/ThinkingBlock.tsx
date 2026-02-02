@@ -60,7 +60,7 @@ export function ThinkingBlock({ thinkings, previewLines = 3 }: ThinkingBlockProp
           // Preview (first N lines) when collapsed - click to expand
           <div className="relative cursor-pointer" onClick={() => setIsExpanded(true)}>
             {hasMoreContent && (
-              <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-claude-bg-tertiary to-transparent pointer-events-none z-10" />
+              <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-claude-bg-tertiary to-transparent pointer-events-none z-[1]" />
             )}
             <pre className="font-mono text-xs m-0 p-3 overflow-x-auto text-claude-text-secondary/70 whitespace-pre-wrap">
               {previewText}

@@ -68,7 +68,7 @@ export function SessionList({
   }, [openMenuId]);
 
   return (
-    <div className="flex flex-col h-full bg-vscode-bg border-r border-vscode-border max-md:border-r-0">
+    <div className="flex flex-col h-full flex-1 min-h-0 bg-vscode-bg border-r border-vscode-border max-md:border-r-0">
       <div className="flex justify-between items-center py-3 px-4 border-b border-vscode-border max-md:py-2.5 max-md:px-3">
         <h2 className="m-0 text-base font-semibold text-white max-md:text-[15px]">Sessions</h2>
         <div className="flex items-center gap-2">

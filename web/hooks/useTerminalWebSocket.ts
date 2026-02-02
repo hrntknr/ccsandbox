@@ -394,85 +394,85 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/terminal`;
 
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    // Create connection with all handlers referencing refs (not closure values)
+    const createConnection = (): WebSocket => {
+      const newWs = new WebSocket(wsUrl);
 
-    ws.onopen = () => {
-      // Check if sessionId hasn't changed during connection
-      if (sessionIdRef.current !== sessionId) {
-        ws.close();
-        return;
-      }
-      // Reset backoff delay and reconnect attempt on successful connection
-      reconnectDelayRef.current = RECONNECT_BASE_DELAY;
-      setConnectionState('connected');
-      setReconnectAttempt(0);
-
-      // Show "just reconnected" indicator if this was a reconnection
-      if (wasReconnectingRef.current) {
-        wasReconnectingRef.current = false;
-        setJustReconnected(true);
-        // Clear after 2 seconds
-        if (justReconnectedTimeoutRef.current) {
-          clearTimeout(justReconnectedTimeoutRef.current);
+      newWs.onopen = () => {
+        // Check if sessionId hasn't changed during connection (use ref, not closure)
+        if (sessionIdRef.current !== sessionId) {
+          newWs.close();
+          return;
         }
-        justReconnectedTimeoutRef.current = setTimeout(() => {
-          setJustReconnected(false);
-        }, 2000);
-      }
+        // Reset backoff delay and reconnect attempt on successful connection
+        reconnectDelayRef.current = RECONNECT_BASE_DELAY;
+        setConnectionState('connected');
+        setReconnectAttempt(0);
 
-      ws.send(JSON.stringify({
-        type: 'join-session',
-        sessionId,
-        clientId: clientIdRef.current,
-      }));
-    };
-
-    ws.onmessage = handleMessage;
-
-    ws.onclose = () => {
-      // Only update state if this is still the current connection
-      if (wsRef.current === ws) {
-        wsRef.current = null;
-
-        // Only reconnect if sessionId hasn't changed
-        if (sessionIdRef.current === sessionId) {
-          const currentDelay = reconnectDelayRef.current;
-          // Calculate next delay with exponential backoff
-          reconnectDelayRef.current = Math.min(
-            currentDelay * RECONNECT_MULTIPLIER,
-            RECONNECT_MAX_DELAY
-          );
-
-          // Update state to reconnecting
-          setConnectionState('reconnecting');
-          setReconnectAttempt((prev) => prev + 1);
-          wasReconnectingRef.current = true;
-
-          reconnectTimeoutRef.current = setTimeout(() => {
-            // Double-check sessionId before reconnecting
-            if (sessionIdRef.current === sessionId) {
-              // Trigger reconnect by re-running this effect is not possible,
-              // so we need to manually create new connection
-              const newWs = new WebSocket(wsUrl);
-              wsRef.current = newWs;
-              newWs.onopen = ws.onopen;
-              newWs.onmessage = ws.onmessage;
-              newWs.onclose = ws.onclose;
-              newWs.onerror = ws.onerror;
-            }
-          }, currentDelay);
-        } else {
-          // Session changed, just disconnect
-          setConnectionState('disconnected');
-          setReconnectAttempt(0);
+        // Show "just reconnected" indicator if this was a reconnection
+        if (wasReconnectingRef.current) {
+          wasReconnectingRef.current = false;
+          setJustReconnected(true);
+          // Clear after 2 seconds
+          if (justReconnectedTimeoutRef.current) {
+            clearTimeout(justReconnectedTimeoutRef.current);
+          }
+          justReconnectedTimeoutRef.current = setTimeout(() => {
+            setJustReconnected(false);
+          }, 2000);
         }
-      }
+
+        newWs.send(JSON.stringify({
+          type: 'join-session',
+          sessionId: sessionIdRef.current,
+          clientId: clientIdRef.current,
+        }));
+      };
+
+      newWs.onmessage = handleMessage;
+
+      newWs.onclose = () => {
+        // Only update state if this is still the current connection
+        if (wsRef.current === newWs) {
+          wsRef.current = null;
+
+          // Only reconnect if sessionId hasn't changed (use ref)
+          if (sessionIdRef.current === sessionId) {
+            const currentDelay = reconnectDelayRef.current;
+            // Calculate next delay with exponential backoff
+            reconnectDelayRef.current = Math.min(
+              currentDelay * RECONNECT_MULTIPLIER,
+              RECONNECT_MAX_DELAY
+            );
+
+            // Update state to reconnecting
+            setConnectionState('reconnecting');
+            setReconnectAttempt((prev) => prev + 1);
+            wasReconnectingRef.current = true;
+
+            reconnectTimeoutRef.current = setTimeout(() => {
+              // Double-check sessionId before reconnecting (use ref)
+              if (sessionIdRef.current === sessionId) {
+                // Create a fresh connection with new handlers
+                wsRef.current = createConnection();
+              }
+            }, currentDelay);
+          } else {
+            // Session changed, just disconnect
+            setConnectionState('disconnected');
+            setReconnectAttempt(0);
+          }
+        }
+      };
+
+      newWs.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+
+      return newWs;
     };
 
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
+    wsRef.current = createConnection();
 
     return cleanup;
   }, [sessionId, handleMessage, cleanup]);
