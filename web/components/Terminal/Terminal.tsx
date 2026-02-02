@@ -337,7 +337,75 @@ export function Terminal({
     };
   }, [isMobile]);
 
-  // Prevent body scroll when terminal is active on iOS (but allow terminal internal scroll)
+  // iOS touch scroll handling - convert touch events to xterm.js scroll
+  useEffect(() => {
+    if (!isMobile || !isActive) return;
+
+    const container = containerRef.current;
+    const terminal = terminalRef.current;
+    if (!container || !terminal) return;
+
+    let touchStartY = 0;
+    let lastTouchY = 0;
+    let isTouchScrolling = false;
+    // Accumulator for sub-line scroll distance
+    let scrollAccumulator = 0;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!touch) return;
+      touchStartY = touch.clientY;
+      lastTouchY = touch.clientY;
+      isTouchScrolling = true;
+      scrollAccumulator = 0;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isTouchScrolling) return;
+
+      const touch = e.touches[0];
+      if (!touch) return;
+
+      const deltaY = lastTouchY - touch.clientY;
+      lastTouchY = touch.clientY;
+
+      // Accumulate scroll distance
+      scrollAccumulator += deltaY;
+
+      // Calculate lines to scroll (using font size as line height approximation)
+      const lineHeight = 18; // Approximate line height based on fontSize 14
+      const linesToScroll = Math.trunc(scrollAccumulator / lineHeight);
+
+      if (linesToScroll !== 0) {
+        terminal.scrollLines(linesToScroll);
+        // Keep remainder for smooth sub-line scrolling
+        scrollAccumulator -= linesToScroll * lineHeight;
+      }
+
+      // Prevent body scroll
+      e.preventDefault();
+    };
+
+    const handleTouchEnd = () => {
+      isTouchScrolling = false;
+      scrollAccumulator = 0;
+    };
+
+    // Add listeners to the terminal container
+    container.addEventListener('touchstart', handleTouchStart, { passive: true });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd, { passive: true });
+    container.addEventListener('touchcancel', handleTouchEnd, { passive: true });
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+      container.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, [isMobile, isActive]);
+
+  // Prevent body scroll when terminal is active on iOS
   useEffect(() => {
     if (!isMobile || !isActive) return;
 
@@ -348,8 +416,8 @@ export function Terminal({
       if (target.closest('[data-special-key-bar]')) {
         return;
       }
-      // Allow scrolling within xterm.js terminal (viewport handles scroll)
-      if (target.closest('.xterm-viewport')) {
+      // Allow scrolling within terminal container (handled by custom touch handler above)
+      if (target.closest('.xterm') || target.closest('.xterm-viewport')) {
         return;
       }
       // Prevent default to stop body scroll
