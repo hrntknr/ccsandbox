@@ -58,6 +58,7 @@ export class ConnectionManager {
     claudeManager.on('processingStateChanged', this.handleProcessingStateChanged);
     claudeManager.on('todosChanged', this.handleTodosChanged);
     claudeManager.on('permissionModeChanged', this.handlePermissionModeChanged);
+    claudeManager.on('planFilePathChanged', this.handlePlanFilePathChanged);
 
     this.claudeListenersRegistered = true;
   }
@@ -189,6 +190,17 @@ export class ConnectionManager {
       type: 'claude-permission-mode-changed',
       tabId,
       mode,
+    } satisfies TerminalServerMessage);
+  };
+
+  private handlePlanFilePathChanged = (tabId: string, planFilePath: string): void => {
+    const sessionId = this.tabToSession.get(tabId);
+    if (!sessionId) return;
+
+    this.broadcastToTab(sessionId, tabId, {
+      type: 'claude-plan-file-path-changed',
+      tabId,
+      planFilePath,
     } satisfies TerminalServerMessage);
   };
 
@@ -399,6 +411,7 @@ export class ConnectionManager {
       this.claudeManager.off('processingStateChanged', this.handleProcessingStateChanged);
       this.claudeManager.off('todosChanged', this.handleTodosChanged);
       this.claudeManager.off('permissionModeChanged', this.handlePermissionModeChanged);
+      this.claudeManager.off('planFilePathChanged', this.handlePlanFilePathChanged);
       this.claudeListenersRegistered = false;
     }
     this.rooms.clear();

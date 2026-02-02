@@ -35,6 +35,7 @@ export class ClaudeSession extends EventEmitter {
   private currentStreamingMessage: ClaudeMessage | null = null;
   private todos: TodoItem[] = [];
   private closed = false;
+  private _planFilePath: string | null = null;
 
   // For streaming input mode
   private resolveNextMessage: ((msg: SDKUserMessage) => void) | null = null;
@@ -63,6 +64,10 @@ export class ClaudeSession extends EventEmitter {
 
   get permissionMode(): PermissionMode {
     return this._permissionMode;
+  }
+
+  get planFilePath(): string | null {
+    return this._planFilePath;
   }
 
   /**
@@ -328,6 +333,15 @@ export class ClaudeSession extends EventEmitter {
         const todoResult = toolResult as { newTodos: TodoItem[] };
         this.todos = todoResult.newTodos;
         this.emit('todosChanged', this.todos);
+      }
+
+      // Check for EnterPlanMode results (contains planFilePath)
+      if (toolResult && typeof toolResult === 'object' && 'filePath' in toolResult) {
+        const planResult = toolResult as { filePath: string };
+        // Store the container path as-is (e.g., /home/vscode/.claude/plans/xxx.md)
+        // This will be read via devcontainer exec cat
+        this._planFilePath = planResult.filePath;
+        this.emit('planFilePathChanged', this._planFilePath);
       }
 
       // Extract tool results

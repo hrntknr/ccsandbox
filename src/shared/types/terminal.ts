@@ -58,11 +58,13 @@ export type TerminalServerMessage =
       todos: TodoItem[];
       permissionMode?: PermissionMode;
       isProcessing?: boolean;
+      planFilePath?: string;
     }
   | { type: 'claude-permission-resolved'; tabId: string; requestId: string }
   | { type: 'claude-user-message'; tabId: string; message: ClaudeMessage }
   | { type: 'claude-todos-updated'; tabId: string; todos: TodoItem[] }
-  | { type: 'claude-permission-mode-changed'; tabId: string; mode: PermissionMode };
+  | { type: 'claude-permission-mode-changed'; tabId: string; mode: PermissionMode }
+  | { type: 'claude-plan-file-path-changed'; tabId: string; planFilePath: string };
 
 /**
  * Session creation WebSocket message types

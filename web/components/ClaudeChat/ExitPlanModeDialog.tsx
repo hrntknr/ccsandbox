@@ -1,8 +1,17 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
+import { Streamdown } from 'streamdown';
+import { createCodePlugin } from '@streamdown/code';
 import type { ClaudePendingPermission, PermissionMode } from '@shared/index.js';
+
+// Create code plugin with dark theme (vitesse-dark for better contrast)
+const darkCodePlugin = createCodePlugin({
+  themes: ['vitesse-dark', 'vitesse-dark'],
+});
 
 interface ExitPlanModeDialogProps {
   permission: ClaudePendingPermission;
+  sessionId: string;
+  planFilePath?: string | null;
   onResponse: (
     requestId: string,
     permission: 'allow' | 'deny',
@@ -41,10 +50,37 @@ const options: PlanOption[] = [
 
 export function ExitPlanModeDialog({
   permission,
+  sessionId,
+  planFilePath,
   onResponse,
 }: ExitPlanModeDialogProps) {
   const [selectedOption, setSelectedOption] = useState<string>(options[0]!.id);
   const [customMessage, setCustomMessage] = useState('');
+  const [planContent, setPlanContent] = useState<string | null>(null);
+  const [planLoading, setPlanLoading] = useState(true);
+
+  // Fetch plan content from .claude/plans directory
+  useEffect(() => {
+    async function fetchPlan() {
+      try {
+        const url = planFilePath
+          ? `/api/sessions/${sessionId}/plan?path=${encodeURIComponent(planFilePath)}`
+          : `/api/sessions/${sessionId}/plan`;
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json() as { success: boolean; data?: { content: string } };
+          if (data.success && data.data?.content) {
+            setPlanContent(data.data.content);
+          }
+        }
+      } catch {
+        // Ignore errors - plan display is optional
+      } finally {
+        setPlanLoading(false);
+      }
+    }
+    fetchPlan();
+  }, [sessionId, planFilePath]);
 
   const handleConfirm = useCallback(() => {
     const option = options.find((o) => o.id === selectedOption);
@@ -77,35 +113,56 @@ export function ExitPlanModeDialog({
 
   return (
     <div
-      className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
       style={{ animation: 'overlay-in 0.2s ease-out' }}
     >
       <div
-        className="bg-claude-bg-secondary rounded-2xl shadow-2xl shadow-black/40 max-w-lg w-[calc(100%-2rem)] mx-4 overflow-hidden border border-claude-border"
+        className="bg-claude-bg-secondary rounded-2xl shadow-2xl shadow-black/40 max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-claude-border"
         style={{ animation: 'modal-in 0.2s ease-out' }}
       >
         {/* Header */}
-        <div className="flex items-center gap-2.5 py-3.5 px-4 bg-claude-bg-tertiary border-b border-claude-border">
+        <div className="flex items-center gap-2.5 py-3.5 px-5 bg-claude-bg-tertiary border-b border-claude-border flex-shrink-0">
           <span className="text-claude-accent text-lg">📋</span>
-          <h3 className="m-0 text-sm font-semibold text-claude-text-primary">
+          <h3 className="m-0 text-base font-semibold text-claude-text-primary">
             Plan Ready for Execution
           </h3>
         </div>
 
-        {/* Content */}
-        <div className="p-4 max-h-[60vh] overflow-y-auto scrollbar-thin">
+        {/* Content - single scrollable area */}
+        <div className="flex-1 overflow-y-auto p-5 scrollbar-thin">
+          {/* Plan content */}
+          {planLoading ? (
+            <div className="mb-5 p-4 bg-claude-bg-tertiary rounded-lg border border-claude-border">
+              <div className="text-xs font-medium text-claude-text-tertiary mb-2">
+                Plan:
+              </div>
+              <div className="text-sm text-claude-text-muted animate-pulse">
+                Loading plan...
+              </div>
+            </div>
+          ) : planContent ? (
+            <div className="mb-5 p-4 bg-claude-bg-tertiary rounded-lg border border-claude-border">
+              <div className="text-xs font-medium text-claude-text-tertiary mb-3">
+                Plan:
+              </div>
+              <div className="prose prose-invert prose-sm max-w-none text-claude-text-secondary">
+                <Streamdown plugins={{ code: darkCodePlugin }}>{planContent}</Streamdown>
+              </div>
+            </div>
+          ) : null}
+
           {/* Allowed prompts info */}
           {allowedPrompts && allowedPrompts.length > 0 && (
-            <div className="mb-4 p-3 bg-claude-bg-tertiary rounded-lg border border-claude-border">
+            <div className="mb-5 p-4 bg-claude-bg-tertiary rounded-lg border border-claude-border">
               <div className="text-xs font-medium text-claude-text-tertiary mb-2">
                 Permissions requested:
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {allowedPrompts.map((prompt, index) => (
                   <div key={index} className="flex items-start gap-2 text-sm">
                     <span className="text-claude-text-muted">•</span>
                     <span className="text-claude-text-secondary">
-                      <span className="font-mono text-xs bg-claude-bg-hover px-1 rounded">
+                      <span className="font-mono text-xs bg-claude-bg-hover px-1.5 py-0.5 rounded">
                         {prompt.tool}
                       </span>{' '}
                       {prompt.prompt}
@@ -117,14 +174,14 @@ export function ExitPlanModeDialog({
           )}
 
           {/* Options */}
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {options.map((option) => {
               const isSelected = selectedOption === option.id;
               return (
                 <button
                   key={option.id}
                   type="button"
-                  className={`w-full text-left p-3 rounded-lg border transition-all ${
+                  className={`w-full text-left p-3.5 rounded-lg border transition-all ${
                     isSelected
                       ? 'border-claude-accent bg-claude-accent/10'
                       : 'border-claude-border bg-claude-bg-tertiary hover:border-claude-accent/50 hover:bg-claude-bg-hover'
@@ -159,7 +216,7 @@ export function ExitPlanModeDialog({
             {/* Custom message input */}
             <form
               onSubmit={handleCustomSubmit}
-              className="w-full p-3 rounded-lg border border-claude-border bg-claude-bg-tertiary transition-all focus-within:border-claude-accent"
+              className="w-full p-3.5 rounded-lg border border-claude-border bg-claude-bg-tertiary transition-all focus-within:border-claude-accent"
             >
               <div className="flex items-start gap-3">
                 <div className="mt-0.5 w-4 h-4 rounded-full border-2 border-claude-text-tertiary flex items-center justify-center flex-shrink-0" />
@@ -178,18 +235,18 @@ export function ExitPlanModeDialog({
         </div>
 
         {/* Footer */}
-        <div className="py-3 px-4 bg-claude-bg-tertiary border-t border-claude-border">
-          <div className="flex items-center justify-end gap-2">
+        <div className="py-4 px-5 bg-claude-bg-tertiary border-t border-claude-border flex-shrink-0">
+          <div className="flex items-center justify-end gap-3">
             <button
               type="button"
-              className="py-2 px-4 bg-transparent text-claude-text-secondary border border-claude-border rounded-lg cursor-pointer text-[13px] font-medium transition-all hover:bg-claude-bg-hover hover:text-claude-text-primary"
+              className="py-2.5 px-5 bg-transparent text-claude-text-secondary border border-claude-border rounded-lg cursor-pointer text-sm font-medium transition-all hover:bg-claude-bg-hover hover:text-claude-text-primary"
               onClick={handleDeny}
             >
               Deny
             </button>
             <button
               type="button"
-              className="py-2 px-4 bg-claude-accent text-white border-none rounded-lg cursor-pointer text-[13px] font-medium transition-all hover:bg-[#b04a2a]"
+              className="py-2.5 px-5 bg-claude-accent text-white border-none rounded-lg cursor-pointer text-sm font-medium transition-all hover:bg-[#b04a2a]"
               onClick={handleConfirm}
             >
               OK

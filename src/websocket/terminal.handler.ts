@@ -286,6 +286,7 @@ export function createTerminalHandler(
         todos,
         permissionMode: instance?.permissionMode,
         isProcessing: instance?.isProcessing,
+        planFilePath: instance?.planFilePath ?? undefined,
       });
     } else {
       // Get terminal history BEFORE setting client tab to avoid race condition:

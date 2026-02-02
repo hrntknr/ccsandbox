@@ -68,6 +68,7 @@ export interface ClaudeSessionInfo {
   sessionId: string;
   isProcessing: boolean;
   permissionMode: PermissionMode;
+  planFilePath: string | null;
 }
 
 /**
@@ -168,6 +169,10 @@ export class ClaudeSessionManager extends EventEmitter {
       this.emit('permissionModeChanged', tabId, mode);
     });
 
+    session.on('planFilePathChanged', (planFilePath) => {
+      this.emit('planFilePathChanged', tabId, planFilePath);
+    });
+
     // Emit initial processing state
     this.emit('processingStateChanged', sessionId, this.getProcessingStatsForSession(sessionId));
 
@@ -241,6 +246,7 @@ export class ClaudeSessionManager extends EventEmitter {
       sessionId: session.sessionId,
       isProcessing: session.isProcessing,
       permissionMode: session.permissionMode,
+      planFilePath: session.planFilePath,
     };
   }
 
@@ -266,6 +272,7 @@ export class ClaudeSessionManager extends EventEmitter {
         sessionId: s.sessionId,
         isProcessing: s.isProcessing,
         permissionMode: s.permissionMode,
+        planFilePath: s.planFilePath,
       }));
   }
 

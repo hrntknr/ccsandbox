@@ -35,7 +35,7 @@ interface ClaudeEventCallback {
 }
 
 interface ClaudeHistoryCallback {
-  (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[], todos: TodoItem[], permissionMode?: PermissionMode, isProcessing?: boolean): void;
+  (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[], todos: TodoItem[], permissionMode?: PermissionMode, isProcessing?: boolean, planFilePath?: string): void;
 }
 
 interface ClaudeEventSubscription {
@@ -84,6 +84,15 @@ interface PermissionModeChangedSubscription {
   callback: PermissionModeChangedCallback;
 }
 
+interface PlanFilePathChangedCallback {
+  (planFilePath: string): void;
+}
+
+interface PlanFilePathChangedSubscription {
+  tabId: string;
+  callback: PlanFilePathChangedCallback;
+}
+
 export interface UseTerminalWebSocketReturn {
   isConnected: boolean;
   tabs: TerminalTab[];
@@ -127,6 +136,7 @@ export interface UseTerminalWebSocketReturn {
   onClaudeUserMessage: (tabId: string, callback: ClaudeUserMessageCallback) => () => void;
   onClaudeTodosUpdated: (tabId: string, callback: ClaudeTodosUpdatedCallback) => () => void;
   onPermissionModeChanged: (tabId: string, callback: PermissionModeChangedCallback) => () => void;
+  onPlanFilePathChanged: (tabId: string, callback: PlanFilePathChangedCallback) => () => void;
 }
 
 // Reconnect backoff configuration
@@ -152,6 +162,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
   const claudeUserMessageSubscriptionsRef = useRef<ClaudeUserMessageSubscription[]>([]);
   const claudeTodosUpdatedSubscriptionsRef = useRef<ClaudeTodosUpdatedSubscription[]>([]);
   const claudePermissionModeChangedSubscriptionsRef = useRef<PermissionModeChangedSubscription[]>([]);
+  const claudePlanFilePathChangedSubscriptionsRef = useRef<PlanFilePathChangedSubscription[]>([]);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectDelayRef = useRef<number>(RECONNECT_BASE_DELAY);
 
@@ -259,7 +270,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
         case 'claude-history':
           for (const sub of claudeHistorySubscriptionsRef.current) {
             if (sub.tabId === message.tabId) {
-              sub.callback(message.messages, message.pendingPermissions, message.todos, message.permissionMode, message.isProcessing);
+              sub.callback(message.messages, message.pendingPermissions, message.todos, message.permissionMode, message.isProcessing, message.planFilePath);
             }
           }
           break;
@@ -292,6 +303,14 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
           for (const sub of claudePermissionModeChangedSubscriptionsRef.current) {
             if (sub.tabId === message.tabId) {
               sub.callback(message.mode);
+            }
+          }
+          break;
+
+        case 'claude-plan-file-path-changed':
+          for (const sub of claudePlanFilePathChangedSubscriptionsRef.current) {
+            if (sub.tabId === message.tabId) {
+              sub.callback(message.planFilePath);
             }
           }
           break;
@@ -637,6 +656,20 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     []
   );
 
+  const onPlanFilePathChanged = useCallback(
+    (tabId: string, callback: PlanFilePathChangedCallback): (() => void) => {
+      const subscription = { tabId, callback };
+      claudePlanFilePathChangedSubscriptionsRef.current.push(subscription);
+
+      return () => {
+        claudePlanFilePathChangedSubscriptionsRef.current = claudePlanFilePathChangedSubscriptionsRef.current.filter(
+          (s) => s !== subscription
+        );
+      };
+    },
+    []
+  );
+
   return {
     isConnected,
     tabs,
@@ -662,5 +695,6 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     onClaudeUserMessage,
     onClaudeTodosUpdated,
     onPermissionModeChanged,
+    onPlanFilePathChanged,
   };
 }

@@ -9,8 +9,8 @@ interface ThinkingBlockProps {
 /**
  * Collapsible thinking block component (Claude Code style)
  * - Collapsed by default
- * - Shows last N lines as preview when collapsed
- * - Expands to show full thinking content
+ * - Shows first N lines as preview when collapsed
+ * - Expands to show full thinking content on click
  * - Supports multiple thinking blocks merged into one collapsible group
  */
 export function ThinkingBlock({ thinkings, previewLines = 3 }: ThinkingBlockProps) {
@@ -20,7 +20,7 @@ export function ThinkingBlock({ thinkings, previewLines = 3 }: ThinkingBlockProp
   const fullContent = thinkings.join('\n\n---\n\n');
   const lines = fullContent.split('\n');
   const totalLines = lines.length;
-  const previewText = lines.slice(-previewLines).join('\n');
+  const previewText = lines.slice(0, previewLines).join('\n');
   const hasMoreContent = totalLines > previewLines;
   const blockCount = thinkings.length;
 
@@ -57,16 +57,16 @@ export function ThinkingBlock({ thinkings, previewLines = 3 }: ThinkingBlockProp
             {fullContent}
           </pre>
         ) : (
-          // Preview (last N lines) when collapsed
-          <div className="relative">
+          // Preview (first N lines) when collapsed - click to expand
+          <div className="relative cursor-pointer" onClick={() => setIsExpanded(true)}>
             {hasMoreContent && (
-              <div className="absolute top-0 left-0 right-0 h-6 bg-gradient-to-b from-claude-bg-tertiary to-transparent pointer-events-none z-10" />
+              <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-claude-bg-tertiary to-transparent pointer-events-none z-10" />
             )}
             <pre className="font-mono text-xs m-0 p-3 overflow-x-auto text-claude-text-secondary/70 whitespace-pre-wrap">
-              {hasMoreContent && (
-                <span className="text-claude-text-muted/50 italic">... </span>
-              )}
               {previewText}
+              {hasMoreContent && (
+                <span className="text-claude-text-muted/50 italic"> ...</span>
+              )}
             </pre>
           </div>
         )}

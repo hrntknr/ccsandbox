@@ -593,3 +593,55 @@ export async function getContainerId(containerIdOrName: string): Promise<string 
 
   return result.stdout.trim() || null;
 }
+
+/**
+ * Options for executing a command inside a devcontainer.
+ */
+export interface DevcontainerExecOptions {
+  /** Path to the workspace */
+  workspacePath: string;
+  /** Path to devcontainer CLI (default: 'devcontainer') */
+  devcontainerCliPath?: string;
+  /** External devcontainer config path (for templates) */
+  configPath?: string;
+}
+
+/**
+ * Result of executing a command inside a devcontainer.
+ */
+export interface DevcontainerExecResult {
+  /** Exit code of the command */
+  exitCode: number;
+  /** Standard output */
+  stdout: string;
+  /** Standard error */
+  stderr: string;
+}
+
+/**
+ * Executes a command inside a devcontainer.
+ *
+ * @param command - Command to execute (with arguments)
+ * @param options - Execution options
+ * @returns Command execution result
+ */
+export async function execInDevcontainer(
+  command: string[],
+  options: DevcontainerExecOptions
+): Promise<DevcontainerExecResult> {
+  const cliPath = options.devcontainerCliPath ?? 'devcontainer';
+
+  const args = ['exec', '--workspace-folder', options.workspacePath];
+  if (options.configPath) {
+    args.push('--config', options.configPath);
+  }
+  args.push('--', ...command);
+
+  const result = await execCommand(cliPath, args);
+
+  return {
+    exitCode: result.exitCode,
+    stdout: result.stdout,
+    stderr: result.stderr,
+  };
+}

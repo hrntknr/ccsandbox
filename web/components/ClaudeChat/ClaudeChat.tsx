@@ -19,6 +19,7 @@ import { TodoList } from './TodoList';
 
 interface ClaudeChatProps {
   tabId: string;
+  sessionId: string;
   isActive: boolean;
   defaultPermissionMode?: PermissionMode;
   sendClaudeMessage: (content: string, permissionMode: PermissionMode) => void;
@@ -36,7 +37,7 @@ interface ClaudeChatProps {
   ) => () => void;
   onClaudeHistory: (
     tabId: string,
-    callback: (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[], todos: TodoItem[], permissionMode?: PermissionMode, isProcessing?: boolean) => void
+    callback: (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[], todos: TodoItem[], permissionMode?: PermissionMode, isProcessing?: boolean, planFilePath?: string) => void
   ) => () => void;
   onClaudePermissionResolved: (
     tabId: string,
@@ -54,10 +55,15 @@ interface ClaudeChatProps {
     tabId: string,
     callback: (mode: PermissionMode) => void
   ) => () => void;
+  onPlanFilePathChanged: (
+    tabId: string,
+    callback: (planFilePath: string) => void
+  ) => () => void;
 }
 
 export function ClaudeChat({
   tabId,
+  sessionId,
   isActive,
   defaultPermissionMode,
   sendClaudeMessage,
@@ -70,6 +76,7 @@ export function ClaudeChat({
   onClaudeUserMessage,
   onClaudeTodosUpdated,
   onPermissionModeChanged,
+  onPlanFilePathChanged,
 }: ClaudeChatProps) {
   const [messages, setMessages] = useState<ClaudeMessage[]>([]);
   const [pendingPermissions, setPendingPermissions] = useState<ClaudePendingPermission[]>([]);
@@ -78,6 +85,7 @@ export function ClaudeChat({
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [bottomAreaHeight, setBottomAreaHeight] = useState(128);
   const [backendPermissionMode, setBackendPermissionMode] = useState<PermissionMode | null>(null);
+  const [planFilePath, setPlanFilePath] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const bottomAreaRef = useRef<HTMLDivElement>(null);
@@ -213,7 +221,7 @@ export function ClaudeChat({
 
   // Handle history on attach
   useEffect(() => {
-    return onClaudeHistory(tabId, (history, permissions, historyTodos, permissionMode, isProcessing) => {
+    return onClaudeHistory(tabId, (history, permissions, historyTodos, permissionMode, isProcessing, historyPlanFilePath) => {
       if (!historyLoadedRef.current) {
         setMessages(history);
         setPendingPermissions(permissions);
@@ -223,6 +231,9 @@ export function ClaudeChat({
         }
         if (isProcessing !== undefined) {
           setIsLoading(isProcessing);
+        }
+        if (historyPlanFilePath) {
+          setPlanFilePath(historyPlanFilePath);
         }
         historyLoadedRef.current = true;
       }
@@ -256,6 +267,13 @@ export function ClaudeChat({
       setBackendPermissionMode(mode);
     });
   }, [tabId, onPermissionModeChanged]);
+
+  // Handle plan file path changed from server (EnterPlanMode result)
+  useEffect(() => {
+    return onPlanFilePathChanged(tabId, (path) => {
+      setPlanFilePath(path);
+    });
+  }, [tabId, onPlanFilePathChanged]);
 
   // Track bottom area height for scroll spacer
   useEffect(() => {
@@ -423,6 +441,8 @@ export function ClaudeChat({
           return (
             <ExitPlanModeDialog
               permission={permission}
+              sessionId={sessionId}
+              planFilePath={planFilePath}
               onResponse={handlePermissionResponse}
             />
           );

@@ -38,6 +38,11 @@ export function createApp(options: CreateAppOptions = {}): Express {
       if (req.path.startsWith('/api')) {
         return next();
       }
+      // Skip asset requests - these should 404 if not found by express.static
+      // This prevents returning HTML for missing JS/CSS files (e.g., after rebuild with new hashes)
+      if (req.path.startsWith('/assets/')) {
+        return res.status(404).send('Not found');
+      }
       res.sendFile(path.join(webDistPath, 'index.html'));
     });
   }
