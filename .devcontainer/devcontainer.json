@@ -1,6 +1,6 @@
 {
-  "name": "Ubuntu",
-  "image": "mcr.microsoft.com/devcontainers/base:noble",
+  "name": "Node.js",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:latest",
   "features": {
     "ghcr.io/anthropics/devcontainer-features/claude-code:1": {},
     "ghcr.io/devcontainers/features/github-cli:1": {},
