@@ -229,6 +229,7 @@ export function App() {
         <TerminalPane
           session={selectedSession}
           defaultPermissionMode={clientConfig?.defaultPermissionMode}
+          speechRecognitionLanguage={clientConfig?.speechRecognitionLanguage}
         />
       </div>
 

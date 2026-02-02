@@ -1,6 +1,8 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { ImageAttachment, PermissionMode } from '@shared/index.js';
 import { PermissionModeSelector } from './PermissionModeSelector';
+import { SPEECH_DISABLED } from '../SettingsModal';
+import '../../types/speech-recognition.d.ts';
 
 /** Maximum file size in bytes (5MB) */
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -16,6 +18,27 @@ interface InputFormProps {
   isActive: boolean;
   backendPermissionMode?: PermissionMode | null;
   defaultPermissionMode?: PermissionMode;
+  speechRecognitionLanguage?: string;
+}
+
+/**
+ * Get localized error message for speech recognition errors
+ */
+function getSpeechErrorMessage(error: string): string {
+  switch (error) {
+    case 'no-speech':
+      return 'No speech detected';
+    case 'audio-capture':
+      return 'Microphone not available';
+    case 'not-allowed':
+      return 'Microphone permission denied';
+    case 'network':
+      return 'Network error';
+    case 'aborted':
+      return 'Recognition aborted';
+    default:
+      return 'Speech recognition error';
+  }
 }
 
 /**
@@ -42,13 +65,21 @@ async function fileToImageAttachment(file: File): Promise<ImageAttachment> {
   });
 }
 
-export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPermissionMode, defaultPermissionMode = 'default' }: InputFormProps) {
+export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPermissionMode, defaultPermissionMode = 'default', speechRecognitionLanguage }: InputFormProps) {
   const [input, setInput] = useState('');
   const [permissionMode, setPermissionMode] = useState<PermissionMode>(defaultPermissionMode);
   const [images, setImages] = useState<ImageAttachment[]>([]);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+
+  // Check browser compatibility for Web Speech API
+  const isSpeechSupported = useMemo(() => {
+    return typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
+  }, []);
 
   // Auto-focus when tab becomes active
   useEffect(() => {
@@ -86,6 +117,11 @@ export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPe
       e?.preventDefault();
       const trimmed = input.trim();
       if ((trimmed || images.length > 0) && !disabled) {
+        // Stop speech recognition if active
+        if (recognitionRef.current) {
+          recognitionRef.current.stop();
+          setIsRecording(false);
+        }
         onSubmit(trimmed, permissionMode, images.length > 0 ? images : undefined);
         setInput('');
         // Clear images after submit
@@ -137,6 +173,74 @@ export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPe
       setImageUrls((prev) => [...prev, ...newUrls]);
     }
   }, [images.length]);
+
+  // Toggle speech recognition
+  const toggleSpeechRecognition = useCallback(() => {
+    if (!speechRecognitionLanguage || !isSpeechSupported) return;
+
+    // Stop if currently recording
+    if (isRecording && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
+      return;
+    }
+
+    // Create SpeechRecognition instance
+    const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognitionClass) return;
+
+    const recognition = new SpeechRecognitionClass();
+    recognition.lang = speechRecognitionLanguage;
+    recognition.interimResults = true;
+    recognition.continuous = true;
+
+    recognition.onstart = () => {
+      setIsRecording(true);
+      setSpeechError(null);
+    };
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let finalTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result && result.isFinal && result[0]) {
+          finalTranscript += result[0].transcript;
+        }
+      }
+
+      // Add final transcript to input
+      if (finalTranscript) {
+        setInput((prev) => prev + finalTranscript);
+      }
+    };
+
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+      console.error('Speech recognition error:', event.error);
+      setIsRecording(false);
+      if (event.error !== 'aborted') {
+        setSpeechError(getSpeechErrorMessage(event.error));
+        // Clear error after 3 seconds
+        setTimeout(() => setSpeechError(null), 3000);
+      }
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  }, [speechRecognitionLanguage, isSpeechSupported, isRecording]);
+
+  // Cleanup speech recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+    };
+  }, []);
 
   const handleRemoveImage = useCallback((index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
@@ -245,6 +349,34 @@ export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPe
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
               </svg>
             </button>
+            {/* Voice input button */}
+            {speechRecognitionLanguage && speechRecognitionLanguage !== SPEECH_DISABLED && isSpeechSupported && (
+              <button
+                type="button"
+                onClick={toggleSpeechRecognition}
+                disabled={disabled}
+                className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isRecording
+                    ? 'text-red-500 bg-red-500/10 hover:bg-red-500/20 animate-pulse'
+                    : 'text-claude-text-muted hover:text-claude-text-primary hover:bg-claude-bg-hover'
+                }`}
+                title={isRecording ? 'Stop recording' : 'Voice input'}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {isRecording ? (
+                    // Stop icon (square)
+                    <rect x="6" y="6" width="12" height="12" rx="2" strokeWidth={2} fill="currentColor" />
+                  ) : (
+                    // Microphone icon
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  )}
+                </svg>
+              </button>
+            )}
+            {/* Speech error message */}
+            {speechError && (
+              <span className="text-xs text-red-500 px-1">{speechError}</span>
+            )}
           </div>
           {disabled ? (
             <button

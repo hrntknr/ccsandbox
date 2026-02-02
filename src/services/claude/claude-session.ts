@@ -79,12 +79,12 @@ export class ClaudeSession extends EventEmitter {
     const messageGenerator = this.createMessageGenerator();
 
     // Build query options
-    const queryOptions: Parameters<typeof query>[0]['options'] = {
+    const queryOptions: NonNullable<Parameters<typeof query>[0]['options']> = {
       pathToClaudeCodeExecutable: this.wrapperPath,
       permissionMode: this._permissionMode,
       canUseTool: this.handlePermissionRequest.bind(this),
       includePartialMessages: true,
-      preset: 'claude_code',
+      tools: { type: 'preset', preset: 'claude_code' },
       settingSources: ['user', 'project'],
     };
 
@@ -273,7 +273,7 @@ export class ClaudeSession extends EventEmitter {
       // SDK's thinking blocks have 'thinking' property (Anthropic API format)
       const thinkingContent = message.content
         .filter((c: ContentBlock) => c.type === 'thinking')
-        .map((c) => {
+        .map((c: ContentBlock) => {
           // Handle both 'thinking' property and potential 'text' property
           const block = c as { thinking?: string; text?: string };
           return block.thinking ?? block.text ?? '';

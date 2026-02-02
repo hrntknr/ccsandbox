@@ -1,1 +1,1 @@
-export { SettingsModal } from './SettingsModal';
+export { SettingsModal, SPEECH_LANGUAGES, SPEECH_DISABLED } from './SettingsModal';

@@ -9,13 +9,14 @@ import { useDiffStats, usePortForwarding } from '../../hooks/useApi';
 interface TerminalPaneProps {
   session: Session | null;
   defaultPermissionMode?: PermissionMode;
+  speechRecognitionLanguage?: string;
 }
 
 interface LocalTab extends TerminalTab {
   isEditing?: boolean;
 }
 
-export function TerminalPane({ session, defaultPermissionMode }: TerminalPaneProps) {
+export function TerminalPane({ session, defaultPermissionMode, speechRecognitionLanguage }: TerminalPaneProps) {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
@@ -281,6 +282,7 @@ export function TerminalPane({ session, defaultPermissionMode }: TerminalPanePro
                 isActive={tab.tabId === activeTabId}
                 isConnected={isConnected}
                 defaultPermissionMode={defaultPermissionMode}
+                speechRecognitionLanguage={speechRecognitionLanguage}
                 sendClaudeMessage={sendClaudeMessage}
                 respondToPermission={respondToPermission}
                 changePermissionMode={changePermissionMode}

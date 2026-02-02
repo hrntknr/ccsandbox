@@ -297,7 +297,7 @@ export function createTerminalHandler(
 
       // Send history (output arriving after setClientTab will be sent via 'output' message)
       // For exited terminals without history, send empty history so client knows to show exit message
-      sendMessage(ws, { type: 'history', data: history });
+      sendMessage(ws, { type: 'history', tabId, data: history });
     }
 
     sendMessage(ws, { type: 'attached', tabId });
@@ -326,7 +326,7 @@ export function createTerminalHandler(
 
     // Send history for the new tab
     if (history) {
-      sendMessage(ws, { type: 'history', data: history });
+      sendMessage(ws, { type: 'history', tabId, data: history });
     }
   }
 
@@ -504,8 +504,8 @@ export function createTerminalHandler(
       return;
     }
 
-    // Broadcast user message to other clients attached to this tab
-    connectionManager.broadcastToTab(currentSessionId, currentTabId, {
+    // Broadcast user message to all clients in the session (including background tabs)
+    connectionManager.broadcast(currentSessionId, {
       type: 'claude-user-message',
       tabId: currentTabId,
       message: userMessage,
@@ -544,8 +544,8 @@ export function createTerminalHandler(
       return;
     }
 
-    // Broadcast permission resolution to all clients attached to this tab
-    connectionManager.broadcastToTab(currentSessionId, currentTabId, {
+    // Broadcast permission resolution to all clients in the session (including background tabs)
+    connectionManager.broadcast(currentSessionId, {
       type: 'claude-permission-resolved',
       tabId: currentTabId,
       requestId,

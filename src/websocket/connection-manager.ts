@@ -99,8 +99,11 @@ export class ConnectionManager {
     const sessionId = this.tabToSession.get(tabId);
     if (!sessionId) return;
 
-    this.broadcastToTab(sessionId, tabId, {
+    // Broadcast to all clients in the session (including background tabs)
+    // Clients filter by tabId
+    this.broadcast(sessionId, {
       type: 'output',
+      tabId,
       data,
     } satisfies TerminalServerMessage);
   };
@@ -131,8 +134,10 @@ export class ConnectionManager {
     const sessionId = this.tabToSession.get(tabId);
     if (!sessionId) return;
 
-    this.broadcastToTab(sessionId, tabId, {
+    // Broadcast to all clients in the session (including background tabs)
+    this.broadcast(sessionId, {
       type: 'error',
+      tabId,
       message: error.message,
     } satisfies TerminalServerMessage);
   };
@@ -144,8 +149,9 @@ export class ConnectionManager {
       return;
     }
 
+    // Broadcast to all clients in the session (including background tabs)
     // SDK events are compatible with the existing ClaudeEvent structure
-    this.broadcastToTab(sessionId, tabId, {
+    this.broadcast(sessionId, {
       type: 'claude-event',
       tabId,
       event: event as unknown,
@@ -176,8 +182,10 @@ export class ConnectionManager {
     const sessionId = this.tabToSession.get(tabId);
     if (!sessionId) return;
 
-    this.broadcastToTab(sessionId, tabId, {
+    // Broadcast to all clients in the session (including background tabs)
+    this.broadcast(sessionId, {
       type: 'error',
+      tabId,
       message: error.message,
     } satisfies TerminalServerMessage);
   };
@@ -210,7 +218,8 @@ export class ConnectionManager {
     const sessionId = this.tabToSession.get(tabId);
     if (!sessionId) return;
 
-    this.broadcastToTab(sessionId, tabId, {
+    // Broadcast to all clients in the session (including background tabs)
+    this.broadcast(sessionId, {
       type: 'claude-todos-updated',
       tabId,
       todos,
@@ -221,7 +230,8 @@ export class ConnectionManager {
     const sessionId = this.tabToSession.get(tabId);
     if (!sessionId) return;
 
-    this.broadcastToTab(sessionId, tabId, {
+    // Broadcast to all clients in the session (including background tabs)
+    this.broadcast(sessionId, {
       type: 'claude-permission-mode-changed',
       tabId,
       mode,
@@ -232,7 +242,8 @@ export class ConnectionManager {
     const sessionId = this.tabToSession.get(tabId);
     if (!sessionId) return;
 
-    this.broadcastToTab(sessionId, tabId, {
+    // Broadcast to all clients in the session (including background tabs)
+    this.broadcast(sessionId, {
       type: 'claude-plan-file-path-changed',
       tabId,
       planFilePath,

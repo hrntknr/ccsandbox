@@ -24,6 +24,7 @@ interface ClaudeChatProps {
   isActive: boolean;
   isConnected: boolean;
   defaultPermissionMode?: PermissionMode;
+  speechRecognitionLanguage?: string;
   sendClaudeMessage: (content: string, images?: ImageAttachment[], permissionMode?: PermissionMode) => void;
   respondToPermission: (
     requestId: string,
@@ -69,6 +70,7 @@ export function ClaudeChat({
   isActive,
   isConnected,
   defaultPermissionMode,
+  speechRecognitionLanguage,
   sendClaudeMessage,
   respondToPermission,
   changePermissionMode,
@@ -504,6 +506,7 @@ export function ClaudeChat({
             isActive={isActive}
             backendPermissionMode={backendPermissionMode}
             defaultPermissionMode={defaultPermissionMode}
+            speechRecognitionLanguage={speechRecognitionLanguage}
           />
         </div>
       </div>

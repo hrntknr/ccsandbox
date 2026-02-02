@@ -94,6 +94,14 @@ interface PlanFilePathChangedSubscription {
   callback: PlanFilePathChangedCallback;
 }
 
+/**
+ * Buffer for terminal output per tab
+ * Used to accumulate output when tab is in background
+ */
+interface TerminalOutputBuffer {
+  output: string;
+}
+
 export type ConnectionState = 'connected' | 'disconnected' | 'reconnecting';
 
 export interface UseTerminalWebSocketReturn {
@@ -178,6 +186,8 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
   const claudePlanFilePathChangedSubscriptionsRef = useRef<PlanFilePathChangedSubscription[]>([]);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectDelayRef = useRef<number>(RECONNECT_BASE_DELAY);
+  // Buffer for terminal output per tab (accumulates when tab is in background)
+  const terminalOutputBuffersRef = useRef<Map<string, TerminalOutputBuffer>>(new Map());
 
   const sendMessage = useCallback((message: TerminalClientMessage) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -217,6 +227,8 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
 
         case 'tab-removed':
           setTabs((prev) => prev.filter((t) => t.tabId !== message.tabId));
+          // Clean up buffer for removed tab
+          terminalOutputBuffersRef.current.delete(message.tabId);
           break;
 
         case 'tab-renamed':
@@ -235,21 +247,41 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
           );
           break;
 
-        case 'output':
-          for (const sub of outputSubscriptionsRef.current) {
-            if (sub.tabId === currentTabIdRef.current) {
-              sub.callback(message.data);
-            }
+        case 'output': {
+          // Accumulate output in buffer for this tab
+          const tabId = message.tabId;
+          let buffer = terminalOutputBuffersRef.current.get(tabId);
+          if (!buffer) {
+            buffer = { output: '' };
+            terminalOutputBuffersRef.current.set(tabId, buffer);
           }
-          break;
+          buffer.output += message.data;
 
-        case 'history':
-          for (const sub of historySubscriptionsRef.current) {
-            if (sub.tabId === currentTabIdRef.current) {
+          // Notify subscribers for this specific tab
+          for (const sub of outputSubscriptionsRef.current) {
+            if (sub.tabId === tabId) {
               sub.callback(message.data);
             }
           }
           break;
+        }
+
+        case 'history': {
+          // History is sent when attaching to a tab
+          // Use tabId from message if available, otherwise use current tab
+          const tabId = message.tabId ?? currentTabIdRef.current;
+          if (tabId) {
+            // Initialize buffer with history
+            terminalOutputBuffersRef.current.set(tabId, { output: message.data });
+          }
+
+          for (const sub of historySubscriptionsRef.current) {
+            if (sub.tabId === tabId) {
+              sub.callback(message.data);
+            }
+          }
+          break;
+        }
 
         case 'attached':
           currentTabIdRef.current = message.tabId;
@@ -377,6 +409,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     claudeUserMessageSubscriptionsRef.current = [];
     claudeTodosUpdatedSubscriptionsRef.current = [];
     claudePermissionModeChangedSubscriptionsRef.current = [];
+    terminalOutputBuffersRef.current.clear();
   }, []);
 
   // Connect to WebSocket and join session

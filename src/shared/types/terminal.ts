@@ -44,10 +44,10 @@ export type TerminalServerMessage =
   | { type: 'tab-removed'; tabId: string }
   | { type: 'tab-renamed'; tabId: string; title: string }
   | { type: 'tab-ready'; tabId: string }
-  | { type: 'history'; data: string }
-  | { type: 'output'; data: string }
+  | { type: 'history'; tabId?: string; data: string }
+  | { type: 'output'; tabId: string; data: string }
   | { type: 'attached'; tabId: string }
-  | { type: 'error'; message: string }
+  | { type: 'error'; tabId?: string; message: string }
   | { type: 'exit'; tabId: string; code: number }
   | { type: 'resize-sync'; cols: number; rows: number }
   // Heartbeat

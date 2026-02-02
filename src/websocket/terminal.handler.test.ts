@@ -767,9 +767,9 @@ describe('createTerminalHandler', () => {
         );
       });
 
-      // Should also send empty history
+      // Should also send empty history (with tabId)
       expect(sentMessages).toContainEqual(
-        JSON.stringify({ type: 'history', data: '' })
+        JSON.stringify({ type: 'history', tabId: testTabId, data: '' })
       );
 
       // Should NOT send an error
