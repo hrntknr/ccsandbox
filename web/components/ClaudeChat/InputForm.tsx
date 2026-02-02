@@ -322,12 +322,22 @@ export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPe
           rows={1}
         />
         <div className="flex items-center justify-between py-1.5 px-3 border-t border-claude-border/50 bg-claude-bg-tertiary/50 rounded-b-[15px]">
-          <div className="flex items-center gap-2">
+          {/* Left: Permission mode selector */}
+          <div className="flex items-center gap-2 flex-shrink-0 min-w-0">
             <PermissionModeSelector
               value={permissionMode}
               onChange={setPermissionMode}
               disabled={disabled}
             />
+            {/* Speech error message */}
+            {speechError && (
+              <span className="text-xs text-red-500 px-1 truncate">{speechError}</span>
+            )}
+          </div>
+          {/* Spacer */}
+          <div className="flex-1 min-w-2" />
+          {/* Right: Image, voice, and submit buttons */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
             {/* File input button */}
             <input
               ref={fileInputRef}
@@ -373,29 +383,25 @@ export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPe
                 </svg>
               </button>
             )}
-            {/* Speech error message */}
-            {speechError && (
-              <span className="text-xs text-red-500 px-1">{speechError}</span>
+            {disabled ? (
+              <button
+                type="button"
+                onClick={onInterrupt}
+                className="py-1.5 px-3.5 bg-red-500 text-white border-none rounded-xl cursor-pointer text-[13px] font-medium transition-all flex items-center gap-1.5 hover:bg-red-600"
+              >
+                <span className="text-sm">■</span>
+                <span>Cancel</span>
+              </button>
+            ) : (
+              <button
+                type="submit"
+                className="py-1.5 px-3.5 bg-claude-accent text-white border-none rounded-xl cursor-pointer text-[13px] font-medium transition-all flex items-center gap-1.5 hover:bg-claude-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!input.trim() && images.length === 0}
+              >
+                <span className="text-sm">↑</span>
+              </button>
             )}
           </div>
-          {disabled ? (
-            <button
-              type="button"
-              onClick={onInterrupt}
-              className="py-1.5 px-3.5 bg-red-500 text-white border-none rounded-xl cursor-pointer text-[13px] font-medium transition-all flex items-center gap-1.5 hover:bg-red-600"
-            >
-              <span className="text-sm">■</span>
-              <span>Cancel</span>
-            </button>
-          ) : (
-            <button
-              type="submit"
-              className="py-1.5 px-3.5 bg-claude-accent text-white border-none rounded-xl cursor-pointer text-[13px] font-medium transition-all flex items-center gap-1.5 hover:bg-claude-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!input.trim() && images.length === 0}
-            >
-              <span className="text-sm">↑</span>
-            </button>
-          )}
         </div>
       </div>
     </form>
