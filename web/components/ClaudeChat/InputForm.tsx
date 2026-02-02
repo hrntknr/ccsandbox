@@ -81,13 +81,6 @@ export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPe
     return typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
   }, []);
 
-  // Auto-focus when tab becomes active
-  useEffect(() => {
-    if (isActive && !disabled) {
-      textareaRef.current?.focus();
-    }
-  }, [isActive, disabled]);
-
   // Sync permission mode when backend mode changes (EnterPlanMode/ExitPlanMode)
   useEffect(() => {
     if (backendPermissionMode) {
