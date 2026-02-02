@@ -93,6 +93,7 @@ export function ClaudeChat({
   const [planFilePath, setPlanFilePath] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const messageListRef = useRef<HTMLDivElement>(null);
   const bottomAreaRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef(true);
   const isScrollingRef = useRef(false);
@@ -348,14 +349,31 @@ export function ClaudeChat({
     return () => container.removeEventListener('scroll', handleScroll);
   }, [checkIsAtBottom]);
 
-  // Auto-scroll on streaming content only if at bottom
+  // Auto-scroll when MessageList DOM height changes (e.g., Streamdown rendering)
+  // This handles cases where content length changes dynamically after markdown parsing
   useEffect(() => {
     if (!isActive) return;
 
-    if (isAtBottomRef.current) {
-      scrollToBottom('smooth');
-    }
-  }, [streamingContent, isActive, scrollToBottom]);
+    const messageList = messageListRef.current;
+    if (!messageList) return;
+
+    const observer = new ResizeObserver(() => {
+      if (isAtBottomRef.current) {
+        // Mark as scrolling to prevent scroll events from clearing isAtBottom
+        // This is critical when large elements (e.g., headings) cause layout shifts
+        isScrollingRef.current = true;
+        // Use instant scroll during streaming to avoid jank from frequent updates
+        messagesEndRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' });
+        // Clear after browser has processed the scroll (use rAF for instant scroll)
+        requestAnimationFrame(() => {
+          isScrollingRef.current = false;
+        });
+      }
+    });
+
+    observer.observe(messageList);
+    return () => observer.disconnect();
+  }, [isActive]);
 
   // Auto-scroll on new messages only if at bottom
   useEffect(() => {
@@ -438,11 +456,13 @@ export function ClaudeChat({
   return (
     <div className={`relative h-full bg-claude-bg-primary text-claude-text-primary font-sans text-sm leading-normal ${isActive ? 'flex flex-col' : 'hidden'}`}>
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto py-4 scrollbar-thin">
-        <MessageList
-          messages={messages}
-          streamingContent={streamingContent}
-          isLoading={isLoading}
-        />
+        <div ref={messageListRef}>
+          <MessageList
+            messages={messages}
+            streamingContent={streamingContent}
+            isLoading={isLoading}
+          />
+        </div>
         {/* Scroll spacer - matches bottom area height (only when there are messages) */}
         {(messages.length > 0 || isLoading || streamingContent) && (
           <div style={{ height: bottomAreaHeight }} />
