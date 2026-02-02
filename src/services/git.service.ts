@@ -246,11 +246,19 @@ async function getUntrackedFiles(workspacePath: string): Promise<string[]> {
 }
 
 /**
+ * Checks if a buffer contains binary content (has NUL bytes).
+ */
+function isBinaryContent(buffer: Buffer): boolean {
+  return buffer.includes(0);
+}
+
+/**
  * Creates a FileDiff for an untracked (new) file.
+ * Binary files are excluded (returns null).
  *
  * @param workspacePath - Path to the git repository
  * @param filePath - Relative path to the file
- * @returns FileDiff object or null if file cannot be read
+ * @returns FileDiff object or null if file is binary or cannot be read
  */
 async function createUntrackedFileDiff(
   workspacePath: string,
@@ -258,7 +266,14 @@ async function createUntrackedFileDiff(
 ): Promise<FileDiff | null> {
   try {
     const fullPath = join(workspacePath, filePath);
-    const content = await readFile(fullPath, 'utf-8');
+    const buffer = await readFile(fullPath);
+
+    // Skip binary files
+    if (isBinaryContent(buffer)) {
+      return null;
+    }
+
+    const content = buffer.toString('utf-8');
     const lines = content.split('\n');
 
     // Remove trailing empty line if file ends with newline
@@ -364,9 +379,10 @@ function parseHunkHeader(header: string): { oldStart: number; oldLines: number; 
 
 /**
  * Parses the output of git diff to extract file diffs with hunks.
+ * Binary files are excluded from the result.
  *
  * @param diffOutput - Raw output from git diff
- * @returns Array of file diffs
+ * @returns Array of file diffs (excluding binary files)
  */
 function parseDiffOutput(diffOutput: string): FileDiff[] {
   const files: FileDiff[] = [];
@@ -375,6 +391,7 @@ function parseDiffOutput(diffOutput: string): FileDiff[] {
 
   let currentFile: FileDiff | null = null;
   let currentHunk: DiffHunk | null = null;
+  let isBinary = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
@@ -382,7 +399,8 @@ function parseDiffOutput(diffOutput: string): FileDiff[] {
     // Check for new file diff
     const fileMatch = line.match(filePattern);
     if (fileMatch) {
-      if (currentFile) {
+      // Push previous file if it's not binary
+      if (currentFile && !isBinary) {
         if (currentHunk) {
           currentFile.hunks.push(currentHunk);
         }
@@ -396,10 +414,17 @@ function parseDiffOutput(diffOutput: string): FileDiff[] {
         hunks: [],
       };
       currentHunk = null;
+      isBinary = false;
       continue;
     }
 
     if (!currentFile) continue;
+
+    // Check for binary file (only before hunk starts, to avoid matching code content)
+    if (!currentHunk && (line.startsWith('Binary files') || line.startsWith('GIT binary patch'))) {
+      isBinary = true;
+      continue;
+    }
 
     // Check for file status
     if (line.startsWith('new file mode')) {
@@ -439,8 +464,8 @@ function parseDiffOutput(diffOutput: string): FileDiff[] {
     }
   }
 
-  // Push last file and hunk
-  if (currentFile) {
+  // Push last file and hunk (if not binary)
+  if (currentFile && !isBinary) {
     if (currentHunk) {
       currentFile.hunks.push(currentHunk);
     }
