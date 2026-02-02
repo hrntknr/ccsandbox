@@ -195,7 +195,7 @@ export function App() {
         {connectionState === 'reconnecting' && (
           <div className="absolute top-0 left-0 right-0 z-20 bg-yellow-900/90 text-yellow-100 text-xs px-3 py-1.5 flex items-center justify-center gap-2 border-b border-yellow-700/50">
             <span className="inline-block w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
-            再接続中... (試行 {reconnectAttempt})
+            Reconnecting... (attempt {reconnectAttempt})
           </div>
         )}
 
@@ -203,7 +203,7 @@ export function App() {
         {justReconnected && (
           <div className="absolute top-0 left-0 right-0 z-20 bg-green-900/90 text-green-100 text-xs px-3 py-1.5 flex items-center justify-center gap-2 border-b border-green-700/50">
             <span className="inline-block w-2 h-2 bg-green-400 rounded-full" />
-            接続復旧
+            Connection restored
           </div>
         )}
 
