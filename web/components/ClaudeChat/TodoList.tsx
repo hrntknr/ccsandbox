@@ -14,7 +14,7 @@ export function TodoList({ todos }: TodoListProps) {
   const completedCount = todos.filter((t) => t.status === 'completed').length;
 
   return (
-    <div className="mb-2 bg-claude-bg-tertiary/50 border border-claude-border rounded-lg overflow-hidden">
+    <div className="mb-2 bg-claude-bg-secondary/95 backdrop-blur-sm border border-claude-border rounded-lg overflow-hidden shadow-lg shadow-black/20">
       {/* Header */}
       <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-claude-border/50">
         <div className="flex items-center gap-1.5">

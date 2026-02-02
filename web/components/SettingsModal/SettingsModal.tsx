@@ -2,6 +2,25 @@ import { useState, useEffect, useCallback } from 'react';
 import type { ClientConfig, UpdateConfigRequest, PermissionMode } from '@shared/index.js';
 import { useUpdateConfig } from '../../hooks';
 
+/** Marker value for disabled speech recognition */
+export const SPEECH_DISABLED = 'disabled';
+
+/** Speech recognition language options (BCP 47 format) - ordered by global usage */
+export const SPEECH_LANGUAGES = [
+  { code: 'en-US', name: 'English (US)' },
+  { code: 'en-GB', name: 'English (UK)' },
+  { code: 'zh-CN', name: '中文 (简体)' },
+  { code: 'zh-TW', name: '中文 (繁體)' },
+  { code: 'es-ES', name: 'Español' },
+  { code: 'pt-BR', name: 'Português (Brasil)' },
+  { code: 'ru-RU', name: 'Русский' },
+  { code: 'ja-JP', name: '日本語' },
+  { code: 'de-DE', name: 'Deutsch' },
+  { code: 'fr-FR', name: 'Français' },
+  { code: 'ko-KR', name: '한국어' },
+  { code: 'it-IT', name: 'Italiano' },
+] as const;
+
 const permissionModeOptions: { value: PermissionMode; label: string }[] = [
   { value: 'default', label: 'Default' },
   { value: 'acceptEdits', label: 'Accept Edits' },
@@ -34,6 +53,7 @@ export function SettingsModal({
   const [authPasswordConfirm, setAuthPasswordConfirm] = useState('');
   const [maxThinkingTokens, setMaxThinkingTokens] = useState('10000');
   const [defaultPermissionMode, setDefaultPermissionMode] = useState<PermissionMode>('default');
+  const [speechRecognitionLanguage, setSpeechRecognitionLanguage] = useState(SPEECH_DISABLED);
 
   const { updateConfig, loading, error } = useUpdateConfig();
 
@@ -51,6 +71,7 @@ export function SettingsModal({
       setAuthPasswordConfirm('');
       setMaxThinkingTokens(String(initialConfig.maxThinkingTokens ?? 10000));
       setDefaultPermissionMode(initialConfig.defaultPermissionMode ?? 'default');
+      setSpeechRecognitionLanguage(initialConfig.speechRecognitionLanguage ?? SPEECH_DISABLED);
     }
   }, [isOpen, initialConfig]);
 
@@ -84,6 +105,9 @@ export function SettingsModal({
       // defaultPermissionMode
       request.defaultPermissionMode = defaultPermissionMode;
 
+      // speechRecognitionLanguage
+      request.speechRecognitionLanguage = speechRecognitionLanguage || undefined;
+
       // Password: only include if user entered a value (and it matches confirmation)
       if (authPassword || authPasswordConfirm) {
         if (authPassword !== authPasswordConfirm) {
@@ -111,6 +135,7 @@ export function SettingsModal({
       defaultShell,
       maxThinkingTokens,
       defaultPermissionMode,
+      speechRecognitionLanguage,
       authPassword,
       authPasswordConfirm,
       updateConfig,
@@ -282,6 +307,26 @@ export function SettingsModal({
               </select>
               <div className="text-[11px] text-vscode-text-muted mt-1">
                 Default permission mode when opening new Claude tabs.
+              </div>
+            </div>
+
+            <div className="mb-4 max-md:mb-3.5">
+              <label htmlFor="speechRecognitionLanguage" className="block text-[13px] font-medium text-[#ccc] mb-1.5">Speech Recognition Language</label>
+              <select
+                id="speechRecognitionLanguage"
+                className="w-full py-2.5 px-3 bg-vscode-bg border border-[#444] rounded text-vscode-text text-sm focus:outline-none focus:border-vscode-accent disabled:opacity-60 disabled:cursor-not-allowed max-md:py-3 max-md:text-base"
+                value={speechRecognitionLanguage}
+                onChange={(e) => setSpeechRecognitionLanguage(e.target.value)}
+              >
+                <option value={SPEECH_DISABLED}>Disabled</option>
+                {SPEECH_LANGUAGES.map((lang) => (
+                  <option key={lang.code} value={lang.code}>
+                    {lang.name}
+                  </option>
+                ))}
+              </select>
+              <div className="text-[11px] text-vscode-text-muted mt-1">
+                Enable voice input for Claude chat. Works best in Chrome or Edge.
               </div>
             </div>
           </div>

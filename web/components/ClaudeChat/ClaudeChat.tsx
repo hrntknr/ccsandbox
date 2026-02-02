@@ -6,6 +6,7 @@ import type {
   ClaudeEvent,
   ClaudeMessage,
   ClaudePendingPermission,
+  ImageAttachment,
   PermissionMode,
   TodoItem,
   TodoWriteResult,
@@ -19,9 +20,12 @@ import { TodoList } from './TodoList';
 
 interface ClaudeChatProps {
   tabId: string;
+  sessionId: string;
   isActive: boolean;
+  isConnected: boolean;
   defaultPermissionMode?: PermissionMode;
-  sendClaudeMessage: (content: string, permissionMode: PermissionMode) => void;
+  speechRecognitionLanguage?: string;
+  sendClaudeMessage: (content: string, images?: ImageAttachment[], permissionMode?: PermissionMode) => void;
   respondToPermission: (
     requestId: string,
     permission: 'allow' | 'deny',
@@ -29,13 +33,14 @@ interface ClaudeChatProps {
     permissionMode?: PermissionMode
   ) => void;
   changePermissionMode: (mode: PermissionMode) => void;
+  interruptClaude: () => void;
   onClaudeEvent: (
     tabId: string,
     callback: (event: ClaudeEvent) => void
   ) => () => void;
   onClaudeHistory: (
     tabId: string,
-    callback: (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[], todos: TodoItem[], permissionMode?: PermissionMode, isProcessing?: boolean) => void
+    callback: (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[], todos: TodoItem[], permissionMode?: PermissionMode, isProcessing?: boolean, planFilePath?: string) => void
   ) => () => void;
   onClaudePermissionResolved: (
     tabId: string,
@@ -53,21 +58,30 @@ interface ClaudeChatProps {
     tabId: string,
     callback: (mode: PermissionMode) => void
   ) => () => void;
+  onPlanFilePathChanged: (
+    tabId: string,
+    callback: (planFilePath: string) => void
+  ) => () => void;
 }
 
 export function ClaudeChat({
   tabId,
+  sessionId,
   isActive,
+  isConnected,
   defaultPermissionMode,
+  speechRecognitionLanguage,
   sendClaudeMessage,
   respondToPermission,
   changePermissionMode,
+  interruptClaude,
   onClaudeEvent,
   onClaudeHistory,
   onClaudePermissionResolved,
   onClaudeUserMessage,
   onClaudeTodosUpdated,
   onPermissionModeChanged,
+  onPlanFilePathChanged,
 }: ClaudeChatProps) {
   const [messages, setMessages] = useState<ClaudeMessage[]>([]);
   const [pendingPermissions, setPendingPermissions] = useState<ClaudePendingPermission[]>([]);
@@ -76,12 +90,13 @@ export function ClaudeChat({
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [bottomAreaHeight, setBottomAreaHeight] = useState(128);
   const [backendPermissionMode, setBackendPermissionMode] = useState<PermissionMode | null>(null);
+  const [planFilePath, setPlanFilePath] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const bottomAreaRef = useRef<HTMLDivElement>(null);
   const historyLoadedRef = useRef(false);
   const isAtBottomRef = useRef(true);
-  const userScrolledRef = useRef(false);
+  const isScrollingRef = useRef(false);
 
   // Handle incoming events
   useEffect(() => {
@@ -164,14 +179,33 @@ export function ClaudeChat({
             }));
 
           if (toolResults.length > 0) {
-            setMessages((prev) => {
-              const newMessages = [...prev];
-              const lastMessage = newMessages[newMessages.length - 1];
-              if (lastMessage && lastMessage.role === 'assistant') {
-                lastMessage.toolResults = toolResults;
-              }
-              return newMessages;
-            });
+            // Use immutable update pattern to ensure React detects changes
+            setMessages((prev) =>
+              prev.map((msg) => {
+                if (msg.role !== 'assistant' || !msg.toolUse) return msg;
+
+                // Collect tool results that belong to this message
+                const matchingResults = toolResults.filter((result) =>
+                  msg.toolUse?.some((t) => t.id === result.toolUseId)
+                );
+
+                if (matchingResults.length === 0) return msg;
+
+                // Merge with existing results (exclude duplicates)
+                const existingResults = msg.toolResults ?? [];
+                const newResults = matchingResults.filter(
+                  (r) => !existingResults.some((e) => e.toolUseId === r.toolUseId)
+                );
+
+                if (newResults.length === 0) return msg;
+
+                // Return new object (immutable)
+                return {
+                  ...msg,
+                  toolResults: [...existingResults, ...newResults],
+                };
+              })
+            );
           }
           break;
         }
@@ -199,7 +233,7 @@ export function ClaudeChat({
 
   // Handle history on attach
   useEffect(() => {
-    return onClaudeHistory(tabId, (history, permissions, historyTodos, permissionMode, isProcessing) => {
+    return onClaudeHistory(tabId, (history, permissions, historyTodos, permissionMode, isProcessing, historyPlanFilePath) => {
       if (!historyLoadedRef.current) {
         setMessages(history);
         setPendingPermissions(permissions);
@@ -209,6 +243,9 @@ export function ClaudeChat({
         }
         if (isProcessing !== undefined) {
           setIsLoading(isProcessing);
+        }
+        if (historyPlanFilePath) {
+          setPlanFilePath(historyPlanFilePath);
         }
         historyLoadedRef.current = true;
       }
@@ -243,6 +280,13 @@ export function ClaudeChat({
     });
   }, [tabId, onPermissionModeChanged]);
 
+  // Handle plan file path changed from server (EnterPlanMode result)
+  useEffect(() => {
+    return onPlanFilePathChanged(tabId, (path) => {
+      setPlanFilePath(path);
+    });
+  }, [tabId, onPlanFilePathChanged]);
+
   // Track bottom area height for scroll spacer
   useEffect(() => {
     const bottomArea = bottomAreaRef.current;
@@ -267,10 +311,31 @@ export function ClaudeChat({
     return scrollHeight - scrollTop - clientHeight < threshold;
   }, []);
 
-  // Scroll to bottom helper
+  // Scroll to bottom helper - use scrollIntoView on the dummy element
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
-    messagesEndRef.current?.scrollIntoView({ behavior });
+    // Always set isAtBottom to true when programmatically scrolling to bottom
+    // This prevents DOM height changes (e.g., markdown rendering) from breaking snap
+    isAtBottomRef.current = true;
+
+    if (behavior === 'smooth') {
+      // Mark as scrolling to prevent scroll events from clearing isAtBottom
+      isScrollingRef.current = true;
+      // Clear after animation completes (smooth scroll typically takes ~300-500ms)
+      setTimeout(() => {
+        isScrollingRef.current = false;
+      }, 500);
+    }
+    messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
   }, []);
+
+  // Adjust scroll position when bottom area height changes (e.g., TodoList appears)
+  useEffect(() => {
+    if (!isActive) return;
+
+    if (isAtBottomRef.current) {
+      scrollToBottom('instant');
+    }
+  }, [bottomAreaHeight, isActive, scrollToBottom]);
 
   // Track scroll position to detect if user is at bottom
   useEffect(() => {
@@ -278,36 +343,29 @@ export function ClaudeChat({
     if (!container) return;
 
     const handleScroll = () => {
-      const atBottom = checkIsAtBottom();
-      isAtBottomRef.current = atBottom;
-
-      // If user scrolled up, mark as user-initiated scroll
-      if (!atBottom) {
-        userScrolledRef.current = true;
-      } else {
-        userScrolledRef.current = false;
-      }
+      // Skip updating during programmatic smooth scroll
+      if (isScrollingRef.current) return;
+      isAtBottomRef.current = checkIsAtBottom();
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
   }, [checkIsAtBottom]);
 
-  // Auto-scroll on new content only if user was at bottom
+  // Auto-scroll on streaming content only if at bottom
   useEffect(() => {
     if (!isActive) return;
 
-    // Always scroll on streaming content if at bottom
-    if (isAtBottomRef.current || !userScrolledRef.current) {
+    if (isAtBottomRef.current) {
       scrollToBottom('smooth');
     }
   }, [streamingContent, isActive, scrollToBottom]);
 
-  // Auto-scroll on new messages only if user was at bottom
+  // Auto-scroll on new messages only if at bottom
   useEffect(() => {
     if (!isActive) return;
 
-    if (isAtBottomRef.current || !userScrolledRef.current) {
+    if (isAtBottomRef.current) {
       scrollToBottom('smooth');
     }
   }, [messages, isActive, scrollToBottom]);
@@ -321,42 +379,64 @@ export function ClaudeChat({
     }
   }, [todos, isActive, scrollToBottom]);
 
-  // Scroll to bottom when tab becomes active (handles both initial load and tab switch)
+  // Auto-scroll when loading starts (e.g., "Claude is thinking...")
   useEffect(() => {
-    if (isActive && messages.length > 0) {
-      // Use instant scroll for tab activation
+    if (!isActive) return;
+
+    if (isLoading && isAtBottomRef.current) {
+      scrollToBottom('smooth');
+    }
+  }, [isLoading, isActive, scrollToBottom]);
+
+  // Scroll to bottom when tab becomes active (handles tab switch only)
+  const prevIsActiveRef = useRef(isActive);
+  useEffect(() => {
+    // Only scroll when tab becomes active (false -> true), not on every message
+    const wasInactive = !prevIsActiveRef.current;
+    prevIsActiveRef.current = isActive;
+
+    if (isActive && wasInactive && messages.length > 0) {
       scrollToBottom('instant');
       isAtBottomRef.current = true;
-      userScrolledRef.current = false;
     }
   }, [isActive, scrollToBottom, messages.length]);
 
   const handleSubmit = useCallback(
-    (content: string, permissionMode: PermissionMode) => {
+    (content: string, permissionMode: PermissionMode, images?: ImageAttachment[]) => {
+      // Skip if not connected - message won't be sent
+      if (!isConnected) {
+        return;
+      }
+
       // Add user message to UI immediately
       const userMessage: ClaudeMessage = {
         id: uuidv4(),
         role: 'user',
         content,
+        images,
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, userMessage]);
-      sendClaudeMessage(content, permissionMode);
+      sendClaudeMessage(content, images, permissionMode);
 
-      // When user sends a message, reset scroll state to follow new messages
+      // When user sends a message, snap to bottom and follow new messages
       isAtBottomRef.current = true;
-      userScrolledRef.current = false;
       scrollToBottom('smooth');
     },
-    [sendClaudeMessage, scrollToBottom]
+    [isConnected, sendClaudeMessage, scrollToBottom]
   );
 
   const handlePermissionResponse = useCallback(
     (requestId: string, permission: 'allow' | 'deny', answers?: Record<string, string>, permissionMode?: PermissionMode) => {
+      // Skip if not connected - response won't be sent
+      if (!isConnected) {
+        return;
+      }
+
       respondToPermission(requestId, permission, answers, permissionMode);
       setPendingPermissions((prev) => prev.filter((p) => p.requestId !== requestId));
     },
-    [respondToPermission]
+    [isConnected, respondToPermission]
   );
 
   return (
@@ -367,8 +447,12 @@ export function ClaudeChat({
           streamingContent={streamingContent}
           isLoading={isLoading}
         />
-        {/* Scroll spacer - matches bottom area height */}
-        <div ref={messagesEndRef} style={{ height: bottomAreaHeight }} />
+        {/* Scroll spacer - matches bottom area height (only when there are messages) */}
+        {(messages.length > 0 || isLoading || streamingContent) && (
+          <div style={{ height: bottomAreaHeight }} />
+        )}
+        {/* Dummy element for scrollIntoView */}
+        <div ref={messagesEndRef} />
       </div>
 
       {pendingPermissions.length > 0 && (() => {
@@ -381,6 +465,7 @@ export function ClaudeChat({
               <AskUserQuestionDialog
                 permission={permission}
                 questions={input.questions}
+                disabled={!isConnected}
                 onResponse={handlePermissionResponse}
               />
             );
@@ -391,6 +476,9 @@ export function ClaudeChat({
           return (
             <ExitPlanModeDialog
               permission={permission}
+              sessionId={sessionId}
+              planFilePath={planFilePath}
+              disabled={!isConnected}
               onResponse={handlePermissionResponse}
             />
           );
@@ -400,6 +488,7 @@ export function ClaudeChat({
           <PermissionDialog
             permission={permission}
             currentPermissionMode={backendPermissionMode ?? undefined}
+            disabled={!isConnected}
             onResponse={handlePermissionResponse}
             onChangePermissionMode={changePermissionMode}
           />
@@ -412,10 +501,12 @@ export function ClaudeChat({
           <TodoList todos={todos} />
           <InputForm
             onSubmit={handleSubmit}
-            disabled={isLoading || pendingPermissions.length > 0}
+            onInterrupt={interruptClaude}
+            disabled={isLoading || pendingPermissions.length > 0 || !isConnected}
             isActive={isActive}
             backendPermissionMode={backendPermissionMode}
             defaultPermissionMode={defaultPermissionMode}
+            speechRecognitionLanguage={speechRecognitionLanguage}
           />
         </div>
       </div>

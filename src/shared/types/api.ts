@@ -87,6 +87,8 @@ export interface EditableConfig {
   maxThinkingTokens?: number;
   /** Default permission mode for Claude tabs */
   defaultPermissionMode?: PermissionMode;
+  /** Speech recognition language (BCP 47 format, e.g., "ja-JP", "en-US") */
+  speechRecognitionLanguage?: string;
 }
 
 /**
@@ -105,6 +107,8 @@ export interface UpdateConfigRequest {
   maxThinkingTokens?: number;
   /** Default permission mode for Claude tabs */
   defaultPermissionMode?: PermissionMode;
+  /** Speech recognition language (BCP 47 format, e.g., "ja-JP", "en-US") */
+  speechRecognitionLanguage?: string;
 }
 
 /**
@@ -126,6 +130,8 @@ export interface ClientConfig {
   maxThinkingTokens?: number;
   /** Default permission mode for Claude tabs */
   defaultPermissionMode?: PermissionMode;
+  /** Speech recognition language (BCP 47 format, e.g., "ja-JP", "en-US") */
+  speechRecognitionLanguage?: string;
 }
 
 // Diff types

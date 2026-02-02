@@ -4,6 +4,7 @@ import { ToolInputDisplay } from './ToolInputDisplay';
 interface PermissionDialogProps {
   permission: ClaudePendingPermission;
   currentPermissionMode?: PermissionMode;
+  disabled?: boolean;
   onResponse: (
     requestId: string,
     permission: 'allow' | 'deny',
@@ -33,7 +34,7 @@ function getModeColor(mode: PermissionMode): string {
   }
 }
 
-export function PermissionDialog({ permission, currentPermissionMode, onResponse, onChangePermissionMode }: PermissionDialogProps) {
+export function PermissionDialog({ permission, currentPermissionMode, disabled, onResponse, onChangePermissionMode }: PermissionDialogProps) {
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" style={{ animation: 'overlay-in 0.2s ease-out' }}>
       <div className="bg-claude-bg-secondary rounded-2xl shadow-2xl shadow-black/40 max-w-lg w-[calc(100%-2rem)] mx-4 overflow-hidden border border-claude-border" style={{ animation: 'modal-in 0.2s ease-out' }}>
@@ -71,14 +72,16 @@ export function PermissionDialog({ permission, currentPermissionMode, onResponse
             {/* Action buttons */}
             <div className="flex gap-2 flex-shrink-0">
               <button
-                className="py-2 px-4 bg-transparent text-claude-text-secondary border border-claude-border rounded-lg cursor-pointer text-[13px] font-medium transition-all hover:bg-claude-bg-hover hover:text-claude-text-primary"
+                className="py-2 px-4 bg-transparent text-claude-text-secondary border border-claude-border rounded-lg cursor-pointer text-[13px] font-medium transition-all hover:bg-claude-bg-hover hover:text-claude-text-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => onResponse(permission.requestId, 'deny')}
+                disabled={disabled}
               >
                 Deny
               </button>
               <button
-                className="py-2 px-4 bg-claude-success text-white border-none rounded-lg cursor-pointer text-[13px] font-medium transition-all hover:bg-[#16a34a]"
+                className="py-2 px-4 bg-claude-success text-white border-none rounded-lg cursor-pointer text-[13px] font-medium transition-all hover:bg-[#16a34a] disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => onResponse(permission.requestId, 'allow')}
+                disabled={disabled}
               >
                 Allow
               </button>

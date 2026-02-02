@@ -8,6 +8,7 @@ import type {
   ClaudeEvent,
   ClaudeMessage,
   ClaudePendingPermission,
+  ImageAttachment,
   PermissionMode,
   TodoItem,
 } from '@shared/index.js';
@@ -35,7 +36,7 @@ interface ClaudeEventCallback {
 }
 
 interface ClaudeHistoryCallback {
-  (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[], todos: TodoItem[], permissionMode?: PermissionMode, isProcessing?: boolean): void;
+  (messages: ClaudeMessage[], pendingPermissions: ClaudePendingPermission[], todos: TodoItem[], permissionMode?: PermissionMode, isProcessing?: boolean, planFilePath?: string): void;
 }
 
 interface ClaudeEventSubscription {
@@ -84,8 +85,30 @@ interface PermissionModeChangedSubscription {
   callback: PermissionModeChangedCallback;
 }
 
+interface PlanFilePathChangedCallback {
+  (planFilePath: string): void;
+}
+
+interface PlanFilePathChangedSubscription {
+  tabId: string;
+  callback: PlanFilePathChangedCallback;
+}
+
+/**
+ * Buffer for terminal output per tab
+ * Used to accumulate output when tab is in background
+ */
+interface TerminalOutputBuffer {
+  output: string;
+}
+
+export type ConnectionState = 'connected' | 'disconnected' | 'reconnecting';
+
 export interface UseTerminalWebSocketReturn {
   isConnected: boolean;
+  connectionState: ConnectionState;
+  reconnectAttempt: number;
+  justReconnected: boolean;
   tabs: TerminalTab[];
   sendInput: (tabId: string, data: string) => void;
   addTab: (title?: string, tabType?: TabType) => void;
@@ -99,7 +122,7 @@ export interface UseTerminalWebSocketReturn {
   onResizeSync: (tabId: string, callback: ResizeSyncCallback) => () => void;
   onOwnTabAdded: (callback: (tab: TerminalTab) => void) => () => void;
   // Claude-specific
-  sendClaudeMessage: (content: string, permissionMode?: PermissionMode) => void;
+  sendClaudeMessage: (content: string, images?: ImageAttachment[], permissionMode?: PermissionMode) => void;
   /**
    * Respond to a permission request
    * @param requestId - The permission request ID
@@ -117,12 +140,17 @@ export interface UseTerminalWebSocketReturn {
    * Change permission mode for the current Claude tab
    */
   changePermissionMode: (permissionMode: PermissionMode) => void;
+  /**
+   * Interrupt the current Claude processing
+   */
+  interruptClaude: () => void;
   onClaudeEvent: (tabId: string, callback: ClaudeEventCallback) => () => void;
   onClaudeHistory: (tabId: string, callback: ClaudeHistoryCallback) => () => void;
   onClaudePermissionResolved: (tabId: string, callback: ClaudePermissionResolvedCallback) => () => void;
   onClaudeUserMessage: (tabId: string, callback: ClaudeUserMessageCallback) => () => void;
   onClaudeTodosUpdated: (tabId: string, callback: ClaudeTodosUpdatedCallback) => () => void;
   onPermissionModeChanged: (tabId: string, callback: PermissionModeChangedCallback) => () => void;
+  onPlanFilePathChanged: (tabId: string, callback: PlanFilePathChangedCallback) => () => void;
 }
 
 // Reconnect backoff configuration
@@ -131,8 +159,15 @@ const RECONNECT_MAX_DELAY = 30000;
 const RECONNECT_MULTIPLIER = 2;
 
 export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSocketReturn {
-  const [isConnected, setIsConnected] = useState(false);
+  const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
+  const [justReconnected, setJustReconnected] = useState(false);
   const [tabs, setTabs] = useState<TerminalTab[]>([]);
+  const wasReconnectingRef = useRef(false);
+  const justReconnectedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Derived state for backward compatibility
+  const isConnected = connectionState === 'connected';
 
   const wsRef = useRef<WebSocket | null>(null);
   const clientIdRef = useRef<string>(uuidv4());
@@ -148,8 +183,11 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
   const claudeUserMessageSubscriptionsRef = useRef<ClaudeUserMessageSubscription[]>([]);
   const claudeTodosUpdatedSubscriptionsRef = useRef<ClaudeTodosUpdatedSubscription[]>([]);
   const claudePermissionModeChangedSubscriptionsRef = useRef<PermissionModeChangedSubscription[]>([]);
+  const claudePlanFilePathChangedSubscriptionsRef = useRef<PlanFilePathChangedSubscription[]>([]);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectDelayRef = useRef<number>(RECONNECT_BASE_DELAY);
+  // Buffer for terminal output per tab (accumulates when tab is in background)
+  const terminalOutputBuffersRef = useRef<Map<string, TerminalOutputBuffer>>(new Map());
 
   const sendMessage = useCallback((message: TerminalClientMessage) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -189,6 +227,8 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
 
         case 'tab-removed':
           setTabs((prev) => prev.filter((t) => t.tabId !== message.tabId));
+          // Clean up buffer for removed tab
+          terminalOutputBuffersRef.current.delete(message.tabId);
           break;
 
         case 'tab-renamed':
@@ -207,21 +247,41 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
           );
           break;
 
-        case 'output':
-          for (const sub of outputSubscriptionsRef.current) {
-            if (sub.tabId === currentTabIdRef.current) {
-              sub.callback(message.data);
-            }
+        case 'output': {
+          // Accumulate output in buffer for this tab
+          const tabId = message.tabId;
+          let buffer = terminalOutputBuffersRef.current.get(tabId);
+          if (!buffer) {
+            buffer = { output: '' };
+            terminalOutputBuffersRef.current.set(tabId, buffer);
           }
-          break;
+          buffer.output += message.data;
 
-        case 'history':
-          for (const sub of historySubscriptionsRef.current) {
-            if (sub.tabId === currentTabIdRef.current) {
+          // Notify subscribers for this specific tab
+          for (const sub of outputSubscriptionsRef.current) {
+            if (sub.tabId === tabId) {
               sub.callback(message.data);
             }
           }
           break;
+        }
+
+        case 'history': {
+          // History is sent when attaching to a tab
+          // Use tabId from message if available, otherwise use current tab
+          const tabId = message.tabId ?? currentTabIdRef.current;
+          if (tabId) {
+            // Initialize buffer with history
+            terminalOutputBuffersRef.current.set(tabId, { output: message.data });
+          }
+
+          for (const sub of historySubscriptionsRef.current) {
+            if (sub.tabId === tabId) {
+              sub.callback(message.data);
+            }
+          }
+          break;
+        }
 
         case 'attached':
           currentTabIdRef.current = message.tabId;
@@ -244,6 +304,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
           break;
 
         case 'claude-event':
+          console.debug('[WS] claude-event received:', message.tabId, (message.event as { type?: string })?.type);
           for (const sub of claudeEventSubscriptionsRef.current) {
             if (sub.tabId === message.tabId) {
               // SDK events are compatible with ClaudeEvent type
@@ -255,7 +316,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
         case 'claude-history':
           for (const sub of claudeHistorySubscriptionsRef.current) {
             if (sub.tabId === message.tabId) {
-              sub.callback(message.messages, message.pendingPermissions, message.todos, message.permissionMode, message.isProcessing);
+              sub.callback(message.messages, message.pendingPermissions, message.todos, message.permissionMode, message.isProcessing, message.planFilePath);
             }
           }
           break;
@@ -292,6 +353,19 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
           }
           break;
 
+        case 'claude-plan-file-path-changed':
+          for (const sub of claudePlanFilePathChangedSubscriptionsRef.current) {
+            if (sub.tabId === message.tabId) {
+              sub.callback(message.planFilePath);
+            }
+          }
+          break;
+
+        case 'ping':
+          // Respond to heartbeat ping with pong
+          sendMessage({ type: 'pong', timestamp: message.timestamp });
+          break;
+
         case 'error':
           console.error('Terminal WebSocket error:', message.message);
           break;
@@ -315,7 +389,14 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
       wsRef.current = null;
     }
     setTabs([]);
-    setIsConnected(false);
+    setConnectionState('disconnected');
+    setReconnectAttempt(0);
+    setJustReconnected(false);
+    wasReconnectingRef.current = false;
+    if (justReconnectedTimeoutRef.current) {
+      clearTimeout(justReconnectedTimeoutRef.current);
+      justReconnectedTimeoutRef.current = null;
+    }
     currentTabIdRef.current = null;
     reconnectDelayRef.current = RECONNECT_BASE_DELAY;
     outputSubscriptionsRef.current = [];
@@ -328,6 +409,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     claudeUserMessageSubscriptionsRef.current = [];
     claudeTodosUpdatedSubscriptionsRef.current = [];
     claudePermissionModeChangedSubscriptionsRef.current = [];
+    terminalOutputBuffersRef.current.clear();
   }, []);
 
   // Connect to WebSocket and join session
@@ -345,62 +427,85 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/terminal`;
 
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    // Create connection with all handlers referencing refs (not closure values)
+    const createConnection = (): WebSocket => {
+      const newWs = new WebSocket(wsUrl);
 
-    ws.onopen = () => {
-      // Check if sessionId hasn't changed during connection
-      if (sessionIdRef.current !== sessionId) {
-        ws.close();
-        return;
-      }
-      // Reset backoff delay on successful connection
-      reconnectDelayRef.current = RECONNECT_BASE_DELAY;
-      setIsConnected(true);
-      ws.send(JSON.stringify({
-        type: 'join-session',
-        sessionId,
-        clientId: clientIdRef.current,
-      }));
-    };
-
-    ws.onmessage = handleMessage;
-
-    ws.onclose = () => {
-      // Only update state if this is still the current connection
-      if (wsRef.current === ws) {
-        setIsConnected(false);
-        wsRef.current = null;
-
-        // Only reconnect if sessionId hasn't changed
-        if (sessionIdRef.current === sessionId) {
-          const currentDelay = reconnectDelayRef.current;
-          // Calculate next delay with exponential backoff
-          reconnectDelayRef.current = Math.min(
-            currentDelay * RECONNECT_MULTIPLIER,
-            RECONNECT_MAX_DELAY
-          );
-
-          reconnectTimeoutRef.current = setTimeout(() => {
-            // Double-check sessionId before reconnecting
-            if (sessionIdRef.current === sessionId) {
-              // Trigger reconnect by re-running this effect is not possible,
-              // so we need to manually create new connection
-              const newWs = new WebSocket(wsUrl);
-              wsRef.current = newWs;
-              newWs.onopen = ws.onopen;
-              newWs.onmessage = ws.onmessage;
-              newWs.onclose = ws.onclose;
-              newWs.onerror = ws.onerror;
-            }
-          }, currentDelay);
+      newWs.onopen = () => {
+        // Check if sessionId hasn't changed during connection (use ref, not closure)
+        if (sessionIdRef.current !== sessionId) {
+          newWs.close();
+          return;
         }
-      }
+        // Reset backoff delay and reconnect attempt on successful connection
+        reconnectDelayRef.current = RECONNECT_BASE_DELAY;
+        setConnectionState('connected');
+        setReconnectAttempt(0);
+
+        // Show "just reconnected" indicator if this was a reconnection
+        if (wasReconnectingRef.current) {
+          wasReconnectingRef.current = false;
+          setJustReconnected(true);
+          // Clear after 2 seconds
+          if (justReconnectedTimeoutRef.current) {
+            clearTimeout(justReconnectedTimeoutRef.current);
+          }
+          justReconnectedTimeoutRef.current = setTimeout(() => {
+            setJustReconnected(false);
+          }, 2000);
+        }
+
+        newWs.send(JSON.stringify({
+          type: 'join-session',
+          sessionId: sessionIdRef.current,
+          clientId: clientIdRef.current,
+        }));
+      };
+
+      newWs.onmessage = handleMessage;
+
+      newWs.onclose = () => {
+        // Only update state if this is still the current connection
+        if (wsRef.current === newWs) {
+          wsRef.current = null;
+
+          // Only reconnect if sessionId hasn't changed (use ref)
+          if (sessionIdRef.current === sessionId) {
+            const currentDelay = reconnectDelayRef.current;
+            // Calculate next delay with exponential backoff
+            reconnectDelayRef.current = Math.min(
+              currentDelay * RECONNECT_MULTIPLIER,
+              RECONNECT_MAX_DELAY
+            );
+
+            // Update state to reconnecting
+            setConnectionState('reconnecting');
+            setReconnectAttempt((prev) => prev + 1);
+            wasReconnectingRef.current = true;
+
+            reconnectTimeoutRef.current = setTimeout(() => {
+              // Double-check sessionId before reconnecting (use ref)
+              if (sessionIdRef.current === sessionId) {
+                // Create a fresh connection with new handlers
+                wsRef.current = createConnection();
+              }
+            }, currentDelay);
+          } else {
+            // Session changed, just disconnect
+            setConnectionState('disconnected');
+            setReconnectAttempt(0);
+          }
+        }
+      };
+
+      newWs.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+
+      return newWs;
     };
 
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
+    wsRef.current = createConnection();
 
     return cleanup;
   }, [sessionId, handleMessage, cleanup]);
@@ -525,8 +630,8 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
 
   // Claude-specific functions
   const sendClaudeMessage = useCallback(
-    (content: string, permissionMode?: PermissionMode) => {
-      sendMessage({ type: 'claude-message', content, permissionMode });
+    (content: string, images?: ImageAttachment[], permissionMode?: PermissionMode) => {
+      sendMessage({ type: 'claude-message', content, images, permissionMode });
     },
     [sendMessage]
   );
@@ -544,6 +649,10 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     },
     [sendMessage]
   );
+
+  const interruptClaude = useCallback(() => {
+    sendMessage({ type: 'claude-interrupt' });
+  }, [sendMessage]);
 
   const onClaudeEvent = useCallback(
     (tabId: string, callback: ClaudeEventCallback): (() => void) => {
@@ -629,8 +738,25 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     []
   );
 
+  const onPlanFilePathChanged = useCallback(
+    (tabId: string, callback: PlanFilePathChangedCallback): (() => void) => {
+      const subscription = { tabId, callback };
+      claudePlanFilePathChangedSubscriptionsRef.current.push(subscription);
+
+      return () => {
+        claudePlanFilePathChangedSubscriptionsRef.current = claudePlanFilePathChangedSubscriptionsRef.current.filter(
+          (s) => s !== subscription
+        );
+      };
+    },
+    []
+  );
+
   return {
     isConnected,
+    connectionState,
+    reconnectAttempt,
+    justReconnected,
     tabs,
     sendInput,
     addTab,
@@ -647,11 +773,13 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     sendClaudeMessage,
     respondToPermission,
     changePermissionMode,
+    interruptClaude,
     onClaudeEvent,
     onClaudeHistory,
     onClaudePermissionResolved,
     onClaudeUserMessage,
     onClaudeTodosUpdated,
     onPermissionModeChanged,
+    onPlanFilePathChanged,
   };
 }

@@ -175,12 +175,10 @@ export class PortForwardingManager {
       containerSocket.on('close', cleanup);
     });
 
-    // Handle server errors
+    // Handle server errors after startup (startup errors are handled in the Promise below)
     server.on('error', (err: NodeJS.ErrnoException) => {
-      if (err.code === 'EADDRINUSE') {
-        throw new PortInUseError(hostPort);
-      }
-      console.error(`[PortForwarding] Server error on port ${hostPort}:`, err);
+      // Don't throw - just log and cleanup. Throwing from event handler crashes the process.
+      console.error(`[PortForwarding] Server error on port ${hostPort}:`, err.message);
     });
 
     // Start listening

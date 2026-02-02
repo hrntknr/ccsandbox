@@ -1,7 +1,7 @@
 import { WebSocket } from 'ws';
 import { join } from 'node:path';
 import { v4 as uuidv4 } from 'uuid';
-import type { TerminalClientMessage, TerminalServerMessage, TerminalTab, TabType, PermissionMode, Session } from '../shared/index.js';
+import type { TerminalClientMessage, TerminalServerMessage, TerminalTab, TabType, ImageAttachment, PermissionMode, Session } from '../shared/index.js';
 import { getTerminalManager } from '../services/terminal.service.js';
 import { getClaudeManager } from '../services/claude/index.js';
 import { SessionStore } from '../persistence/session-store.js';
@@ -183,7 +183,7 @@ export function createTerminalHandler(
 
       // Step 2: Create terminal or Claude instance in background
       if (tabType === 'claude') {
-        // Get maxThinkingTokens from persisted config
+        // Get settings from persisted config
         const configStore = getConfigStore(config.configDir);
         configStore.read().then((persistedConfig) => {
           return claudeManager.create({
@@ -194,6 +194,7 @@ export function createTerminalHandler(
             configPath: getSessionConfigPath(session, config.configDir),
             remoteEnv: config.pat ? [`GITHUB_TOKEN=${config.pat}`] : undefined,
             maxThinkingTokens: persistedConfig.maxThinkingTokens,
+            permissionMode: persistedConfig.defaultPermissionMode,
           });
         }).then(() => {
           connectionManager.updateTab(sessionId, tabId, {
@@ -285,6 +286,7 @@ export function createTerminalHandler(
         todos,
         permissionMode: instance?.permissionMode,
         isProcessing: instance?.isProcessing,
+        planFilePath: instance?.planFilePath ?? undefined,
       });
     } else {
       // Get terminal history BEFORE setting client tab to avoid race condition:
@@ -295,7 +297,7 @@ export function createTerminalHandler(
 
       // Send history (output arriving after setClientTab will be sent via 'output' message)
       // For exited terminals without history, send empty history so client knows to show exit message
-      sendMessage(ws, { type: 'history', data: history });
+      sendMessage(ws, { type: 'history', tabId, data: history });
     }
 
     sendMessage(ws, { type: 'attached', tabId });
@@ -324,7 +326,7 @@ export function createTerminalHandler(
 
     // Send history for the new tab
     if (history) {
-      sendMessage(ws, { type: 'history', data: history });
+      sendMessage(ws, { type: 'history', tabId, data: history });
     }
   }
 
@@ -477,9 +479,9 @@ export function createTerminalHandler(
   }
 
   /**
-   * Handle claude-message - send a message to Claude
+   * Handle claude-message - send a message to Claude with optional images
    */
-  async function handleClaudeMessage(content: string, permissionMode?: PermissionMode): Promise<void> {
+  async function handleClaudeMessage(content: string, images?: ImageAttachment[], permissionMode?: PermissionMode): Promise<void> {
     if (!currentTabId || !currentSessionId || !clientId) {
       sendError(ws, 'Not attached to a Claude tab');
       return;
@@ -496,14 +498,14 @@ export function createTerminalHandler(
       await claudeManager.setPermissionMode(currentTabId, permissionMode);
     }
 
-    const userMessage = claudeManager.sendMessage(currentTabId, content);
+    const userMessage = claudeManager.sendMessage(currentTabId, content, images);
     if (!userMessage) {
       sendError(ws, 'Failed to send message to Claude');
       return;
     }
 
-    // Broadcast user message to other clients attached to this tab
-    connectionManager.broadcastToTab(currentSessionId, currentTabId, {
+    // Broadcast user message to all clients in the session (including background tabs)
+    connectionManager.broadcast(currentSessionId, {
       type: 'claude-user-message',
       tabId: currentTabId,
       message: userMessage,
@@ -542,8 +544,8 @@ export function createTerminalHandler(
       return;
     }
 
-    // Broadcast permission resolution to all clients attached to this tab
-    connectionManager.broadcastToTab(currentSessionId, currentTabId, {
+    // Broadcast permission resolution to all clients in the session (including background tabs)
+    connectionManager.broadcast(currentSessionId, {
       type: 'claude-permission-resolved',
       tabId: currentTabId,
       requestId,
@@ -568,6 +570,17 @@ export function createTerminalHandler(
     if (!await claudeManager.setPermissionMode(currentTabId, permissionMode)) {
       sendError(ws, 'Failed to change permission mode');
     }
+  }
+
+  /**
+   * Handle claude-interrupt - interrupt current processing
+   */
+  async function handleClaudeInterrupt(): Promise<void> {
+    if (!currentTabId) {
+      sendError(ws, 'Not attached to a Claude tab');
+      return;
+    }
+    await claudeManager.interrupt(currentTabId);
   }
 
   /**
@@ -661,7 +674,7 @@ export function createTerminalHandler(
         break;
 
       case 'claude-message':
-        handleClaudeMessage(message.content, message.permissionMode).catch((error) => {
+        handleClaudeMessage(message.content, message.images, message.permissionMode).catch((error) => {
           const errorMessage = error instanceof Error ? error.message : 'Failed to send Claude message';
           sendError(ws, errorMessage);
         });
@@ -683,6 +696,20 @@ export function createTerminalHandler(
           const errorMessage = error instanceof Error ? error.message : 'Failed to change permission mode';
           sendError(ws, errorMessage);
         });
+        break;
+
+      case 'claude-interrupt':
+        handleClaudeInterrupt().catch((error) => {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to interrupt Claude';
+          sendError(ws, errorMessage);
+        });
+        break;
+
+      case 'pong':
+        // Update pong time for heartbeat tracking
+        if (currentSessionId && clientId) {
+          connectionManager.updatePongTime(currentSessionId, clientId);
+        }
         break;
 
       default:

@@ -13,6 +13,7 @@ import type {
   ClaudeMessage,
   ClaudePendingPermission,
   TodoItem,
+  ImageAttachment,
 } from './types.js';
 
 /**
@@ -35,6 +36,7 @@ export class ClaudeSession extends EventEmitter {
   private currentStreamingMessage: ClaudeMessage | null = null;
   private todos: TodoItem[] = [];
   private closed = false;
+  private _planFilePath: string | null = null;
 
   // For streaming input mode
   private resolveNextMessage: ((msg: SDKUserMessage) => void) | null = null;
@@ -65,6 +67,10 @@ export class ClaudeSession extends EventEmitter {
     return this._permissionMode;
   }
 
+  get planFilePath(): string | null {
+    return this._planFilePath;
+  }
+
   /**
    * Start the Claude session
    */
@@ -73,12 +79,12 @@ export class ClaudeSession extends EventEmitter {
     const messageGenerator = this.createMessageGenerator();
 
     // Build query options
-    const queryOptions: Parameters<typeof query>[0]['options'] = {
+    const queryOptions: NonNullable<Parameters<typeof query>[0]['options']> = {
       pathToClaudeCodeExecutable: this.wrapperPath,
       permissionMode: this._permissionMode,
       canUseTool: this.handlePermissionRequest.bind(this),
       includePartialMessages: true,
-      preset: 'claude_code',
+      tools: { type: 'preset', preset: 'claude_code' },
       settingSources: ['user', 'project'],
     };
 
@@ -199,7 +205,9 @@ export class ClaudeSession extends EventEmitter {
             const updatedInput = answers ? { ...input, answers } : input;
             resolve({ behavior: 'allow', updatedInput });
           } else {
-            resolve({ behavior: 'deny', message: 'User denied the operation' });
+            // Use feedback from answers if provided, otherwise use default message
+            const feedbackMessage = answers?.['feedback'] ?? 'User denied the operation';
+            resolve({ behavior: 'deny', message: feedbackMessage });
           }
         },
       };
@@ -265,7 +273,7 @@ export class ClaudeSession extends EventEmitter {
       // SDK's thinking blocks have 'thinking' property (Anthropic API format)
       const thinkingContent = message.content
         .filter((c: ContentBlock) => c.type === 'thinking')
-        .map((c) => {
+        .map((c: ContentBlock) => {
           // Handle both 'thinking' property and potential 'text' property
           const block = c as { thinking?: string; text?: string };
           return block.thinking ?? block.text ?? '';
@@ -330,6 +338,15 @@ export class ClaudeSession extends EventEmitter {
         this.emit('todosChanged', this.todos);
       }
 
+      // Check for EnterPlanMode results (contains planFilePath)
+      if (toolResult && typeof toolResult === 'object' && 'filePath' in toolResult) {
+        const planResult = toolResult as { filePath: string };
+        // Store the container path as-is (e.g., /home/vscode/.claude/plans/xxx.md)
+        // This will be read via devcontainer exec cat
+        this._planFilePath = planResult.filePath;
+        this.emit('planFilePathChanged', this._planFilePath);
+      }
+
       // Extract tool results
       const message = event.message;
       if ('content' in message && Array.isArray(message.content)) {
@@ -351,9 +368,20 @@ export class ClaudeSession extends EventEmitter {
           }));
 
         if (toolResults.length > 0) {
-          const lastMessage = this.messages[this.messages.length - 1];
-          if (lastMessage && lastMessage.role === 'assistant') {
-            lastMessage.toolResults = toolResults;
+          // Match each tool result to the correct assistant message by toolUseId
+          for (const result of toolResults) {
+            // Search from the end to find the message with matching toolUse
+            for (let i = this.messages.length - 1; i >= 0; i--) {
+              const msg = this.messages[i];
+              if (msg && msg.role === 'assistant' && msg.toolUse?.some((t) => t.id === result.toolUseId)) {
+                // Merge with existing toolResults
+                const existingResults = msg.toolResults ?? [];
+                if (!existingResults.some((r) => r.toolUseId === result.toolUseId)) {
+                  msg.toolResults = [...existingResults, result];
+                }
+                break;
+              }
+            }
           }
         }
       }
@@ -371,16 +399,34 @@ export class ClaudeSession extends EventEmitter {
   }
 
   /**
-   * Send a user message
+   * Send a user message with optional image attachments
    */
-  send(content: string): ClaudeMessage | null {
+  send(content: string, images?: ImageAttachment[]): ClaudeMessage | null {
     if (this.closed || !this.queryInstance) {
       return null;
     }
 
+    // Build content: either string (text only) or array (text + images)
+    let messageContent: string | Array<{ type: string; text?: string; source?: { type: string; media_type: string; data: string } }>;
+    if (images && images.length > 0) {
+      messageContent = [
+        { type: 'text', text: content },
+        ...images.map((img) => ({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: img.mediaType,
+            data: img.data,
+          },
+        })),
+      ];
+    } else {
+      messageContent = content;
+    }
+
     const userMessage: SDKUserMessage = {
       type: 'user',
-      message: { role: 'user', content },
+      message: { role: 'user', content: messageContent },
       parent_tool_use_id: null,
       session_id: this.claudeSessionId,
     };
@@ -397,6 +443,7 @@ export class ClaudeSession extends EventEmitter {
       id: uuidv4(),
       role: 'user',
       content,
+      images,
       timestamp: new Date().toISOString(),
     };
     this.messages.push(message);
@@ -463,6 +510,22 @@ export class ClaudeSession extends EventEmitter {
    */
   getTodos(): TodoItem[] {
     return this.todos;
+  }
+
+  /**
+   * Interrupt the current processing
+   * Unlike close(), this keeps the session alive for continued conversation
+   */
+  async interrupt(): Promise<boolean> {
+    if (!this.queryInstance || !this._isProcessing) {
+      return false;
+    }
+    try {
+      await this.queryInstance.interrupt();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**

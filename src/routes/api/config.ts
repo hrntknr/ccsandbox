@@ -40,6 +40,7 @@ async function buildClientConfig(): Promise<ClientConfig> {
     templates,
     maxThinkingTokens: persisted.maxThinkingTokens,
     defaultPermissionMode: persisted.defaultPermissionMode,
+    speechRecognitionLanguage: persisted.speechRecognitionLanguage,
   };
 }
 

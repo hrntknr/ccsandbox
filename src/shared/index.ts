@@ -26,6 +26,7 @@ export type {
   // UI types
   ClaudeMessage,
   ClaudePendingPermission,
+  ImageAttachment,
   TodoItem,
   TodoWriteResult,
 
@@ -35,7 +36,7 @@ export type {
   AskUserQuestionOption,
 } from './types/claude.js';
 
-export type { Repository } from './types/github.js';
+export type { Repository, Branch } from './types/github.js';
 
 export type {
   DevcontainerSource,

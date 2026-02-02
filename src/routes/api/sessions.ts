@@ -18,6 +18,7 @@ import {
   stopContainer,
   removeContainer,
   isContainerRunning,
+  execInDevcontainer,
   DevcontainerConfigNotFoundError,
   DevcontainerCliError,
   DockerOperationError,
@@ -538,6 +539,148 @@ router.get(
       const response: ApiResponse<GitStatusResponse> = {
         success: true,
         data: { status },
+      };
+      res.json(response);
+    } catch (error) {
+      if (error instanceof SessionNotFoundError) {
+        const response: ApiResponse<null> = {
+          success: false,
+          error: `Session not found: ${id}`,
+        };
+        res.status(404).json(response);
+        return;
+      }
+      throw error;
+    }
+  })
+);
+
+/**
+ * GET /api/sessions/:id/plan
+ * Get plan content from .claude/plans directory inside the container.
+ * If ?path= query parameter is provided, read that specific file.
+ * Otherwise, read the most recently modified .md file.
+ *
+ * Note: Plan files are created inside the devcontainer, so we use
+ * devcontainer exec to read them.
+ */
+router.get(
+  '/:id/plan',
+  asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
+    const { id } = req.params;
+    const requestedPath = req.query['path'] as string | undefined;
+    const store = getSessionStore(getConfig().configDir, getConfig().repoDir);
+    const config = getConfig();
+
+    try {
+      const session = await store.get(id);
+
+      // Check if container is running
+      if (!session.containerId || session.state !== 'RUNNING') {
+        const response: ApiResponse<{ content: string | null }> = {
+          success: true,
+          data: { content: null },
+        };
+        res.json(response);
+        return;
+      }
+
+      // If a specific path is provided, use it directly as container path
+      // The path comes from the SDK (e.g., /home/vscode/.claude/plans/xxx.md)
+      if (requestedPath) {
+        // Security: only allow paths under known safe directories
+        // Plan files are stored in /home/vscode/.claude/plans/ or /workspaces/xxx/.claude/plans/
+        const isValidPlanPath =
+          requestedPath.startsWith('/home/vscode/.claude/plans/') ||
+          requestedPath.startsWith('/workspaces/');
+
+        if (!isValidPlanPath || !requestedPath.endsWith('.md')) {
+          const response: ApiResponse<null> = {
+            success: false,
+            error: 'Invalid plan file path',
+          };
+          res.status(400).json(response);
+          return;
+        }
+
+        // Read file from container using devcontainer exec
+        const result = await execInDevcontainer(['cat', requestedPath], {
+          workspacePath: session.workspacePath,
+          devcontainerCliPath: config.devcontainerCli,
+        });
+
+        if (result.exitCode !== 0) {
+          // File doesn't exist or can't be read
+          const response: ApiResponse<{ content: string | null }> = {
+            success: true,
+            data: { content: null },
+          };
+          res.json(response);
+          return;
+        }
+
+        const response: ApiResponse<{ content: string }> = {
+          success: true,
+          data: { content: result.stdout },
+        };
+        res.json(response);
+        return;
+      }
+
+      // No specific path provided - find the latest plan file
+      // Try both possible locations: user home and workspace
+      const projectName = path.basename(session.workspacePath);
+      const possibleDirs = [
+        '/home/vscode/.claude/plans',
+        `/workspaces/${projectName}/.claude/plans`,
+      ];
+
+      for (const containerPlansDir of possibleDirs) {
+        // List files in the plans directory
+        const lsResult = await execInDevcontainer(['ls', '-t', containerPlansDir], {
+          workspacePath: session.workspacePath,
+          devcontainerCliPath: config.devcontainerCli,
+        });
+
+        if (lsResult.exitCode !== 0) {
+          // Directory doesn't exist - try next
+          continue;
+        }
+
+        // Parse file list (ls -t outputs files sorted by modification time, newest first)
+        const files = lsResult.stdout.trim().split('\n').filter(Boolean);
+        const mdFiles = files.filter((f) => f.endsWith('.md'));
+
+        if (mdFiles.length === 0) {
+          continue;
+        }
+
+        // Read the most recent file (first in the list since ls -t sorts by mtime)
+        const latestFile = mdFiles[0]!;
+        const catResult = await execInDevcontainer(
+          ['cat', `${containerPlansDir}/${latestFile}`],
+          {
+            workspacePath: session.workspacePath,
+            devcontainerCliPath: config.devcontainerCli,
+          }
+        );
+
+        if (catResult.exitCode !== 0) {
+          continue;
+        }
+
+        const response: ApiResponse<{ content: string }> = {
+          success: true,
+          data: { content: catResult.stdout },
+        };
+        res.json(response);
+        return;
+      }
+
+      // No plan found in any location
+      const response: ApiResponse<{ content: string | null }> = {
+        success: true,
+        data: { content: null },
       };
       res.json(response);
     } catch (error) {

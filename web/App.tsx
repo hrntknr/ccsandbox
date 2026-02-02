@@ -33,7 +33,7 @@ export function App() {
   const [isResizing, setIsResizing] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const { sessions, loading, error } = useSessionSync();
+  const { sessions, loading, connectionState, reconnectAttempt, justReconnected } = useSessionSync();
   const { deleteSession, loading: deleteLoading } = useDeleteSession();
   const { startSession } = useStartSession();
   const { stopSession } = useStopSession();
@@ -172,11 +172,6 @@ export function App() {
 
   return (
     <div ref={containerRef} className={`flex h-full w-full max-md:flex-col ${isResizing ? 'select-none' : ''}`}>
-      {error && (
-        <div className="fixed top-0 left-0 right-0 bg-red-700 text-white py-3 px-4 flex items-center justify-center gap-4 z-[1000] max-md:flex-col max-md:gap-2 max-md:py-2.5">
-          <span className="text-sm">{error}</span>
-        </div>
-      )}
       {/* Mobile navigation */}
       <nav className="hidden max-md:flex bg-vscode-bg-secondary border-b border-vscode-border">
         <button
@@ -194,8 +189,24 @@ export function App() {
       </nav>
       <div
         style={{ width: sidebarWidth }}
-        className={`h-full shrink-0 max-md:!w-full max-md:h-auto max-md:flex-1 max-md:min-h-0 ${mobileView !== 'sessions' ? 'max-md:hidden' : ''}`}
+        className={`h-full shrink-0 relative max-md:!w-full max-md:h-auto max-md:flex-1 max-md:min-h-0 ${mobileView !== 'sessions' ? 'max-md:hidden' : ''}`}
       >
+        {/* Session sync reconnection banner (overlay) */}
+        {connectionState === 'reconnecting' && (
+          <div className="absolute top-0 left-0 right-0 z-20 bg-yellow-900/90 text-yellow-100 text-xs px-3 py-1.5 flex items-center justify-center gap-2 border-b border-yellow-700/50">
+            <span className="inline-block w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+            Reconnecting... (attempt {reconnectAttempt})
+          </div>
+        )}
+
+        {/* Session sync just reconnected banner (overlay) */}
+        {justReconnected && (
+          <div className="absolute top-0 left-0 right-0 z-20 bg-green-900/90 text-green-100 text-xs px-3 py-1.5 flex items-center justify-center gap-2 border-b border-green-700/50">
+            <span className="inline-block w-2 h-2 bg-green-400 rounded-full" />
+            Connection restored
+          </div>
+        )}
+
         <SessionList
           sessions={sessions ?? []}
           selectedSessionId={selectedSessionId}
@@ -218,6 +229,7 @@ export function App() {
         <TerminalPane
           session={selectedSession}
           defaultPermissionMode={clientConfig?.defaultPermissionMode}
+          speechRecognitionLanguage={clientConfig?.speechRecognitionLanguage}
         />
       </div>
 

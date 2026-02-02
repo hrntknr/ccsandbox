@@ -53,8 +53,8 @@ export function PermissionModeSelector({
 
   return (
     <>
-      {/* Desktop: Button group */}
-      <div className="hidden sm:flex items-center gap-1.5">
+      {/* Wide: Button group (screen width >= 1080px) */}
+      <div className="hidden min-[1080px]:flex items-center gap-1.5">
         {modes.map((mode) => (
           <button
             key={mode.value}
@@ -68,9 +68,9 @@ export function PermissionModeSelector({
         ))}
       </div>
 
-      {/* Mobile: Dropdown */}
+      {/* Narrow: Dropdown (screen width < 1080px) */}
       <select
-        className="sm:hidden py-1 px-2 text-[11px] font-medium border rounded-[14px] bg-claude-bg-tertiary cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed appearance-none pr-6 bg-no-repeat bg-[length:12px] bg-[right_6px_center]"
+        className="min-[1080px]:hidden py-1 px-2 text-[11px] font-medium border rounded-[14px] bg-claude-bg-tertiary cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed appearance-none pr-6 bg-no-repeat bg-[length:12px] bg-[right_6px_center]"
         style={{
           borderColor: selectColor || 'var(--color-claude-border)',
           color: selectColor || 'var(--color-claude-text-secondary)',

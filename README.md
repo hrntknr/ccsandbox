@@ -73,3 +73,4 @@ Configure the following from Settings in the Web UI:
 - **Password**: Authentication password
 - **Default Shell**: Default shell
 - **Dotfiles**: Dotfiles repository settings
+

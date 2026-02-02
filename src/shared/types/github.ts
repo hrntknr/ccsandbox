@@ -17,3 +17,13 @@ export interface Repository {
   /** Clone URL (HTTPS) */
   cloneUrl: string;
 }
+
+/**
+ * GitHub branch information.
+ */
+export interface Branch {
+  /** Branch name */
+  name: string;
+  /** Whether the branch is protected */
+  isProtected: boolean;
+}

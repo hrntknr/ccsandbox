@@ -1,28 +1,31 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { Session, TerminalTab, PermissionMode } from '@shared/index.js';
+import type { Session, TerminalTab, PermissionMode, PortForwarding } from '@shared/index.js';
 import { Terminal } from '../Terminal';
 import { ClaudeChat } from '../ClaudeChat';
 import { DiffView } from '../DiffView';
 import { useTerminalWebSocket } from '../../hooks';
-import { useDiffStats } from '../../hooks/useApi';
+import { useDiffStats, usePortForwarding } from '../../hooks/useApi';
 
 interface TerminalPaneProps {
   session: Session | null;
   defaultPermissionMode?: PermissionMode;
+  speechRecognitionLanguage?: string;
 }
 
 interface LocalTab extends TerminalTab {
   isEditing?: boolean;
 }
 
-export function TerminalPane({ session, defaultPermissionMode }: TerminalPaneProps) {
+export function TerminalPane({ session, defaultPermissionMode, speechRecognitionLanguage }: TerminalPaneProps) {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [showDiffView, setShowDiffView] = useState(false);
+  const [showPortList, setShowPortList] = useState(false);
 
   const sessionId = session?.state === 'RUNNING' ? session.sessionId : null;
   const { data: diffStats, execute: fetchDiffStats } = useDiffStats(session?.sessionId ?? null);
+  const { ports, listPorts } = usePortForwarding(session?.sessionId ?? null);
 
   // Fetch diff stats periodically when session is running
   useEffect(() => {
@@ -32,8 +35,20 @@ export function TerminalPane({ session, defaultPermissionMode }: TerminalPanePro
     const interval = setInterval(fetchDiffStats, 10000); // Poll every 10 seconds
     return () => clearInterval(interval);
   }, [session?.sessionId, session?.state, fetchDiffStats]);
+
+  // Fetch port list periodically when session is running
+  useEffect(() => {
+    if (!session?.sessionId || session.state !== 'RUNNING') return;
+
+    listPorts();
+    const interval = setInterval(listPorts, 10000); // Poll every 10 seconds
+    return () => clearInterval(interval);
+  }, [session?.sessionId, session?.state, listPorts]);
   const {
     isConnected,
+    connectionState,
+    reconnectAttempt,
+    justReconnected,
     tabs: remoteTabs,
     addTab,
     closeTab,
@@ -50,12 +65,14 @@ export function TerminalPane({ session, defaultPermissionMode }: TerminalPanePro
     sendClaudeMessage,
     respondToPermission,
     changePermissionMode,
+    interruptClaude,
     onClaudeEvent,
     onClaudeHistory,
     onClaudePermissionResolved,
     onClaudeUserMessage,
     onClaudeTodosUpdated,
     onPermissionModeChanged,
+    onPlanFilePathChanged,
   } = useTerminalWebSocket(sessionId);
 
   // Convert remote tabs to local tabs with editing state
@@ -227,6 +244,22 @@ export function TerminalPane({ session, defaultPermissionMode }: TerminalPanePro
       </div>
 
       <div className="flex-1 overflow-hidden relative bg-vscode-bg border-t border-vscode-border-light">
+        {/* Reconnection banner */}
+        {connectionState === 'reconnecting' && (
+          <div className="absolute top-0 left-0 right-0 z-20 bg-yellow-900/90 text-yellow-100 text-xs px-3 py-1.5 flex items-center justify-center gap-2 border-b border-yellow-700/50">
+            <span className="inline-block w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+            Reconnecting... (attempt {reconnectAttempt})
+          </div>
+        )}
+
+        {/* Just reconnected banner */}
+        {justReconnected && (
+          <div className="absolute top-0 left-0 right-0 z-20 bg-green-900/90 text-green-100 text-xs px-3 py-1.5 flex items-center justify-center gap-2 border-b border-green-700/50">
+            <span className="inline-block w-2 h-2 bg-green-400 rounded-full" />
+            Connection restored
+          </div>
+        )}
+
         {!isRunning ? (
           <div className="text-vscode-text-muted text-[13px] flex items-center justify-center h-full">
             Container is not running. Start the container to use the terminal.
@@ -245,17 +278,22 @@ export function TerminalPane({ session, defaultPermissionMode }: TerminalPanePro
               <ClaudeChat
                 key={tab.tabId}
                 tabId={tab.tabId}
+                sessionId={session!.sessionId}
                 isActive={tab.tabId === activeTabId}
+                isConnected={isConnected}
                 defaultPermissionMode={defaultPermissionMode}
+                speechRecognitionLanguage={speechRecognitionLanguage}
                 sendClaudeMessage={sendClaudeMessage}
                 respondToPermission={respondToPermission}
                 changePermissionMode={changePermissionMode}
+                interruptClaude={interruptClaude}
                 onClaudeEvent={onClaudeEvent}
                 onClaudeHistory={onClaudeHistory}
                 onClaudePermissionResolved={onClaudePermissionResolved}
                 onClaudeUserMessage={onClaudeUserMessage}
                 onClaudeTodosUpdated={onClaudeTodosUpdated}
                 onPermissionModeChanged={onPermissionModeChanged}
+                onPlanFilePathChanged={onPlanFilePathChanged}
               />
             ) : (
               <Terminal
@@ -275,20 +313,40 @@ export function TerminalPane({ session, defaultPermissionMode }: TerminalPanePro
           )
         )}
 
-        {/* Floating diff badge - position at top-right when Claude tab is active to avoid overlap with chat input */}
-        {isRunning && diffStats && (diffStats.insertions > 0 || diffStats.deletions > 0) && (() => {
-          const activeTab = tabs.find(t => t.tabId === activeTabId);
-          const isClaudeTabActive = activeTab?.tabType === 'claude';
+        {/* Floating diff badge - always at top-right */}
+        {isRunning && diffStats && (diffStats.insertions > 0 || diffStats.deletions > 0) && (
+          <button
+            className="absolute top-4 right-4 bg-vscode-bg-secondary border border-vscode-border px-3 py-1.5 rounded-md text-sm cursor-pointer hover:bg-[#3c3c3c] z-10 transition-all"
+            onClick={() => setShowDiffView(true)}
+            title="View diff"
+          >
+            <span className="text-green-400">+{diffStats.insertions}</span>
+            <span className="mx-1 text-vscode-text-muted">/</span>
+            <span className="text-red-400">-{diffStats.deletions}</span>
+          </button>
+        )}
+
+        {/* Floating port forwarding badge - always at top-right, below diff badge if present */}
+        {isRunning && ports.length > 0 && (() => {
+          const hasDiffBadge = diffStats && (diffStats.insertions > 0 || diffStats.deletions > 0);
           return (
-            <button
-              className={`absolute ${isClaudeTabActive ? 'top-4' : 'bottom-4'} right-4 bg-vscode-bg-secondary border border-vscode-border px-3 py-1.5 rounded-md text-sm cursor-pointer hover:bg-[#3c3c3c] z-10 transition-all`}
-              onClick={() => setShowDiffView(true)}
-              title="View diff"
-            >
-              <span className="text-green-400">+{diffStats.insertions}</span>
-              <span className="mx-1 text-vscode-text-muted">/</span>
-              <span className="text-red-400">-{diffStats.deletions}</span>
-            </button>
+            <div className={`absolute ${hasDiffBadge ? 'top-14' : 'top-4'} right-4 z-10`}>
+              <button
+                className="bg-vscode-bg-secondary border border-vscode-border px-3 py-1.5 rounded-md text-sm cursor-pointer hover:bg-[#3c3c3c] transition-all flex items-center gap-2"
+                onClick={() => setShowPortList(!showPortList)}
+                title="Port forwarding"
+              >
+                <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4 text-blue-400">
+                  <path d="M4 8a.5.5 0 0 1 .5-.5h5.793L8.146 5.354a.5.5 0 1 1 .708-.708l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L10.293 8.5H4.5A.5.5 0 0 1 4 8z" />
+                </svg>
+                <span className="text-blue-400">{ports.length} port{ports.length !== 1 ? 's' : ''}</span>
+              </button>
+
+              {/* Floating port list window */}
+              {showPortList && (
+                <PortListWindow ports={ports} onClose={() => setShowPortList(false)} />
+              )}
+            </div>
           );
         })()}
       </div>
@@ -297,6 +355,82 @@ export function TerminalPane({ session, defaultPermissionMode }: TerminalPanePro
       {showDiffView && session && (
         <DiffView sessionId={session.sessionId} onClose={() => setShowDiffView(false)} />
       )}
+    </div>
+  );
+}
+
+interface PortListWindowProps {
+  ports: PortForwarding[];
+  onClose: () => void;
+}
+
+function PortListWindow({ ports, onClose }: PortListWindowProps) {
+  // Close when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-port-list-window]')) {
+        onClose();
+      }
+    };
+    // Use setTimeout to avoid immediate close from the toggle button click
+    const timer = setTimeout(() => {
+      document.addEventListener('click', handleClickOutside);
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [onClose]);
+
+  // Close on ESC key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      data-port-list-window
+      className="absolute top-full right-0 mt-2 bg-vscode-bg-secondary border border-vscode-border rounded-lg shadow-xl shadow-black/40 min-w-[240px] max-w-[320px] overflow-hidden"
+      style={{ animation: 'modal-in 0.15s ease-out' }}
+    >
+      <div className="flex items-center justify-between px-3 py-2 border-b border-vscode-border">
+        <span className="text-sm font-medium text-white">Port Forwarding</span>
+        <button
+          className="text-vscode-text-muted hover:text-white text-lg leading-none p-0.5 hover:bg-white/10 rounded"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          &times;
+        </button>
+      </div>
+      <div className="py-1">
+        {ports.map((port) => (
+          <div
+            key={port.id}
+            className="flex items-center gap-2 px-3 py-2 hover:bg-white/5"
+          >
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <span className="text-white font-mono text-sm">{port.hostPort}</span>
+              <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-vscode-text-muted shrink-0">
+                <path d="M4 8a.5.5 0 0 1 .5-.5h5.793L8.146 5.354a.5.5 0 1 1 .708-.708l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L10.293 8.5H4.5A.5.5 0 0 1 4 8z" />
+              </svg>
+              <span className="text-white font-mono text-sm">{port.containerPort}</span>
+            </div>
+            {port.label && (
+              <span className="text-vscode-text-secondary text-xs px-1.5 py-0.5 bg-vscode-border rounded truncate max-w-[80px]">
+                {port.label}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -12,6 +12,7 @@ export interface ClientConnection {
   currentTabId: string | null;
   cols: number | null;
   rows: number | null;
+  lastPongTime: number;
 }
 
 export interface SessionRoom {
@@ -27,6 +28,37 @@ export class ConnectionManager {
   private claudeManager: ClaudeManager | null = null;
   private listenersRegistered = false;
   private claudeListenersRegistered = false;
+
+  // Backpressure thresholds for WebSocket send
+  private readonly MAX_BUFFERED_AMOUNT = 64 * 1024; // 64KB - drop messages above this
+  private readonly SLOW_CLIENT_WARNING_THRESHOLD = 32 * 1024; // 32KB - warn above this
+
+  /**
+   * Safely send data to a WebSocket client with backpressure handling.
+   * Returns true if message was sent, false if dropped or failed.
+   */
+  private safeSend(ws: WebSocket, data: string, clientId: string): boolean {
+    try {
+      if (ws.readyState !== 1) return false; // WebSocket.OPEN = 1
+
+      if (ws.bufferedAmount > this.MAX_BUFFERED_AMOUNT) {
+        console.warn(
+          `[safeSend] Dropping message for slow client ${clientId}: bufferedAmount=${ws.bufferedAmount}`
+        );
+        return false;
+      }
+
+      if (ws.bufferedAmount > this.SLOW_CLIENT_WARNING_THRESHOLD) {
+        console.warn(`[safeSend] Slow client ${clientId}: bufferedAmount=${ws.bufferedAmount}`);
+      }
+
+      ws.send(data);
+      return true;
+    } catch (error) {
+      console.warn(`[safeSend] Failed to send to client ${clientId}:`, error);
+      return false;
+    }
+  }
 
   /**
    * Initialize with TerminalManager and register event listeners
@@ -58,6 +90,7 @@ export class ConnectionManager {
     claudeManager.on('processingStateChanged', this.handleProcessingStateChanged);
     claudeManager.on('todosChanged', this.handleTodosChanged);
     claudeManager.on('permissionModeChanged', this.handlePermissionModeChanged);
+    claudeManager.on('planFilePathChanged', this.handlePlanFilePathChanged);
 
     this.claudeListenersRegistered = true;
   }
@@ -66,8 +99,11 @@ export class ConnectionManager {
     const sessionId = this.tabToSession.get(tabId);
     if (!sessionId) return;
 
-    this.broadcastToTab(sessionId, tabId, {
+    // Broadcast to all clients in the session (including background tabs)
+    // Clients filter by tabId
+    this.broadcast(sessionId, {
       type: 'output',
+      tabId,
       data,
     } satisfies TerminalServerMessage);
   };
@@ -98,18 +134,24 @@ export class ConnectionManager {
     const sessionId = this.tabToSession.get(tabId);
     if (!sessionId) return;
 
-    this.broadcastToTab(sessionId, tabId, {
+    // Broadcast to all clients in the session (including background tabs)
+    this.broadcast(sessionId, {
       type: 'error',
+      tabId,
       message: error.message,
     } satisfies TerminalServerMessage);
   };
 
   private handleClaudeEvent = (tabId: string, event: SDKMessage): void => {
     const sessionId = this.tabToSession.get(tabId);
-    if (!sessionId) return;
+    if (!sessionId) {
+      console.warn(`[handleClaudeEvent] No session mapping for tab ${tabId}`);
+      return;
+    }
 
+    // Broadcast to all clients in the session (including background tabs)
     // SDK events are compatible with the existing ClaudeEvent structure
-    this.broadcastToTab(sessionId, tabId, {
+    this.broadcast(sessionId, {
       type: 'claude-event',
       tabId,
       event: event as unknown,
@@ -140,8 +182,10 @@ export class ConnectionManager {
     const sessionId = this.tabToSession.get(tabId);
     if (!sessionId) return;
 
-    this.broadcastToTab(sessionId, tabId, {
+    // Broadcast to all clients in the session (including background tabs)
+    this.broadcast(sessionId, {
       type: 'error',
+      tabId,
       message: error.message,
     } satisfies TerminalServerMessage);
   };
@@ -174,7 +218,8 @@ export class ConnectionManager {
     const sessionId = this.tabToSession.get(tabId);
     if (!sessionId) return;
 
-    this.broadcastToTab(sessionId, tabId, {
+    // Broadcast to all clients in the session (including background tabs)
+    this.broadcast(sessionId, {
       type: 'claude-todos-updated',
       tabId,
       todos,
@@ -185,10 +230,23 @@ export class ConnectionManager {
     const sessionId = this.tabToSession.get(tabId);
     if (!sessionId) return;
 
-    this.broadcastToTab(sessionId, tabId, {
+    // Broadcast to all clients in the session (including background tabs)
+    this.broadcast(sessionId, {
       type: 'claude-permission-mode-changed',
       tabId,
       mode,
+    } satisfies TerminalServerMessage);
+  };
+
+  private handlePlanFilePathChanged = (tabId: string, planFilePath: string): void => {
+    const sessionId = this.tabToSession.get(tabId);
+    if (!sessionId) return;
+
+    // Broadcast to all clients in the session (including background tabs)
+    this.broadcast(sessionId, {
+      type: 'claude-plan-file-path-changed',
+      tabId,
+      planFilePath,
     } satisfies TerminalServerMessage);
   };
 
@@ -211,6 +269,7 @@ export class ConnectionManager {
     const existingClient = room.clients.get(clientId);
     if (existingClient) {
       existingClient.ws = ws;
+      existingClient.lastPongTime = Date.now();
     } else {
       room.clients.set(clientId, {
         ws,
@@ -218,6 +277,7 @@ export class ConnectionManager {
         currentTabId: null,
         cols: null,
         rows: null,
+        lastPongTime: Date.now(),
       });
     }
 
@@ -255,27 +315,30 @@ export class ConnectionManager {
     excludeClientId?: string
   ): void {
     const room = this.rooms.get(sessionId);
-    if (!room) return;
+    if (!room) {
+      console.warn(`[broadcast] Room not found: session=${sessionId}`);
+      return;
+    }
 
     const data = JSON.stringify(message);
     for (const [clientId, client] of room.clients) {
       if (excludeClientId && clientId === excludeClientId) continue;
-      if (client.ws.readyState === 1) {
-        // WebSocket.OPEN = 1
-        client.ws.send(data);
-      }
+      this.safeSend(client.ws, data, clientId);
     }
   }
 
   broadcastToTab(sessionId: string, tabId: string, message: unknown, excludeClientId?: string): void {
     const room = this.rooms.get(sessionId);
-    if (!room) return;
+    if (!room) {
+      console.warn(`[broadcastToTab] Room not found: session=${sessionId}`);
+      return;
+    }
 
     const data = JSON.stringify(message);
     for (const client of room.clients.values()) {
       if (excludeClientId && client.clientId === excludeClientId) continue;
-      if (client.currentTabId === tabId && client.ws.readyState === 1) {
-        client.ws.send(data);
+      if (client.currentTabId === tabId) {
+        this.safeSend(client.ws, data, client.clientId);
       }
     }
   }
@@ -399,10 +462,44 @@ export class ConnectionManager {
       this.claudeManager.off('processingStateChanged', this.handleProcessingStateChanged);
       this.claudeManager.off('todosChanged', this.handleTodosChanged);
       this.claudeManager.off('permissionModeChanged', this.handlePermissionModeChanged);
+      this.claudeManager.off('planFilePathChanged', this.handlePlanFilePathChanged);
       this.claudeListenersRegistered = false;
     }
     this.rooms.clear();
     this.tabToSession.clear();
+  }
+
+  /**
+   * Update last pong time for a client
+   */
+  updatePongTime(sessionId: string, clientId: string): void {
+    const client = this.getClient(sessionId, clientId);
+    if (client) {
+      client.lastPongTime = Date.now();
+    }
+  }
+
+  /**
+   * Send ping to all clients and return list of timed out clients
+   */
+  sendPingAndGetTimedOutClients(timeoutMs: number): Array<{ sessionId: string; clientId: string; ws: WebSocket }> {
+    const now = Date.now();
+    const timedOut: Array<{ sessionId: string; clientId: string; ws: WebSocket }> = [];
+    const pingMessage = JSON.stringify({ type: 'ping', timestamp: now });
+
+    for (const [sessionId, room] of this.rooms) {
+      for (const [clientId, client] of room.clients) {
+        // Check if client has timed out
+        if (now - client.lastPongTime > timeoutMs) {
+          timedOut.push({ sessionId, clientId, ws: client.ws });
+        } else {
+          // Send ping to active clients using safeSend for backpressure handling
+          this.safeSend(client.ws, pingMessage, clientId);
+        }
+      }
+    }
+
+    return timedOut;
   }
 }
 

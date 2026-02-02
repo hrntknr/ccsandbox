@@ -15,6 +15,7 @@ import type {
   ClaudeSessionManagerEvents,
   ClaudeMessage,
   ClaudePendingPermission,
+  ImageAttachment,
   PermissionMode,
   TodoItem,
 } from './types.js';
@@ -25,6 +26,7 @@ export type {
   ClaudeProcessingStats,
   ClaudeMessage,
   ClaudePendingPermission,
+  ImageAttachment,
   PermissionMode,
   TodoItem,
 };
@@ -68,6 +70,7 @@ export interface ClaudeSessionInfo {
   sessionId: string;
   isProcessing: boolean;
   permissionMode: PermissionMode;
+  planFilePath: string | null;
 }
 
 /**
@@ -168,6 +171,10 @@ export class ClaudeSessionManager extends EventEmitter {
       this.emit('permissionModeChanged', tabId, mode);
     });
 
+    session.on('planFilePathChanged', (planFilePath) => {
+      this.emit('planFilePathChanged', tabId, planFilePath);
+    });
+
     // Emit initial processing state
     this.emit('processingStateChanged', sessionId, this.getProcessingStatsForSession(sessionId));
 
@@ -178,14 +185,14 @@ export class ClaudeSessionManager extends EventEmitter {
   }
 
   /**
-   * Send a user message to Claude
+   * Send a user message to Claude with optional image attachments
    */
-  sendMessage(tabId: string, content: string): ClaudeMessage | null {
+  sendMessage(tabId: string, content: string, images?: ImageAttachment[]): ClaudeMessage | null {
     const session = this.sessions.get(tabId);
     if (!session) {
       return null;
     }
-    return session.send(content);
+    return session.send(content, images);
   }
 
   /**
@@ -241,6 +248,7 @@ export class ClaudeSessionManager extends EventEmitter {
       sessionId: session.sessionId,
       isProcessing: session.isProcessing,
       permissionMode: session.permissionMode,
+      planFilePath: session.planFilePath,
     };
   }
 
@@ -266,6 +274,7 @@ export class ClaudeSessionManager extends EventEmitter {
         sessionId: s.sessionId,
         isProcessing: s.isProcessing,
         permissionMode: s.permissionMode,
+        planFilePath: s.planFilePath,
       }));
   }
 
@@ -284,6 +293,18 @@ export class ClaudeSessionManager extends EventEmitter {
     const sessions = Array.from(this.sessions.values()).filter((s) => s.sessionId === sessionId);
     const running = sessions.filter((s) => s.isProcessing).length;
     return { running, total: sessions.length };
+  }
+
+  /**
+   * Interrupt the current processing for a Claude tab
+   * Unlike kill(), this keeps the session alive for continued conversation
+   */
+  async interrupt(tabId: string): Promise<boolean> {
+    const session = this.sessions.get(tabId);
+    if (!session) {
+      return false;
+    }
+    return session.interrupt();
   }
 
   /**
