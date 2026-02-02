@@ -290,7 +290,7 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
 
       {/* Thinking/Streaming state */}
       {isLoading && !streamingContent && (
-        <div className="flex items-center gap-2 py-3 px-6 bg-claude-bg-secondary border-t border-claude-border">
+        <div className="flex items-center gap-2 py-3 px-6">
           <div className="flex gap-1">
             <div className="w-1.5 h-1.5 bg-claude-accent rounded-full animate-bounce-dot" style={{ animationDelay: '-0.32s' }} />
             <div className="w-1.5 h-1.5 bg-claude-accent rounded-full animate-bounce-dot" style={{ animationDelay: '-0.16s' }} />

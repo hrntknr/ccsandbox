@@ -83,6 +83,7 @@ export function ClaudeChat({
   const bottomAreaRef = useRef<HTMLDivElement>(null);
   const historyLoadedRef = useRef(false);
   const isAtBottomRef = useRef(true);
+  const isScrollingRef = useRef(false);
 
   // Handle incoming events
   useEffect(() => {
@@ -167,9 +168,21 @@ export function ClaudeChat({
           if (toolResults.length > 0) {
             setMessages((prev) => {
               const newMessages = [...prev];
-              const lastMessage = newMessages[newMessages.length - 1];
-              if (lastMessage && lastMessage.role === 'assistant') {
-                lastMessage.toolResults = toolResults;
+              // Find the assistant message that contains the corresponding toolUse
+              // (not just the last one, to handle parallel tool execution correctly)
+              for (const result of toolResults) {
+                // Search from the end to find the message with matching toolUse
+                for (let i = newMessages.length - 1; i >= 0; i--) {
+                  const msg = newMessages[i];
+                  if (msg && msg.role === 'assistant' && msg.toolUse?.some((t) => t.id === result.toolUseId)) {
+                    // Merge with existing toolResults
+                    const existingResults = msg.toolResults ?? [];
+                    if (!existingResults.some((r) => r.toolUseId === result.toolUseId)) {
+                      msg.toolResults = [...existingResults, result];
+                    }
+                    break;
+                  }
+                }
               }
               return newMessages;
             });
@@ -268,15 +281,20 @@ export function ClaudeChat({
     return scrollHeight - scrollTop - clientHeight < threshold;
   }, []);
 
-  // Scroll to bottom helper - use scrollTo for precise bottom positioning
+  // Scroll to bottom helper - use scrollIntoView on the dummy element
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    container.scrollTo({
-      top: container.scrollHeight,
-      behavior,
-    });
-  }, []);
+    if (behavior === 'smooth') {
+      // Mark as scrolling to prevent scroll events from clearing isAtBottom
+      isScrollingRef.current = true;
+      // Clear after animation completes (smooth scroll typically takes ~300-500ms)
+      setTimeout(() => {
+        isScrollingRef.current = false;
+        // Re-check position after scroll completes
+        isAtBottomRef.current = checkIsAtBottom();
+      }, 500);
+    }
+    messagesEndRef.current?.scrollIntoView({ behavior, block: 'end' });
+  }, [checkIsAtBottom]);
 
   // Track scroll position to detect if user is at bottom
   useEffect(() => {
@@ -284,6 +302,8 @@ export function ClaudeChat({
     if (!container) return;
 
     const handleScroll = () => {
+      // Skip updating during programmatic smooth scroll
+      if (isScrollingRef.current) return;
       isAtBottomRef.current = checkIsAtBottom();
     };
 
@@ -375,8 +395,12 @@ export function ClaudeChat({
           streamingContent={streamingContent}
           isLoading={isLoading}
         />
-        {/* Scroll spacer - matches bottom area height */}
-        <div ref={messagesEndRef} style={{ height: bottomAreaHeight }} />
+        {/* Scroll spacer - matches bottom area height (only when there are messages) */}
+        {(messages.length > 0 || isLoading || streamingContent) && (
+          <div style={{ height: bottomAreaHeight }} />
+        )}
+        {/* Dummy element for scrollIntoView */}
+        <div ref={messagesEndRef} />
       </div>
 
       {pendingPermissions.length > 0 && (() => {
