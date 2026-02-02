@@ -2,8 +2,12 @@ import { spawn } from 'node:child_process';
 import { stat, readdir, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { homedir } from 'node:os';
 import { deriveGitHost } from './git.service.js';
 import type { ContainerInfo, DevcontainerUpResult } from '../shared/index.js';
+
+/** Mount path for Claude settings in container */
+const CONTAINER_CLAUDE_MOUNT_PATH = '/.host-claude-settings';
 
 /**
  * Error thrown when devcontainer config is not found.
@@ -274,6 +278,8 @@ export interface StartDevcontainerOptions {
   gitCredential?: GitCredentialConfig;
   /** External devcontainer config path (for templates) */
   configPath?: string;
+  /** Mount Claude settings from host to container (default: false) */
+  mountClaudeSettings?: boolean;
 }
 
 /**
@@ -303,6 +309,7 @@ export async function startDevcontainer(
     dotfilesInstallCommand,
     gitCredential,
     configPath,
+    mountClaudeSettings,
   } = options;
 
   // Verify devcontainer config exists (skip if external configPath is provided)
@@ -348,6 +355,36 @@ export async function startDevcontainer(
       '--mount',
       `type=bind,source=${gitconfigPath},target=${CONTAINER_GITCONFIG_PATH}`
     );
+  }
+
+  // Add Claude settings mount options
+  const hostHome = process.env['HOME'] ?? homedir();
+  const claudeJsonPath = join(hostHome, '.claude.json');
+  const claudeDirPath = join(hostHome, '.claude');
+  let claudeSettingsMounted = false;
+
+  if (mountClaudeSettings) {
+    // Check if Claude settings exist on host
+    const claudeJsonExists = await pathExists(claudeJsonPath);
+    const claudeDirExists = await pathExists(claudeDirPath);
+
+    if (claudeJsonExists || claudeDirExists) {
+      onLog?.('Mounting Claude settings from host...\n');
+
+      if (claudeJsonExists) {
+        args.push(
+          '--mount',
+          `type=bind,source=${claudeJsonPath},target=${CONTAINER_CLAUDE_MOUNT_PATH}/.claude.json`
+        );
+      }
+      if (claudeDirExists) {
+        args.push(
+          '--mount',
+          `type=bind,source=${claudeDirPath},target=${CONTAINER_CLAUDE_MOUNT_PATH}/.claude`
+        );
+      }
+      claudeSettingsMounted = true;
+    }
   }
 
   // Add Claude Code feature
@@ -409,6 +446,47 @@ export async function startDevcontainer(
     if (execResult.exitCode !== 0) {
       onLog?.(
         `Warning: Failed to configure git include.path: ${execResult.stderr}\n`
+      );
+    }
+  }
+
+  // Create symlinks for Claude settings in container's home directory
+  if (claudeSettingsMounted) {
+    onLog?.('Creating Claude settings symlinks in container...\n');
+
+    // Build exec args with optional config path
+    const execArgs = ['exec', '--workspace-folder', workspacePath];
+    if (configPath) {
+      execArgs.push('--config', configPath);
+    }
+
+    // Create symlinks using shell script
+    // Remove existing files/dirs first to avoid ln creating link inside existing dir
+    // Use set -e to exit on any error
+    const symlinkScript = `
+      set -e
+      CLAUDE_MOUNT="${CONTAINER_CLAUDE_MOUNT_PATH}"
+      if [ -f "$CLAUDE_MOUNT/.claude.json" ]; then
+        rm -f "$HOME/.claude.json"
+        ln -sf "$CLAUDE_MOUNT/.claude.json" "$HOME/.claude.json"
+      fi
+      if [ -d "$CLAUDE_MOUNT/.claude" ]; then
+        rm -rf "$HOME/.claude"
+        ln -sf "$CLAUDE_MOUNT/.claude" "$HOME/.claude"
+      fi
+    `.trim();
+
+    const symlinkResult = await execCommand(cliPath, [
+      ...execArgs,
+      '--',
+      'sh',
+      '-c',
+      symlinkScript,
+    ]);
+
+    if (symlinkResult.exitCode !== 0) {
+      throw new DevcontainerCliError(
+        `Failed to create Claude settings symlinks: ${symlinkResult.stderr}`
       );
     }
   }

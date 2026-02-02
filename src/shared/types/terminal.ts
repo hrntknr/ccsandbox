@@ -86,6 +86,8 @@ export type SessionCreateClientMessage = {
   shell?: string;
   /** Source of devcontainer configuration (default: { type: 'project' }) */
   devcontainerSource?: DevcontainerSource;
+  /** Whether to mount Claude settings from host to container (default: true) */
+  mountClaudeSettings?: boolean;
 };
 
 /**

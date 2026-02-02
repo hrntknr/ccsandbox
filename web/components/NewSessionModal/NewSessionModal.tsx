@@ -37,6 +37,8 @@ export function NewSessionModal({
   const [shell, setShell] = useState('');
   const [devcontainerSource, setDevcontainerSource] = useState<DevcontainerSource>({ type: 'project' });
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [mountClaudeSettings, setMountClaudeSettings] = useState(true);
 
   const terminalContainerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<XTerm | null>(null);
@@ -98,6 +100,8 @@ export function NewSessionModal({
       setShell('');
       setDevcontainerSource({ type: 'project' });
       setSelectedTemplateId('');
+      setShowAdvancedOptions(false);
+      setMountClaudeSettings(true);
       resetBranches();
       resetCreate();
     }
@@ -173,17 +177,12 @@ export function NewSessionModal({
     return () => window.removeEventListener('resize', handleResize);
   }, [modalState]);
 
-  // Handle session created
+  // Notify parent when session is created (but don't auto-close)
   useEffect(() => {
     if (createdSession) {
-      // Short delay to let user see the success message
-      const timer = setTimeout(() => {
-        onSessionCreated?.();
-        onClose();
-      }, 1000);
-      return () => clearTimeout(timer);
+      onSessionCreated?.();
     }
-  }, [createdSession, onSessionCreated, onClose]);
+  }, [createdSession, onSessionCreated]);
 
   const handleRepoSelect = useCallback(
     (repo: Repository) => {
@@ -226,9 +225,10 @@ export function NewSessionModal({
         workBranch: effectiveWorkBranch,
         shell: shell || undefined,
         devcontainerSource: effectiveDevcontainerSource,
+        mountClaudeSettings,
       });
     },
-    [selectedRepo, branchStrategy, baseBranch, workBranch, existingBranch, shell, devcontainerSource, selectedTemplateId, create]
+    [selectedRepo, branchStrategy, baseBranch, workBranch, existingBranch, shell, devcontainerSource, selectedTemplateId, mountClaudeSettings, create]
   );
 
   const handleClose = useCallback(() => {
@@ -594,23 +594,70 @@ export function NewSessionModal({
               </div>
             </div>
 
-            {/* Shell (moved to bottom) */}
-            <div className="space-y-1.5">
-              <label htmlFor="shell" className="flex items-center gap-2 text-sm font-medium text-[#e0e0e0]">
-                <svg className="w-4 h-4 text-[#888]" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M0 2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25Zm1.75-.25a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25V2.75a.25.25 0 0 0-.25-.25ZM7.25 8a.75.75 0 0 1-.22.53l-2.25 2.25a.75.75 0 1 1-1.06-1.06L5.44 8 3.72 6.28a.75.75 0 0 1 1.06-1.06l2.25 2.25c.141.14.22.331.22.53Zm1.5 1.5h3a.75.75 0 0 1 0 1.5h-3a.75.75 0 0 1 0-1.5Z" />
+            {/* Advanced Options (collapsible) */}
+            <div className="space-y-3">
+              <button
+                type="button"
+                className="flex items-center gap-2 text-sm font-medium text-[#e0e0e0] w-full hover:text-white transition-colors"
+                onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+              >
+                <svg
+                  className={`w-3 h-3 text-[#888] transition-transform ${showAdvancedOptions ? 'rotate-90' : ''}`}
+                  viewBox="0 0 16 16"
+                  fill="currentColor"
+                >
+                  <path d="M6.22 3.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 0 1 0-1.06Z" />
                 </svg>
-                Shell
-                <span className="text-xs text-[#666] font-normal">(optional)</span>
-              </label>
-              <input
-                id="shell"
-                type="text"
-                className="w-full py-2.5 px-3 bg-[#252525] border border-[#3d3d3d] rounded-lg text-white text-sm focus:outline-none focus:border-[#0078d4] focus:ring-2 focus:ring-[#0078d4]/20 placeholder:text-[#555]"
-                value={shell}
-                onChange={(e) => setShell(e.target.value)}
-                placeholder="/bin/bash"
-              />
+                Advanced Options
+              </button>
+
+              {showAdvancedOptions && (
+                <div className="space-y-4 pl-5 border-l border-[#3d3d3d]">
+                  {/* Shell */}
+                  <div className="space-y-1.5">
+                    <label htmlFor="shell" className="flex items-center gap-2 text-sm font-medium text-[#e0e0e0]">
+                      <svg className="w-4 h-4 text-[#888]" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M0 2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25Zm1.75-.25a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25V2.75a.25.25 0 0 0-.25-.25ZM7.25 8a.75.75 0 0 1-.22.53l-2.25 2.25a.75.75 0 1 1-1.06-1.06L5.44 8 3.72 6.28a.75.75 0 0 1 1.06-1.06l2.25 2.25c.141.14.22.331.22.53Zm1.5 1.5h3a.75.75 0 0 1 0 1.5h-3a.75.75 0 0 1 0-1.5Z" />
+                      </svg>
+                      Shell
+                      <span className="text-xs text-[#666] font-normal">(optional)</span>
+                    </label>
+                    <input
+                      id="shell"
+                      type="text"
+                      className="w-full py-2.5 px-3 bg-[#252525] border border-[#3d3d3d] rounded-lg text-white text-sm focus:outline-none focus:border-[#0078d4] focus:ring-2 focus:ring-[#0078d4]/20 placeholder:text-[#555]"
+                      value={shell}
+                      onChange={(e) => setShell(e.target.value)}
+                      placeholder="/bin/bash"
+                    />
+                  </div>
+
+                  {/* Mount Claude Settings */}
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <div className="relative flex items-center justify-center mt-0.5">
+                      <input
+                        type="checkbox"
+                        checked={mountClaudeSettings}
+                        onChange={(e) => setMountClaudeSettings(e.target.checked)}
+                        className="sr-only"
+                      />
+                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
+                        mountClaudeSettings ? 'border-[#0078d4] bg-[#0078d4]' : 'border-[#555] group-hover:border-[#777]'
+                      }`}>
+                        {mountClaudeSettings && (
+                          <svg className="w-3 h-3 text-white" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z" />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-white group-hover:text-[#58a6ff] transition-colors">Mount Claude settings from host</div>
+                      <div className="text-xs text-[#888] mt-0.5">Mounts ~/.claude.json and ~/.claude/ into the container</div>
+                    </div>
+                  </label>
+                </div>
+              )}
             </div>
 
             {/* Actions */}
@@ -639,7 +686,7 @@ export function NewSessionModal({
   // Creating view with terminal
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-center items-center z-[1000]" onClick={handleBackdropClick}>
-      <div className="bg-[#1e1e1e] rounded-xl w-[560px] max-w-[90%] h-[400px] max-h-[80%] flex flex-col overflow-hidden shadow-2xl border border-[#333] max-md:w-[95%] max-md:max-w-none max-md:h-[calc(100%-32px)] max-md:max-h-none">
+      <div className="bg-[#1e1e1e] rounded-xl w-[900px] max-w-[90%] h-[700px] max-h-[90%] flex flex-col overflow-hidden shadow-2xl border border-[#333] max-md:w-[95%] max-md:max-w-none max-md:h-[calc(100%-32px)] max-md:max-h-none">
         <div className="flex justify-between items-center py-4 px-5 border-b border-[#333]">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-[#0078d4]/20 flex items-center justify-center">
