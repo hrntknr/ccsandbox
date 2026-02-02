@@ -3,9 +3,5 @@
   "image": "mcr.microsoft.com/devcontainers/base:noble",
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {}
-  },
-  "mounts": [
-    "source=${localEnv:HOME}/.claude.json,target=/home/vscode/.claude.json,type=bind,consistency=cached",
-    "source=${localEnv:HOME}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached"
-  ]
+  }
 }
