@@ -237,21 +237,32 @@ export function setupWebSocketServer(server: http.Server): WebSocketServerInstan
   sessionsSyncWss.on('connection', (ws: WebSocket) => {
     sessionSyncManager.addClient(ws);
 
-    // Send initial session list with in-memory state (claudeStats, hasPendingPermissions)
-    sessionStore.list().then((sessions) => {
-      // Enhance sessions with in-memory state
-      const enhancedSessions = sessions.map((session) => {
-        const claudeStats = claudeManager.getProcessingStatsForSession(session.sessionId);
-        const hasPendingPermissions = claudeManager.hasPendingPermissionsForSession(session.sessionId);
-        return {
-          ...session,
-          claudeStats: claudeStats.total > 0 ? claudeStats : undefined,
-          hasPendingPermissions: hasPendingPermissions || undefined,
-        };
-      });
-      sessionSyncManager.sendInitialSync(ws, enhancedSessions);
-    }).catch((error) => {
-      console.error('Failed to send initial session sync:', error);
+    // Wait for 'ready' message from client before sending initial data
+    // This fixes iOS Safari issue where data sent before client is ready causes connection to hang
+    ws.once('message', (data: Buffer) => {
+      try {
+        const message: unknown = JSON.parse(data.toString());
+        if (typeof message === 'object' && message !== null && (message as { type?: unknown })['type'] === 'ready') {
+          // Send initial session list with in-memory state (claudeStats, hasPendingPermissions)
+          sessionStore.list().then((sessions) => {
+            // Enhance sessions with in-memory state
+            const enhancedSessions = sessions.map((session) => {
+              const claudeStats = claudeManager.getProcessingStatsForSession(session.sessionId);
+              const hasPendingPermissions = claudeManager.hasPendingPermissionsForSession(session.sessionId);
+              return {
+                ...session,
+                claudeStats: claudeStats.total > 0 ? claudeStats : undefined,
+                hasPendingPermissions: hasPendingPermissions || undefined,
+              };
+            });
+            sessionSyncManager.sendInitialSync(ws, enhancedSessions);
+          }).catch((error) => {
+            console.error('Failed to send initial session sync:', error);
+          });
+        }
+      } catch {
+        // Ignore parse errors
+      }
     });
 
     ws.on('close', () => {
