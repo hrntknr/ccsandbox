@@ -6,5 +6,6 @@
     "ghcr.io/anthropics/devcontainer-features/claude-code:1": {},
     "ghcr.io/devcontainers/features/github-cli:1": {},
     "ghcr.io/devcontainers/features/docker-in-docker:2": {}
-  }
+  },
+  "postCreateCommand": "mkdir -p ~/.ccsandbox && echo '{\"pat\": \"'\"$GITHUB_TOKEN\"'\", \"disableAuth\": true}' > ~/.ccsandbox/config.json"
 }
