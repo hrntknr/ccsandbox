@@ -33,7 +33,8 @@ export type TerminalClientMessage =
       permissionMode?: PermissionMode;
     }
   | { type: 'claude-change-permission-mode'; permissionMode: PermissionMode }
-  | { type: 'claude-interrupt' };
+  | { type: 'claude-interrupt' }
+  | { type: 'claude-clear' };
 
 /**
  * Messages sent from server to client
@@ -68,7 +69,8 @@ export type TerminalServerMessage =
   | { type: 'claude-user-message'; tabId: string; message: ClaudeMessage }
   | { type: 'claude-todos-updated'; tabId: string; todos: TodoItem[] }
   | { type: 'claude-permission-mode-changed'; tabId: string; mode: PermissionMode }
-  | { type: 'claude-plan-file-path-changed'; tabId: string; planFilePath: string };
+  | { type: 'claude-plan-file-path-changed'; tabId: string; planFilePath: string }
+  | { type: 'claude-cleared'; tabId: string };
 
 /**
  * Session creation WebSocket message types

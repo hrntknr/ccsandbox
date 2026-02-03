@@ -66,6 +66,7 @@ export function TerminalPane({ session, defaultPermissionMode, speechRecognition
     respondToPermission,
     changePermissionMode,
     interruptClaude,
+    clearClaude,
     onClaudeEvent,
     onClaudeHistory,
     onClaudePermissionResolved,
@@ -73,6 +74,7 @@ export function TerminalPane({ session, defaultPermissionMode, speechRecognition
     onClaudeTodosUpdated,
     onPermissionModeChanged,
     onPlanFilePathChanged,
+    onClaudeCleared,
   } = useTerminalWebSocket(sessionId);
 
   // Convert remote tabs to local tabs with editing state
@@ -291,6 +293,7 @@ export function TerminalPane({ session, defaultPermissionMode, speechRecognition
                 respondToPermission={respondToPermission}
                 changePermissionMode={changePermissionMode}
                 interruptClaude={interruptClaude}
+                clearClaude={clearClaude}
                 onClaudeEvent={onClaudeEvent}
                 onClaudeHistory={onClaudeHistory}
                 onClaudePermissionResolved={onClaudePermissionResolved}
@@ -298,6 +301,7 @@ export function TerminalPane({ session, defaultPermissionMode, speechRecognition
                 onClaudeTodosUpdated={onClaudeTodosUpdated}
                 onPermissionModeChanged={onPermissionModeChanged}
                 onPlanFilePathChanged={onPlanFilePathChanged}
+                onClaudeCleared={onClaudeCleared}
                 onOpenLoginShell={handleOpenLoginShell}
               />
             ) : (

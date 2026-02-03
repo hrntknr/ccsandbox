@@ -308,6 +308,30 @@ export class ClaudeSessionManager extends EventEmitter {
   }
 
   /**
+   * Clear a session by restarting the Claude process
+   * This closes the current session and creates a new one with the same options,
+   * effectively clearing the conversation context.
+   */
+  async clear(tabId: string, options: Omit<CreateClaudeOptions, 'tabId'>): Promise<boolean> {
+    const existingSession = this.sessions.get(tabId);
+    if (!existingSession) {
+      return false;
+    }
+
+    // Close the existing session
+    existingSession.close();
+    this.sessions.delete(tabId);
+
+    // Create a new session with the same tabId
+    await this.create({
+      ...options,
+      tabId,
+    });
+
+    return true;
+  }
+
+  /**
    * Kill a session
    */
   kill(tabId: string): boolean {

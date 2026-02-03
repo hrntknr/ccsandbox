@@ -116,4 +116,15 @@ describe('ClaudeSessionManager', () => {
       expect(manager.size).toBe(0);
     });
   });
+
+  describe('clear', () => {
+    it('should return false for non-existent session', async () => {
+      const result = await manager.clear('non-existent', {
+        sessionId: 'session-1',
+        workspacePath: '/workspace',
+        scratchDir: '/tmp/wrappers',
+      });
+      expect(result).toBe(false);
+    });
+  });
 });

@@ -586,6 +586,58 @@ export function createTerminalHandler(
   }
 
   /**
+   * Handle claude-clear - clear conversation context by restarting the Claude process
+   */
+  async function handleClaudeClear(): Promise<void> {
+    if (!currentTabId || !currentSessionId || !clientId) {
+      sendError(ws, 'Not attached to a Claude tab');
+      return;
+    }
+
+    const instance = claudeManager.get(currentTabId);
+    if (!instance) {
+      sendError(ws, 'Claude instance not found');
+      return;
+    }
+
+    try {
+      const config = getConfig();
+      const sessionStore = new SessionStore(config.configDir, config.repoDir);
+      const session = await sessionStore.get(currentSessionId);
+
+      if (session.state !== 'RUNNING') {
+        sendError(ws, 'Session is not running');
+        return;
+      }
+
+      // Get settings from persisted config for the new session
+      const configStore = getConfigStore(config.configDir);
+      const persistedConfig = await configStore.read();
+
+      // Clear by restarting the Claude process
+      await claudeManager.clear(currentTabId, {
+        sessionId: currentSessionId,
+        workspacePath: session.workspacePath,
+        devcontainerCliPath: config.devcontainerCli,
+        configPath: getSessionConfigPath(session, config.configDir),
+        remoteEnv: config.pat ? [`GITHUB_TOKEN=${config.pat}`] : undefined,
+        maxThinkingTokens: persistedConfig.maxThinkingTokens,
+        permissionMode: persistedConfig.defaultPermissionMode,
+        scratchDir: join(config.configDir, 'sessions', currentSessionId, 'wrappers'),
+      });
+
+      // Broadcast cleared event to all clients in the session
+      connectionManager.broadcast(currentSessionId, {
+        type: 'claude-cleared',
+        tabId: currentTabId,
+      } satisfies TerminalServerMessage);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to clear Claude context';
+      sendError(ws, message);
+    }
+  }
+
+  /**
    * Process incoming WebSocket messages
    */
   function handleMessage(message: TerminalClientMessage): void {
@@ -703,6 +755,13 @@ export function createTerminalHandler(
       case 'claude-interrupt':
         handleClaudeInterrupt().catch((error) => {
           const errorMessage = error instanceof Error ? error.message : 'Failed to interrupt Claude';
+          sendError(ws, errorMessage);
+        });
+        break;
+
+      case 'claude-clear':
+        handleClaudeClear().catch((error) => {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to clear Claude context';
           sendError(ws, errorMessage);
         });
         break;

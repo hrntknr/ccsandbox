@@ -34,6 +34,7 @@ interface ClaudeChatProps {
   ) => void;
   changePermissionMode: (mode: PermissionMode) => void;
   interruptClaude: () => void;
+  clearClaude: () => void;
   onClaudeEvent: (
     tabId: string,
     callback: (event: ClaudeEvent) => void
@@ -62,6 +63,10 @@ interface ClaudeChatProps {
     tabId: string,
     callback: (planFilePath: string) => void
   ) => () => void;
+  onClaudeCleared: (
+    tabId: string,
+    callback: () => void
+  ) => () => void;
   onOpenLoginShell?: () => void;
 }
 
@@ -76,6 +81,7 @@ export function ClaudeChat({
   respondToPermission,
   changePermissionMode,
   interruptClaude,
+  clearClaude,
   onClaudeEvent,
   onClaudeHistory,
   onClaudePermissionResolved,
@@ -83,6 +89,7 @@ export function ClaudeChat({
   onClaudeTodosUpdated,
   onPermissionModeChanged,
   onPlanFilePathChanged,
+  onClaudeCleared,
   onOpenLoginShell,
 }: ClaudeChatProps) {
   const [messages, setMessages] = useState<ClaudeMessage[]>([]);
@@ -286,6 +293,19 @@ export function ClaudeChat({
     });
   }, [tabId, onPlanFilePathChanged]);
 
+  // Handle context cleared (process restart)
+  useEffect(() => {
+    return onClaudeCleared(tabId, () => {
+      setMessages([]);
+      setPendingPermissions([]);
+      setStreamingContent('');
+      setIsLoading(false);
+      setTodos([]);
+      setBackendPermissionMode(null);
+      setPlanFilePath(null);
+    });
+  }, [tabId, onClaudeCleared]);
+
   // Track bottom area height for scroll spacer
   useEffect(() => {
     const bottomArea = bottomAreaRef.current;
@@ -429,6 +449,11 @@ export function ClaudeChat({
         return;
       }
 
+      if (content.trim() === '/clear') {
+        clearClaude();
+        return;
+      }
+
       // Add user message to UI immediately
       const userMessage: ClaudeMessage = {
         id: uuidv4(),
@@ -444,7 +469,7 @@ export function ClaudeChat({
       isAtBottomRef.current = true;
       scrollToBottom('smooth');
     },
-    [isConnected, sendClaudeMessage, scrollToBottom, onOpenLoginShell]
+    [isConnected, sendClaudeMessage, scrollToBottom, onOpenLoginShell, clearClaude]
   );
 
   const handlePermissionResponse = useCallback(
