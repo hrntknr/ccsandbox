@@ -33,7 +33,7 @@ export function createApp(options: CreateAppOptions = {}): Express {
     app.use(express.static(webDistPath));
 
     // SPA fallback - serve index.html for non-API routes
-    app.get('*', (req, res, next) => {
+    app.get('/{*path}', (req, res, next) => {
       // Skip API routes
       if (req.path.startsWith('/api')) {
         return next();

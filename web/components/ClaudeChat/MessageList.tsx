@@ -342,7 +342,7 @@ export function MessageList({ messages, streamingContent, isLoading }: MessageLi
 
             {/* Display items in order, grouping consecutive tools and thinkings */}
             {(() => {
-              const rendered: JSX.Element[] = [];
+              const rendered: React.ReactElement[] = [];
               let toolBuffer: Array<{ tool: ToolInfo; result?: ToolResult }> = [];
               let thinkingBuffer: string[] = [];
               let keyIndex = 0;
