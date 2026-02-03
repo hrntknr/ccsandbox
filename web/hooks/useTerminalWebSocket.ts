@@ -304,7 +304,6 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
           break;
 
         case 'claude-event':
-          console.debug('[WS] claude-event received:', message.tabId, (message.event as { type?: string })?.type);
           for (const sub of claudeEventSubscriptionsRef.current) {
             if (sub.tabId === message.tabId) {
               // SDK events are compatible with ClaudeEvent type

@@ -49,7 +49,10 @@ export function createApp(options: CreateAppOptions = {}): Express {
 
   // Error handling middleware
   app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-    console.error('Server error:', err.message);
+    // Skip logging for common non-critical errors
+    if (err.message !== 'Not Found') {
+      console.error('Server error:', err.message);
+    }
     res.status(500).json({
       success: false,
       error: process.env['NODE_ENV'] === 'production'
