@@ -34,6 +34,9 @@ This tool is mainly about choosing the right execution environment and tools, bu
 * **Use tools that Claude Code Web doesn't support**
 
   * e.g. `EnterPlanMode` (plan → approval workflow)
+
+    <img src="docs/images/exitplanmode-desktop.png" alt="ExitPlanMode Desktop" width="500">
+
   * e.g. `AskUserQuestion` (asking questions via selectable options)
 
     <table>
