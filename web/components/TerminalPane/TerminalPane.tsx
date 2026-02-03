@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
-import type { Session, TerminalTab, PermissionMode, PortForwarding } from '@shared/index.js';
+import type { Session, TerminalTab, PermissionMode, PortForwarding, DetectedPort } from '@shared/index.js';
 import { Terminal } from '../Terminal';
 import { ClaudeChat } from '../ClaudeChat';
 import { DiffView } from '../DiffView';
 import { useTerminalWebSocket } from '../../hooks';
-import { useDiffStats, usePortForwarding } from '../../hooks/useApi';
+import { useDiffStats, usePortForwarding, useDetectedPorts } from '../../hooks/useApi';
 
 interface TerminalPaneProps {
   session: Session | null;
@@ -25,7 +25,8 @@ export function TerminalPane({ session, defaultPermissionMode, speechRecognition
 
   const sessionId = session?.state === 'RUNNING' ? session.sessionId : null;
   const { data: diffStats, execute: fetchDiffStats } = useDiffStats(session?.sessionId ?? null);
-  const { ports, listPorts } = usePortForwarding(session?.sessionId ?? null);
+  const { ports, listPorts, addPort, removePort } = usePortForwarding(session?.sessionId ?? null);
+  const { detectedPorts, fetchDetectedPorts } = useDetectedPorts(session?.sessionId ?? null);
 
   // Fetch diff stats periodically when session is running
   useEffect(() => {
@@ -44,6 +45,15 @@ export function TerminalPane({ session, defaultPermissionMode, speechRecognition
     const interval = setInterval(listPorts, 10000); // Poll every 10 seconds
     return () => clearInterval(interval);
   }, [session?.sessionId, session?.state, listPorts]);
+
+  // Fetch detected ports periodically when session is running
+  useEffect(() => {
+    if (!session?.sessionId || session.state !== 'RUNNING') return;
+
+    fetchDetectedPorts();
+    const interval = setInterval(fetchDetectedPorts, 10000); // Poll every 10 seconds
+    return () => clearInterval(interval);
+  }, [session?.sessionId, session?.state, fetchDetectedPorts]);
   const {
     isConnected,
     connectionState,
@@ -336,24 +346,40 @@ export function TerminalPane({ session, defaultPermissionMode, speechRecognition
         )}
 
         {/* Floating port forwarding badge - always at top-right, below diff badge if present */}
-        {isRunning && ports.length > 0 && (() => {
+        {isRunning && (() => {
           const hasDiffBadge = diffStats && (diffStats.insertions > 0 || diffStats.deletions > 0);
+          // Calculate suggestions (detected ports not already forwarded)
+          const forwardedContainerPorts = new Set(ports.map((p) => p.containerPort));
+          const suggestions = detectedPorts.filter((d) => !forwardedContainerPorts.has(d.port));
+          const suggestionsCount = suggestions.length;
+
+          // Show badge if there are ports or suggestions
+          if (ports.length === 0 && suggestionsCount === 0) return null;
+
           return (
             <div className={`absolute ${hasDiffBadge ? 'top-14' : 'top-4'} right-4 z-10`}>
               <button
-                className="bg-vscode-bg-secondary border border-vscode-border px-3 py-1.5 rounded-md text-sm cursor-pointer hover:bg-[#3c3c3c] transition-all flex items-center gap-2"
+                className="bg-vscode-bg-secondary border border-vscode-border px-3 py-1.5 rounded-md text-sm cursor-pointer hover:bg-[#3c3c3c] transition-all flex items-center gap-1.5"
                 onClick={() => setShowPortList(!showPortList)}
                 title="Port forwarding"
               >
                 <svg viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4 text-blue-400">
                   <path d="M4 8a.5.5 0 0 1 .5-.5h5.793L8.146 5.354a.5.5 0 1 1 .708-.708l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L10.293 8.5H4.5A.5.5 0 0 1 4 8z" />
                 </svg>
-                <span className="text-blue-400">{ports.length} port{ports.length !== 1 ? 's' : ''}</span>
+                <span className="text-blue-400">{ports.length}</span>
+                {/* Suggestions indicator with separator */}
+                {suggestionsCount > 0 && (
+                  <>
+                    <span className="text-vscode-text-muted">|</span>
+                    <span className="w-1.5 h-1.5 bg-orange-400 rounded-full" />
+                    <span className="text-orange-400">{suggestionsCount}</span>
+                  </>
+                )}
               </button>
 
               {/* Floating port list window */}
               {showPortList && (
-                <PortListWindow ports={ports} onClose={() => setShowPortList(false)} />
+                <PortListWindow ports={ports} suggestions={suggestions} onAddPort={addPort} onRemovePort={removePort} onClose={() => setShowPortList(false)} />
               )}
             </div>
           );
@@ -370,10 +396,19 @@ export function TerminalPane({ session, defaultPermissionMode, speechRecognition
 
 interface PortListWindowProps {
   ports: PortForwarding[];
+  suggestions: DetectedPort[];
+  onAddPort: (request: { hostPort: number; containerPort: number; label?: string }) => Promise<PortForwarding | null>;
+  onRemovePort: (portId: string) => Promise<boolean>;
   onClose: () => void;
 }
 
-function PortListWindow({ ports, onClose }: PortListWindowProps) {
+function PortListWindow({ ports, suggestions, onAddPort, onRemovePort, onClose }: PortListWindowProps) {
+  const [expandedPort, setExpandedPort] = useState<number | null>(null);
+  const [hostPortInput, setHostPortInput] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
   // Close when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -396,17 +431,61 @@ function PortListWindow({ ports, onClose }: PortListWindowProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        if (expandedPort !== null) {
+          setExpandedPort(null);
+          setHostPortInput('');
+          setError(null);
+        } else {
+          onClose();
+        }
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [onClose, expandedPort]);
+
+  const handleExpandSuggestion = useCallback((detected: DetectedPort) => {
+    setExpandedPort(detected.port);
+    setHostPortInput(detected.port.toString());
+    setError(null);
+  }, []);
+
+  const handleRemovePort = useCallback(async (portId: string) => {
+    setRemoving(portId);
+    await onRemovePort(portId);
+    setRemoving(null);
+  }, [onRemovePort]);
+
+  const handleAddPort = useCallback(async (detected: DetectedPort) => {
+    const hostPort = parseInt(hostPortInput, 10);
+    if (isNaN(hostPort) || hostPort < 1 || hostPort > 65535) {
+      setError('Invalid port number');
+      return;
+    }
+
+    setAdding(true);
+    setError(null);
+
+    const result = await onAddPort({
+      hostPort,
+      containerPort: detected.port,
+      label: detected.processName,
+    });
+
+    setAdding(false);
+
+    if (result) {
+      setExpandedPort(null);
+      setHostPortInput('');
+    } else {
+      setError('Port may be in use');
+    }
+  }, [hostPortInput, onAddPort]);
 
   return (
     <div
       data-port-list-window
-      className="absolute top-full right-0 mt-2 bg-vscode-bg-secondary border border-vscode-border rounded-lg shadow-xl shadow-black/40 min-w-[240px] max-w-[320px] overflow-hidden"
+      className="absolute top-full right-0 mt-2 bg-vscode-bg-secondary border border-vscode-border rounded-lg shadow-xl shadow-black/40 min-w-[260px] max-w-[340px] overflow-hidden"
       style={{ animation: 'modal-in 0.15s ease-out' }}
     >
       <div className="flex items-center justify-between px-3 py-2 border-b border-vscode-border">
@@ -419,27 +498,129 @@ function PortListWindow({ ports, onClose }: PortListWindowProps) {
           &times;
         </button>
       </div>
-      <div className="py-1">
-        {ports.map((port) => (
-          <div
-            key={port.id}
-            className="flex items-center gap-2 px-3 py-2 hover:bg-white/5"
-          >
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <span className="text-white font-mono text-sm">{port.hostPort}</span>
-              <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-vscode-text-muted shrink-0">
-                <path d="M4 8a.5.5 0 0 1 .5-.5h5.793L8.146 5.354a.5.5 0 1 1 .708-.708l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L10.293 8.5H4.5A.5.5 0 0 1 4 8z" />
-              </svg>
-              <span className="text-white font-mono text-sm">{port.containerPort}</span>
+
+      {/* Active ports */}
+      {ports.length > 0 && (
+        <div className="py-1">
+          {ports.map((port) => (
+            <div
+              key={port.id}
+              className="flex items-center gap-2 px-3 py-2 hover:bg-white/5 group"
+            >
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="text-white font-mono text-sm">{port.hostPort}</span>
+                <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-vscode-text-muted shrink-0">
+                  <path d="M4 8a.5.5 0 0 1 .5-.5h5.793L8.146 5.354a.5.5 0 1 1 .708-.708l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L10.293 8.5H4.5A.5.5 0 0 1 4 8z" />
+                </svg>
+                <span className="text-white font-mono text-sm">{port.containerPort}</span>
+              </div>
+              {port.label && (
+                <span className="text-vscode-text-secondary text-xs px-1.5 py-0.5 bg-vscode-border rounded truncate max-w-[60px]">
+                  {port.label}
+                </span>
+              )}
+              <button
+                className="text-vscode-text-muted hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                onClick={() => handleRemovePort(port.id)}
+                disabled={removing !== null}
+                title="Remove"
+              >
+                {removing === port.id ? '...' : '×'}
+              </button>
             </div>
-            {port.label && (
-              <span className="text-vscode-text-secondary text-xs px-1.5 py-0.5 bg-vscode-border rounded truncate max-w-[80px]">
-                {port.label}
-              </span>
-            )}
+          ))}
+        </div>
+      )}
+
+      {/* Suggestions */}
+      {suggestions.length > 0 && (
+        <>
+          <div className="px-3 py-1.5 bg-vscode-bg border-t border-vscode-border">
+            <span className="text-[10px] font-semibold text-vscode-text-muted uppercase tracking-wide">Detected</span>
           </div>
-        ))}
-      </div>
+          <div className="py-1">
+            {suggestions.map((detected) => (
+              <div key={`${detected.port}-${detected.protocol}`}>
+                {expandedPort === detected.port ? (
+                  /* Expanded form for adding */
+                  <div className="px-3 py-2 bg-vscode-bg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <input
+                        type="number"
+                        className="w-20 py-1 px-2 bg-vscode-bg-secondary border border-vscode-border rounded text-white text-sm font-mono focus:outline-none focus:border-vscode-accent"
+                        value={hostPortInput}
+                        onChange={(e) => setHostPortInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleAddPort(detected);
+                          }
+                        }}
+                        placeholder="Host"
+                        min="1"
+                        max="65535"
+                        autoFocus
+                      />
+                      <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 text-vscode-text-muted shrink-0">
+                        <path d="M4 8a.5.5 0 0 1 .5-.5h5.793L8.146 5.354a.5.5 0 1 1 .708-.708l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L10.293 8.5H4.5A.5.5 0 0 1 4 8z" />
+                      </svg>
+                      <span className="text-vscode-text-secondary font-mono text-sm">{detected.port}</span>
+                      <span className="text-vscode-text-muted text-xs truncate flex-1">
+                        {detected.processName}
+                      </span>
+                    </div>
+                    {error && (
+                      <div className="text-red-400 text-xs mb-2">{error}</div>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        className="flex-1 py-1 px-2 bg-vscode-accent text-white text-xs rounded hover:bg-vscode-accent-hover disabled:opacity-50"
+                        onClick={() => handleAddPort(detected)}
+                        disabled={adding}
+                      >
+                        {adding ? 'Adding...' : 'Add'}
+                      </button>
+                      <button
+                        className="py-1 px-2 bg-vscode-border text-vscode-text text-xs rounded hover:bg-[#4a4a4a]"
+                        onClick={() => {
+                          setExpandedPort(null);
+                          setHostPortInput('');
+                          setError(null);
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Collapsed suggestion row */
+                  <div
+                    className="flex items-center justify-between gap-2 px-3 py-2 hover:bg-white/5 cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleExpandSuggestion(detected);
+                    }}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-vscode-text-secondary font-mono text-sm">{detected.port}</span>
+                      <span className="text-vscode-text-muted text-xs truncate max-w-[100px]">
+                        {detected.processName}
+                      </span>
+                    </div>
+                    <span className="text-vscode-text-muted text-xs">+</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Empty state */}
+      {ports.length === 0 && suggestions.length === 0 && (
+        <div className="py-4 px-3 text-center text-vscode-text-muted text-sm">
+          No ports detected
+        </div>
+      )}
     </div>
   );
 }

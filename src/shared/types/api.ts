@@ -205,3 +205,15 @@ export interface AddPortForwardingRequest {
 export interface PortForwardingListResponse {
   portForwardings: import('./session.js').PortForwarding[];
 }
+
+// Port detection types
+export interface DetectedPort {
+  port: number;
+  protocol: 'tcp' | 'tcp6';
+  processName: string;
+  pid?: number;
+}
+
+export interface DetectedPortsResponse {
+  detectedPorts: DetectedPort[];
+}

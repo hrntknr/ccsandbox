@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Session } from '@shared/index.js';
-import { usePortForwarding } from '../../hooks';
+import type { Session, DetectedPort } from '@shared/index.js';
+import { usePortForwarding, useDetectedPorts } from '../../hooks';
 
 interface PortForwardingModalProps {
   isOpen: boolean;
@@ -18,13 +18,23 @@ export function PortForwardingModal({
   const [label, setLabel] = useState('');
 
   const { ports, loading, error, listPorts, addPort, removePort } = usePortForwarding(session?.sessionId ?? null);
+  const { detectedPorts, fetchDetectedPorts } = useDetectedPorts(session?.sessionId ?? null);
 
   // Load ports when modal opens
   useEffect(() => {
     if (isOpen && session) {
       listPorts();
+      fetchDetectedPorts();
     }
-  }, [isOpen, session, listPorts]);
+  }, [isOpen, session, listPorts, fetchDetectedPorts]);
+
+  // Poll detected ports every 10 seconds while modal is open
+  useEffect(() => {
+    if (!isOpen || !session || session.state !== 'RUNNING') return;
+
+    const interval = setInterval(fetchDetectedPorts, 10000);
+    return () => clearInterval(interval);
+  }, [isOpen, session, fetchDetectedPorts]);
 
   // Reset form
   const resetForm = useCallback(() => {
@@ -64,6 +74,12 @@ export function PortForwardingModal({
     [removePort]
   );
 
+  const handleSuggestionClick = useCallback((detected: DetectedPort) => {
+    setContainerPort(detected.port.toString());
+    setHostPort(detected.port.toString());
+    setLabel(detected.processName);
+  }, []);
+
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent) => {
       if (e.target === e.currentTarget && !loading) {
@@ -78,6 +94,10 @@ export function PortForwardingModal({
   }
 
   const isRunning = session.state === 'RUNNING';
+
+  // Filter out ports that are already forwarded
+  const forwardedContainerPorts = new Set(ports.map((p) => p.containerPort));
+  const suggestions = detectedPorts.filter((d) => !forwardedContainerPorts.has(d.port));
 
   return (
     <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[1000]" onClick={handleBackdropClick}>
@@ -149,6 +169,39 @@ export function PortForwardingModal({
               </div>
             )}
           </div>
+
+          {/* Suggested Ports */}
+          {isRunning && suggestions.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-vscode-text-secondary uppercase tracking-wide m-0 mb-3 pb-2 border-b border-vscode-border max-md:text-[13px]">
+                Suggested Ports
+              </h3>
+
+              <div className="space-y-2">
+                {suggestions.map((detected) => (
+                  <div
+                    key={`${detected.port}-${detected.protocol}`}
+                    className="flex items-center justify-between bg-vscode-bg p-3 rounded"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-white font-mono text-sm">{detected.port}</span>
+                      <span className="text-vscode-text-secondary text-xs px-2 py-0.5 bg-vscode-border rounded">
+                        {detected.processName}
+                      </span>
+                    </div>
+                    <button
+                      className="bg-transparent border border-vscode-accent text-vscode-accent cursor-pointer px-2 py-1 rounded text-xs hover:bg-vscode-accent hover:text-white transition-colors disabled:opacity-50"
+                      onClick={() => handleSuggestionClick(detected)}
+                      disabled={loading}
+                      title="Add this port"
+                    >
+                      + Add
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Add Port Form */}
           {isRunning && (

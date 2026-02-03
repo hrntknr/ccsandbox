@@ -18,6 +18,8 @@ import type {
   PortForwarding,
   AddPortForwardingRequest,
   PortForwardingListResponse,
+  DetectedPort,
+  DetectedPortsResponse,
 } from '@shared/index.js';
 
 
@@ -468,6 +470,43 @@ export function usePortForwarding(sessionId: string | null): UsePortForwardingRe
   }, [sessionId, listPorts]);
 
   return { ports, loading, error, listPorts, addPort, removePort };
+}
+
+export interface UseDetectedPortsReturn {
+  detectedPorts: DetectedPort[];
+  loading: boolean;
+  error: string | null;
+  fetchDetectedPorts: () => Promise<DetectedPort[]>;
+}
+
+export function useDetectedPorts(sessionId: string | null): UseDetectedPortsReturn {
+  const [detectedPorts, setDetectedPorts] = useState<DetectedPort[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchDetectedPorts = useCallback(async (): Promise<DetectedPort[]> => {
+    if (!sessionId) {
+      setDetectedPorts([]);
+      return [];
+    }
+
+    setLoading(true);
+    setError(null);
+
+    const response = await fetchApi<DetectedPortsResponse>(`/sessions/${sessionId}/detected-ports`);
+
+    setLoading(false);
+
+    if (response.success && response.data) {
+      setDetectedPorts(response.data.detectedPorts);
+      return response.data.detectedPorts;
+    } else {
+      setError(response.error || 'Failed to detect ports');
+      return [];
+    }
+  }, [sessionId]);
+
+  return { detectedPorts, loading, error, fetchDetectedPorts };
 }
 
 export function useGitStatus(): {

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import { rm } from 'node:fs/promises';
 import path from 'node:path';
-import type { CreateSessionRequest, ApiResponse, Session, DiffStatsResponse, DiffDetailResponse, GitStatusResponse, AddPortForwardingRequest, PortForwardingListResponse, PortForwarding } from '../../shared/index.js';
+import type { CreateSessionRequest, ApiResponse, Session, DiffStatsResponse, DiffDetailResponse, GitStatusResponse, AddPortForwardingRequest, PortForwardingListResponse, PortForwarding, DetectedPortsResponse } from '../../shared/index.js';
 import { getConfig } from '../../config.js';
 import {
   getSessionStore,
@@ -32,6 +32,7 @@ import {
   PortInUseError,
   PortForwardingNotFoundError,
 } from '../../services/port-forwarding.service.js';
+import { detectPorts } from '../../services/port-detection.service.js';
 
 const router = Router();
 
@@ -866,6 +867,55 @@ router.delete(
         return;
       }
 
+      throw error;
+    }
+  })
+);
+
+/**
+ * GET /api/sessions/:id/detected-ports
+ * Detect listening ports in the session's container.
+ */
+router.get(
+  '/:id/detected-ports',
+  asyncHandler(async (req: Request<{ id: string }>, res: Response) => {
+    const { id } = req.params;
+    const config = getConfig();
+    const store = getSessionStore(config.configDir, config.repoDir);
+
+    try {
+      const session = await store.get(id);
+
+      // Return empty array if session is not running
+      if (session.state !== 'RUNNING' || !session.containerId) {
+        const response: ApiResponse<DetectedPortsResponse> = {
+          success: true,
+          data: { detectedPorts: [] },
+        };
+        res.json(response);
+        return;
+      }
+
+      // Detect ports in the container
+      const detectedPorts = await detectPorts({
+        workspacePath: session.workspacePath,
+        devcontainerCliPath: config.devcontainerCli,
+      });
+
+      const response: ApiResponse<DetectedPortsResponse> = {
+        success: true,
+        data: { detectedPorts },
+      };
+      res.json(response);
+    } catch (error) {
+      if (error instanceof SessionNotFoundError) {
+        const response: ApiResponse<null> = {
+          success: false,
+          error: `Session not found: ${id}`,
+        };
+        res.status(404).json(response);
+        return;
+      }
       throw error;
     }
   })

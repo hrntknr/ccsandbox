@@ -74,6 +74,8 @@ export type {
   GitStatusResponse,
   AddPortForwardingRequest,
   PortForwardingListResponse,
+  DetectedPort,
+  DetectedPortsResponse,
 } from './types/api.js';
 
 export type {
