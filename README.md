@@ -3,17 +3,20 @@
 A self-hostable Claude Code-like web environment. Run AI agents safely by sandboxing Claude Code inside a devcontainer, with no impact on your host machine.
 
 <!-- Screenshots -->
-<p align="center">
-  <img src="docs/images/screenshot-desktop.png" alt="Desktop View" width="700">
-  <br>
-  <em>Desktop View</em>
-</p>
-
-<p align="center">
-  <img src="docs/images/screenshot-mobile.png" alt="Mobile View" width="300">
-  <br>
-  <em>Mobile View</em>
-</p>
+<table align="center">
+  <tr>
+    <td align="center">
+      <img src="docs/images/screenshot-desktop.png" alt="Desktop View" width="600">
+      <br>
+      <em>Desktop View</em>
+    </td>
+    <td align="center">
+      <img src="docs/images/screenshot-mobile.png" alt="Mobile View" width="180">
+      <br>
+      <em>Mobile View</em>
+    </td>
+  </tr>
+</table>
 
 ## Features
 
