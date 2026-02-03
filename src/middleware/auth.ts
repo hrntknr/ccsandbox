@@ -86,7 +86,13 @@ export async function authMiddleware(
   }
 
   const config = getConfig();
-  const { authToken, authPasswordHash } = config;
+  const { authToken, authPasswordHash, disableAuth } = config;
+
+  // If authentication is disabled, skip
+  if (disableAuth) {
+    next();
+    return;
+  }
 
   // If no authentication token is configured, skip
   if (!authToken) {
@@ -228,7 +234,12 @@ export async function verifyWebSocketAuth(
   }
 
   const config = getConfig();
-  const { authToken, authPasswordHash } = config;
+  const { authToken, authPasswordHash, disableAuth } = config;
+
+  // If authentication is disabled, allow
+  if (disableAuth) {
+    return true;
+  }
 
   // If no authentication is configured, allow
   if (!authToken) {

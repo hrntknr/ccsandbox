@@ -32,6 +32,8 @@ export interface ServerConfig {
   authPasswordHash?: string;
   /** Maximum thinking tokens for Claude extended thinking (0 to disable) */
   maxThinkingTokens?: number;
+  /** Disable authentication (default: false) */
+  disableAuth?: boolean;
 }
 
 let config: ServerConfig | null = null;

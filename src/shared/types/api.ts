@@ -89,6 +89,8 @@ export interface EditableConfig {
   defaultPermissionMode?: PermissionMode;
   /** Speech recognition language (BCP 47 format, e.g., "ja-JP", "en-US") */
   speechRecognitionLanguage?: string;
+  /** Disable authentication (default: false) */
+  disableAuth?: boolean;
 }
 
 /**
@@ -109,6 +111,8 @@ export interface UpdateConfigRequest {
   defaultPermissionMode?: PermissionMode;
   /** Speech recognition language (BCP 47 format, e.g., "ja-JP", "en-US") */
   speechRecognitionLanguage?: string;
+  /** Disable authentication (default: false) */
+  disableAuth?: boolean;
 }
 
 /**
@@ -132,6 +136,8 @@ export interface ClientConfig {
   defaultPermissionMode?: PermissionMode;
   /** Speech recognition language (BCP 47 format, e.g., "ja-JP", "en-US") */
   speechRecognitionLanguage?: string;
+  /** Whether authentication is disabled (default: false) */
+  disableAuth: boolean;
 }
 
 // Diff types

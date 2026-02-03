@@ -41,6 +41,7 @@ async function buildClientConfig(): Promise<ClientConfig> {
     maxThinkingTokens: persisted.maxThinkingTokens,
     defaultPermissionMode: persisted.defaultPermissionMode,
     speechRecognitionLanguage: persisted.speechRecognitionLanguage,
+    disableAuth: config.disableAuth ?? false,
   };
 }
 
@@ -105,6 +106,7 @@ router.put('/', async (req, res) => {
       dotfilesInstallCommand: persisted.dotfilesInstallCommand,
       defaultShell: persisted.defaultShell,
       authPasswordHash: persisted.authPasswordHash,
+      disableAuth: persisted.disableAuth,
     });
 
     // Restart background refresh if PAT or apiBase changed
