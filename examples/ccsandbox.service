@@ -1,0 +1,48 @@
+# ccsandbox systemd user service file
+#
+# Installation:
+#   mkdir -p ~/.config/systemd/user
+#   cp ccsandbox.service ~/.config/systemd/user/ccsandbox.service
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now ccsandbox
+#
+# Commands:
+#   systemctl --user status ccsandbox
+#   systemctl --user restart ccsandbox
+#   journalctl --user -u ccsandbox -f
+
+[Unit]
+Description=ccsandbox
+Documentation=https://github.com/hrntknr/ccsandbox
+After=network.target
+
+[Service]
+Type=simple
+
+# If installed globally via npm
+ExecStart=%h/.local/bin/ccsandbox
+
+# If using npx
+# ExecStart=/usr/bin/npx -y ccsandbox@latest
+
+# If using nvm (uncomment and adjust node version as needed)
+# ExecStart=/bin/bash -c 'source %h/.nvm/nvm.sh && ccsandbox'
+
+# If using npx with nvm
+# ExecStart=/bin/bash -c 'source %h/.nvm/nvm.sh && npx -y ccsandbox@latest'
+
+# If running from source
+# WorkingDirectory=%h/path/to/ccsandbox
+# ExecStart=/usr/bin/node dist/cli.js --port 3000
+
+# If running from source with nvm
+# WorkingDirectory=%h/path/to/ccsandbox
+# ExecStart=/bin/bash -c 'source %h/.nvm/nvm.sh && node dist/cli.js --port 3000'
+
+Environment=NODE_ENV=production
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

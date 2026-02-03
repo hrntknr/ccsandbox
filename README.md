@@ -90,6 +90,26 @@ Configure the following from **Settings** in the Web UI:
 | Default Shell | Default shell for terminals |
 | Dotfiles | Dotfiles repository settings |
 
+## Running as a systemd Service
+
+An example systemd user service file is provided in [`examples/ccsandbox.service`](examples/ccsandbox.service).
+
+```bash
+# Copy the service file
+mkdir -p ~/.config/systemd/user
+cp examples/ccsandbox.service ~/.config/systemd/user/ccsandbox.service
+
+# Edit the service file if needed (e.g., change ExecStart for your setup)
+# vim ~/.config/systemd/user/ccsandbox.service
+
+# Enable and start the service
+systemctl --user daemon-reload
+systemctl --user enable --now ccsandbox
+
+# View logs
+journalctl --user -u ccsandbox -f
+```
+
 ## Development
 
 ```bash
