@@ -51,5 +51,5 @@ export function AnsiOutput({ content }: AnsiOutputProps) {
     };
   }, [content]);
 
-  return <div ref={containerRef} className="ansi-output p-3 rounded-b-md overflow-hidden" />;
+  return <div ref={containerRef} className="ansi-output p-3 rounded-b-md overflow-auto" />;
 }

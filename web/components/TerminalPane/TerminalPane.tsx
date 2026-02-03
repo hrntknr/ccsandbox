@@ -121,6 +121,10 @@ export function TerminalPane({ session, defaultPermissionMode, speechRecognition
     addTab(undefined, 'claude');
   }, [addTab]);
 
+  const handleOpenLoginShell = useCallback(() => {
+    addTab('Login', 'shell', 'claude /login');
+  }, [addTab]);
+
   const handleCloseTab = useCallback(
     (tabId: string, e: React.MouseEvent) => {
       e.stopPropagation();
@@ -294,6 +298,7 @@ export function TerminalPane({ session, defaultPermissionMode, speechRecognition
                 onClaudeTodosUpdated={onClaudeTodosUpdated}
                 onPermissionModeChanged={onPermissionModeChanged}
                 onPlanFilePathChanged={onPlanFilePathChanged}
+                onOpenLoginShell={handleOpenLoginShell}
               />
             ) : (
               <Terminal

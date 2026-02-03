@@ -35,13 +35,37 @@ interface ToolItemProps {
 
 function ToolBadge({ tool, result }: ToolItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [offsetX, setOffsetX] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
   const getStatus = () => {
     if (!result) return { icon: '●', className: 'bg-claude-accent/20 text-claude-accent border-claude-accent/30' };
     if (result.isError) return { icon: '✕', className: 'bg-claude-error/10 text-claude-error border-claude-error/30' };
     return { icon: '✓', className: 'bg-claude-success/10 text-claude-success border-claude-success/30' };
   };
+
+  // Calculate offset when expanded to keep popover within viewport
+  useEffect(() => {
+    if (!isExpanded || !containerRef.current || !popoverRef.current) return;
+
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const popoverRect = popoverRef.current.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const margin = 8;
+
+    // Calculate how much the popover overflows on the right
+    const rightEdge = containerRect.left + popoverRect.width;
+    const overflow = rightEdge - (viewportWidth - margin);
+
+    if (overflow > 0) {
+      // Shift left, but don't go beyond the left edge of the viewport
+      const maxOffset = containerRect.left - margin;
+      setOffsetX(-Math.min(overflow, maxOffset));
+    } else {
+      setOffsetX(0);
+    }
+  }, [isExpanded]);
 
   // Close when clicking outside
   useEffect(() => {
@@ -87,7 +111,11 @@ function ToolBadge({ tool, result }: ToolItemProps) {
         <span>{tool.name}</span>
       </button>
       {isExpanded && (
-        <div className="absolute left-0 top-full mt-1 z-10 min-w-[300px] max-w-[500px] bg-claude-bg-tertiary border border-claude-border rounded-lg shadow-lg overflow-hidden">
+        <div
+          ref={popoverRef}
+          className="absolute left-0 top-full mt-1 z-10 min-w-[300px] max-w-[min(500px,calc(100vw-1rem))] bg-claude-bg-tertiary border border-claude-border rounded-lg shadow-lg overflow-hidden"
+          style={{ transform: `translateX(${offsetX}px)` }}
+        >
           <div className="flex items-center justify-between py-1.5 px-2.5 bg-claude-bg-hover text-claude-text-muted text-[11px] border-b border-claude-border/50">
             <span className="font-medium text-claude-text-primary">{tool.name}</span>
             <button
@@ -97,8 +125,8 @@ function ToolBadge({ tool, result }: ToolItemProps) {
               ✕
             </button>
           </div>
-          <div className="bg-claude-code-bg">
-            <pre className="font-mono text-xs m-0 p-2 overflow-x-auto text-claude-text-secondary max-h-[150px] overflow-y-auto">
+          <div className="bg-claude-code-bg max-h-[50vh] overflow-auto">
+            <pre className="font-mono text-xs m-0 p-2 text-claude-text-secondary whitespace-pre-wrap break-all">
               {JSON.stringify(tool.input, null, 2)}
             </pre>
             {result && (

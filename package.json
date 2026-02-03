@@ -24,8 +24,7 @@
     "start": "node dist/cli.js",
     "dev": "concurrently -n server,web -c blue,green \"npm:dev:server\" \"npm:dev:web\"",
     "dev:server": "node --import tsx src/cli.ts",
-    "dev:web": "npm run dev --prefix web",
-    "postinstall": "npm install --prefix web"
+    "dev:web": "npm run dev --prefix web"
   },
   "engines": {
     "node": ">=20.11.0"

@@ -14,3 +14,5 @@ export { useSessionCreate } from './useSessionCreate';
 
 export { useTerminalWebSocket } from './useTerminalWebSocket';
 export type { UseTerminalWebSocketReturn } from './useTerminalWebSocket';
+
+export { useIsMobile } from './useIsMobile';

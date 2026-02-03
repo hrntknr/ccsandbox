@@ -432,16 +432,13 @@ export async function startDevcontainer(
   // Configure git to include our credential config (mounted via --mount)
   if (gitCredential) {
     onLog?.(`Configuring git include.path in container\n`);
-    const execResult = await execCommand(cliPath, [
-      'exec',
-      '--workspace-folder',
-      workspacePath,
-      'git',
-      'config',
-      '--global',
-      'include.path',
-      CONTAINER_GITCONFIG_PATH,
-    ]);
+    const gitConfigArgs = ['exec', '--workspace-folder', workspacePath];
+    if (configPath) {
+      gitConfigArgs.push('--config', configPath);
+    }
+    gitConfigArgs.push('git', 'config', '--global', 'include.path', CONTAINER_GITCONFIG_PATH);
+
+    const execResult = await execCommand(cliPath, gitConfigArgs);
 
     if (execResult.exitCode !== 0) {
       onLog?.(
@@ -486,7 +483,9 @@ export async function startDevcontainer(
 
     if (symlinkResult.exitCode !== 0) {
       throw new DevcontainerCliError(
-        `Failed to create Claude settings symlinks: ${symlinkResult.stderr}`
+        'symlink-claude-settings',
+        symlinkResult.exitCode,
+        symlinkResult.stderr
       );
     }
   }

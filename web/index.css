@@ -208,6 +208,10 @@ pre:has(.shiki) {
   overflow-y: auto !important;
 }
 
+.xterm-viewport {
+  background-color: transparent !important;
+}
+
 /* Custom scrollbar styles */
 @layer utilities {
   .scrollbar-thin::-webkit-scrollbar {

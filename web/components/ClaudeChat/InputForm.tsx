@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { ImageAttachment, PermissionMode } from '@shared/index.js';
 import { PermissionModeSelector } from './PermissionModeSelector';
 import { SPEECH_DISABLED } from '../SettingsModal';
+import { useIsMobile } from '../../hooks';
 import '../../types/speech-recognition.d.ts';
 
 /** Maximum file size in bytes (5MB) */
@@ -81,12 +82,14 @@ export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPe
     return typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window);
   }, []);
 
-  // Auto-focus when tab becomes active
+  const isMobile = useIsMobile();
+
+  // Auto-focus when tab becomes active (desktop only)
   useEffect(() => {
-    if (isActive && !disabled) {
+    if (isActive && !disabled && !isMobile) {
       textareaRef.current?.focus();
     }
-  }, [isActive, disabled]);
+  }, [isActive, disabled, isMobile]);
 
   // Sync permission mode when backend mode changes (EnterPlanMode/ExitPlanMode)
   useEffect(() => {
@@ -387,10 +390,12 @@ export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPe
               <button
                 type="button"
                 onClick={onInterrupt}
-                className="py-1.5 px-3.5 bg-red-500 text-white border-none rounded-xl cursor-pointer text-[13px] font-medium transition-all flex items-center gap-1.5 hover:bg-red-600"
+                className="p-1.5 text-red-400/70 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                title="Cancel"
               >
-                <span className="text-sm">■</span>
-                <span>Cancel</span>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <rect x="6" y="6" width="12" height="12" rx="2" strokeWidth={2} fill="currentColor" />
+                </svg>
               </button>
             ) : (
               <button

@@ -59,6 +59,9 @@ export function useSessionSync(): UseSessionSyncReturn {
     wsRef.current = ws;
 
     ws.onopen = () => {
+      // Send ready message to signal server to start sending data
+      ws.send(JSON.stringify({ type: 'ready' }));
+
       // Reset backoff delay and reconnect attempt on successful connection
       reconnectDelayRef.current = RECONNECT_BASE_DELAY;
       setConnectionState('connected');

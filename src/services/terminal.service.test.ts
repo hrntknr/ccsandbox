@@ -167,7 +167,14 @@ describe('TerminalManager', () => {
           '/workspaces/test-project',
           '--remote-env',
           'TERM=xterm-256color',
+          '--remote-env',
+          'LANG=C.UTF-8',
+          '--remote-env',
+          'LC_ALL=C.UTF-8',
+          '--remote-env',
+          'LC_CTYPE=C.UTF-8',
           'bash',
+          '-l',
         ],
         expect.objectContaining({
           name: 'xterm-256color',
@@ -175,6 +182,9 @@ describe('TerminalManager', () => {
           rows: 24,
           env: expect.objectContaining({
             TERM: 'xterm-256color',
+            LANG: 'C.UTF-8',
+            LC_ALL: 'C.UTF-8',
+            LC_CTYPE: 'C.UTF-8',
           }),
         })
       );

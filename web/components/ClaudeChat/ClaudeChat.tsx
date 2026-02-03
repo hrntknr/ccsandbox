@@ -62,6 +62,7 @@ interface ClaudeChatProps {
     tabId: string,
     callback: (planFilePath: string) => void
   ) => () => void;
+  onOpenLoginShell?: () => void;
 }
 
 export function ClaudeChat({
@@ -82,6 +83,7 @@ export function ClaudeChat({
   onClaudeTodosUpdated,
   onPermissionModeChanged,
   onPlanFilePathChanged,
+  onOpenLoginShell,
 }: ClaudeChatProps) {
   const [messages, setMessages] = useState<ClaudeMessage[]>([]);
   const [pendingPermissions, setPendingPermissions] = useState<ClaudePendingPermission[]>([]);
@@ -93,8 +95,8 @@ export function ClaudeChat({
   const [planFilePath, setPlanFilePath] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const messageListRef = useRef<HTMLDivElement>(null);
   const bottomAreaRef = useRef<HTMLDivElement>(null);
-  const historyLoadedRef = useRef(false);
   const isAtBottomRef = useRef(true);
   const isScrollingRef = useRef(false);
 
@@ -231,23 +233,20 @@ export function ClaudeChat({
     });
   }, [tabId, onClaudeEvent]);
 
-  // Handle history on attach
+  // Handle history on attach (always update to sync state after reconnection)
   useEffect(() => {
     return onClaudeHistory(tabId, (history, permissions, historyTodos, permissionMode, isProcessing, historyPlanFilePath) => {
-      if (!historyLoadedRef.current) {
-        setMessages(history);
-        setPendingPermissions(permissions);
-        setTodos(historyTodos);
-        if (permissionMode) {
-          setBackendPermissionMode(permissionMode);
-        }
-        if (isProcessing !== undefined) {
-          setIsLoading(isProcessing);
-        }
-        if (historyPlanFilePath) {
-          setPlanFilePath(historyPlanFilePath);
-        }
-        historyLoadedRef.current = true;
+      setMessages(history);
+      setPendingPermissions(permissions);
+      setTodos(historyTodos);
+      if (permissionMode) {
+        setBackendPermissionMode(permissionMode);
+      }
+      if (isProcessing !== undefined) {
+        setIsLoading(isProcessing);
+      }
+      if (historyPlanFilePath) {
+        setPlanFilePath(historyPlanFilePath);
       }
     });
   }, [tabId, onClaudeHistory]);
@@ -352,14 +351,31 @@ export function ClaudeChat({
     return () => container.removeEventListener('scroll', handleScroll);
   }, [checkIsAtBottom]);
 
-  // Auto-scroll on streaming content only if at bottom
+  // Auto-scroll when MessageList DOM height changes (e.g., Streamdown rendering)
+  // This handles cases where content length changes dynamically after markdown parsing
   useEffect(() => {
     if (!isActive) return;
 
-    if (isAtBottomRef.current) {
-      scrollToBottom('smooth');
-    }
-  }, [streamingContent, isActive, scrollToBottom]);
+    const messageList = messageListRef.current;
+    if (!messageList) return;
+
+    const observer = new ResizeObserver(() => {
+      if (isAtBottomRef.current) {
+        // Mark as scrolling to prevent scroll events from clearing isAtBottom
+        // This is critical when large elements (e.g., headings) cause layout shifts
+        isScrollingRef.current = true;
+        // Use instant scroll during streaming to avoid jank from frequent updates
+        messagesEndRef.current?.scrollIntoView({ behavior: 'instant', block: 'end' });
+        // Clear after browser has processed the scroll (use rAF for instant scroll)
+        requestAnimationFrame(() => {
+          isScrollingRef.current = false;
+        });
+      }
+    });
+
+    observer.observe(messageList);
+    return () => observer.disconnect();
+  }, [isActive]);
 
   // Auto-scroll on new messages only if at bottom
   useEffect(() => {
@@ -408,6 +424,11 @@ export function ClaudeChat({
         return;
       }
 
+      if (content.trim() === '/login' && onOpenLoginShell) {
+        onOpenLoginShell();
+        return;
+      }
+
       // Add user message to UI immediately
       const userMessage: ClaudeMessage = {
         id: uuidv4(),
@@ -423,7 +444,7 @@ export function ClaudeChat({
       isAtBottomRef.current = true;
       scrollToBottom('smooth');
     },
-    [isConnected, sendClaudeMessage, scrollToBottom]
+    [isConnected, sendClaudeMessage, scrollToBottom, onOpenLoginShell]
   );
 
   const handlePermissionResponse = useCallback(
@@ -442,11 +463,13 @@ export function ClaudeChat({
   return (
     <div className={`relative h-full bg-claude-bg-primary text-claude-text-primary font-sans text-sm leading-normal ${isActive ? 'flex flex-col' : 'hidden'}`}>
       <div ref={scrollContainerRef} className="flex-1 overflow-y-auto py-4 scrollbar-thin">
-        <MessageList
-          messages={messages}
-          streamingContent={streamingContent}
-          isLoading={isLoading}
-        />
+        <div ref={messageListRef}>
+          <MessageList
+            messages={messages}
+            streamingContent={streamingContent}
+            isLoading={isLoading}
+          />
+        </div>
         {/* Scroll spacer - matches bottom area height (only when there are messages) */}
         {(messages.length > 0 || isLoading || streamingContent) && (
           <div style={{ height: bottomAreaHeight }} />
@@ -495,7 +518,7 @@ export function ClaudeChat({
         );
       })()}
 
-      <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 pointer-events-none">
+      <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 pointer-events-none z-20">
         <div ref={bottomAreaRef} className="pointer-events-auto max-w-3xl mx-auto">
           {/* Todo List - above input form */}
           <TodoList todos={todos} />
