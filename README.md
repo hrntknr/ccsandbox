@@ -78,18 +78,6 @@ npx ccsandbox@latest --port 8080
 npx ccsandbox@latest --config-dir ./my-config --repo-dir ./my-repos
 ```
 
-## Configuration
-
-Configure the following from **Settings** in the Web UI:
-
-| Setting | Description |
-|---------|-------------|
-| GitHub PAT | GitHub Personal Access Token |
-| API Base URL | For GitHub Enterprise (optional) |
-| Password | Authentication password (optional) |
-| Default Shell | Default shell for terminals |
-| Dotfiles | Dotfiles repository settings |
-
 ## Running as a systemd Service
 
 An example systemd user service file is provided in [`examples/ccsandbox.service`](examples/ccsandbox.service).
