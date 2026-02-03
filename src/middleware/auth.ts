@@ -29,7 +29,7 @@ function setAuthCookie(res: Response, token: string, isSecure: boolean): void {
   res.cookie(AUTH_COOKIE_NAME, token, {
     httpOnly: true,
     secure: isSecure,
-    sameSite: 'strict',
+    sameSite: 'lax',
     maxAge: COOKIE_MAX_AGE_MS,
   });
 }
