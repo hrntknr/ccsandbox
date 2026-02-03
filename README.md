@@ -27,6 +27,29 @@ A self-hostable Claude Code-like web environment. Run AI agents safely by sandbo
 - Session persistence
 - Real-time sync across multiple browser tabs
 
+## Advantages (vs. Claude Code Web)
+
+This tool is mainly about choosing the right execution environment and tools, but it also covers several gaps where Claude Code Web is less convenient or not supported.
+
+* **Use tools that Claude Code Web doesn't support**
+
+  * e.g. `EnterPlanMode` (plan → approval workflow)
+  * e.g. `AskUserTool` (asking questions via selectable options)
+
+* **Ship a project-specific development environment (devcontainer support)**
+
+  * Include a devcontainer configuration in the repo to handle environment-specific setup
+  * Improves reproducibility for team development and onboarding
+
+* **Run local services and view them in the browser (port forwarding)**
+
+  * Faster build → run → verify loops with browser-based access
+
+* **Work with compatible APIs and multiple API providers**
+
+  * Doesn't require a Claude Code plan
+  * Works in environments where traffic must go through a company API proxy
+
 ## Requirements
 
 Before using ccsandbox, make sure you have the following installed:
