@@ -41,6 +41,37 @@ vi.mock('../services/devcontainer.service.js', async () => {
   };
 });
 
+const mockPortForwardingManager = {
+  stopAll: vi.fn(),
+  list: vi.fn().mockReturnValue([]),
+};
+
+vi.mock('../services/port-forwarding.service.js', async () => {
+  const actual = await vi.importActual('../services/port-forwarding.service.js');
+  return {
+    ...(actual as object),
+    getPortForwardingManager: () => mockPortForwardingManager,
+  };
+});
+
+vi.mock('../services/terminal.service.js', () => ({
+  getTerminalManager: () => ({
+    killBySession: vi.fn(),
+  }),
+}));
+
+vi.mock('../services/claude/index.js', () => ({
+  getClaudeManager: () => ({
+    killBySession: vi.fn(),
+  }),
+}));
+
+vi.mock('../websocket/connection-manager.js', () => ({
+  getConnectionManager: () => ({
+    clearSessionTabs: vi.fn(),
+  }),
+}));
+
 describe('sessions routes', () => {
   let app: Express;
   let testDir: string;
@@ -315,6 +346,38 @@ describe('sessions routes', () => {
         .expect(404);
 
       expect(response.body.success).toBe(false);
+    });
+
+    it('cleans up port forwardings when session is deleted', async () => {
+      // Create a session first
+      const createRequest = {
+        title: 'Test Session',
+        repo: 'owner/repo',
+        baseBranch: 'main',
+        workBranch: 'feature/port-cleanup-test',
+      };
+
+      vi.mocked(gitService.cloneRepository).mockImplementation(async (options) => {
+        await mkdir(options.workspacePath, { recursive: true });
+      });
+      vi.mocked(devcontainerService.hasDevcontainerConfig).mockResolvedValue(true);
+      vi.mocked(devcontainerService.startDevcontainer).mockResolvedValue({
+        containerId: 'container123',
+      });
+      vi.mocked(devcontainerService.removeContainer).mockResolvedValue(undefined);
+
+      const createResponse = await request(app)
+        .post('/api/sessions')
+        .send(createRequest)
+        .expect(201);
+
+      const sessionId = createResponse.body.data.session.sessionId;
+
+      // Delete session
+      await request(app).delete(`/api/sessions/${sessionId}`).expect(200);
+
+      // Verify port forwarding cleanup was called
+      expect(mockPortForwardingManager.stopAll).toHaveBeenCalledWith(sessionId);
     });
   });
 
