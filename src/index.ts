@@ -54,12 +54,13 @@ export interface ServerInstance {
  * When listening on 0.0.0.0, returns all available IPv4 addresses.
  * Otherwise, returns only the specified host.
  */
-function getAccessUrls(host: string, port: number, token: string): string[] {
+function getAccessUrls(host: string, port: number, token?: string): string[] {
   const urls: string[] = [];
+  const query = token ? `/?token=${token}` : '';
 
   if (host === '0.0.0.0') {
     // Add localhost first
-    urls.push(`http://localhost:${port}/?token=${token}`);
+    urls.push(`http://localhost:${port}${query}`);
 
     // Get all network interface addresses
     const interfaces = os.networkInterfaces();
@@ -68,14 +69,14 @@ function getAccessUrls(host: string, port: number, token: string): string[] {
       for (const addr of addrs) {
         // Only include IPv4 addresses, exclude loopback
         if (addr.family === 'IPv4' && !addr.internal) {
-          urls.push(`http://${addr.address}:${port}/?token=${token}`);
+          urls.push(`http://${addr.address}:${port}${query}`);
         }
       }
     }
   } else if (host === '127.0.0.1' || host === 'localhost') {
-    urls.push(`http://localhost:${port}/?token=${token}`);
+    urls.push(`http://localhost:${port}${query}`);
   } else {
-    urls.push(`http://${host}:${port}/?token=${token}`);
+    urls.push(`http://${host}:${port}${query}`);
   }
 
   return urls;
@@ -94,14 +95,17 @@ export async function startServer(options: StartServerOptions): Promise<ServerIn
   const configStore = getConfigStore(options.configDir);
   let persistedConfig = await configStore.read();
 
-  // Generate auth token if not present
-  if (!persistedConfig.authToken) {
+  // Generate auth token only if not present AND auth is not disabled
+  if (!persistedConfig.authToken && !persistedConfig.disableAuth) {
     const newToken = generateAuthToken();
     persistedConfig = await configStore.write({ authToken: newToken });
   }
 
   // Use persisted apiBase or default
   const effectiveApiBase = persistedConfig.apiBase ?? 'https://api.github.com';
+
+  // When auth is disabled, do not use authToken
+  const effectiveAuthToken = persistedConfig.disableAuth ? undefined : persistedConfig.authToken;
 
   setConfig({
     pat: persistedConfig.pat,
@@ -115,8 +119,9 @@ export async function startServer(options: StartServerOptions): Promise<ServerIn
     dotfilesTargetPath: persistedConfig.dotfilesTargetPath,
     dotfilesInstallCommand: persistedConfig.dotfilesInstallCommand,
     defaultShell: persistedConfig.defaultShell,
-    authToken: persistedConfig.authToken,
+    authToken: effectiveAuthToken,
     authPasswordHash: persistedConfig.authPasswordHash,
+    disableAuth: persistedConfig.disableAuth,
   });
 
   // Create Express app
@@ -143,11 +148,17 @@ export async function startServer(options: StartServerOptions): Promise<ServerIn
 
       console.log(`Server listening on http://${options.listen}:${actualPort}`);
 
-      // Always print authentication URL
-      if (persistedConfig.authToken) {
-        console.log('');
+      // Print access URLs
+      console.log('');
+      if (persistedConfig.disableAuth) {
+        console.log('Access URLs (authentication disabled):');
+        const urls = getAccessUrls(options.listen, actualPort);
+        for (const url of urls) {
+          console.log(`  ${url}`);
+        }
+      } else if (effectiveAuthToken) {
         console.log('Access URLs (with authentication token):');
-        const urls = getAccessUrls(options.listen, actualPort, persistedConfig.authToken);
+        const urls = getAccessUrls(options.listen, actualPort, effectiveAuthToken);
         for (const url of urls) {
           console.log(`  ${url}`);
         }
