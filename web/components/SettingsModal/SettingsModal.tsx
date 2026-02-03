@@ -54,6 +54,7 @@ export function SettingsModal({
   const [maxThinkingTokens, setMaxThinkingTokens] = useState('10000');
   const [defaultPermissionMode, setDefaultPermissionMode] = useState<PermissionMode>('default');
   const [speechRecognitionLanguage, setSpeechRecognitionLanguage] = useState(SPEECH_DISABLED);
+  const [disableAuth, setDisableAuth] = useState(false);
 
   const { updateConfig, loading, error } = useUpdateConfig();
 
@@ -72,6 +73,7 @@ export function SettingsModal({
       setMaxThinkingTokens(String(initialConfig.maxThinkingTokens ?? 10000));
       setDefaultPermissionMode(initialConfig.defaultPermissionMode ?? 'default');
       setSpeechRecognitionLanguage(initialConfig.speechRecognitionLanguage ?? SPEECH_DISABLED);
+      setDisableAuth(initialConfig.disableAuth ?? false);
     }
   }, [isOpen, initialConfig]);
 
@@ -108,6 +110,9 @@ export function SettingsModal({
       // speechRecognitionLanguage
       request.speechRecognitionLanguage = speechRecognitionLanguage || undefined;
 
+      // disableAuth
+      request.disableAuth = disableAuth;
+
       // Password: only include if user entered a value (and it matches confirmation)
       if (authPassword || authPasswordConfirm) {
         if (authPassword !== authPasswordConfirm) {
@@ -136,6 +141,7 @@ export function SettingsModal({
       maxThinkingTokens,
       defaultPermissionMode,
       speechRecognitionLanguage,
+      disableAuth,
       authPassword,
       authPasswordConfirm,
       updateConfig,
@@ -334,6 +340,30 @@ export function SettingsModal({
           {/* Security Section */}
           <div className="mb-0">
             <h3 className="text-sm font-semibold text-vscode-text-secondary uppercase tracking-wide m-0 mb-3 pb-2 border-b border-vscode-border max-md:text-[13px]">Security</h3>
+
+            <div className="mb-4 max-md:mb-3.5">
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className="text-[13px] font-medium text-[#ccc]">Disable Authentication</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={disableAuth}
+                  onClick={() => setDisableAuth(!disableAuth)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-vscode-accent focus-visible:ring-offset-2 focus-visible:ring-offset-vscode-bg ${
+                    disableAuth ? 'bg-vscode-accent' : 'bg-[#444]'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                      disableAuth ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </label>
+              <div className="text-[11px] text-vscode-text-muted mt-1">
+                Skip authentication even when a token or password is configured. Use with caution.
+              </div>
+            </div>
 
             <div className="mb-4 max-md:mb-3.5">
               <label htmlFor="authPassword" className="block text-[13px] font-medium text-[#ccc] mb-1.5">
