@@ -34,7 +34,22 @@ This tool is mainly about choosing the right execution environment and tools, bu
 * **Use tools that Claude Code Web doesn't support**
 
   * e.g. `EnterPlanMode` (plan → approval workflow)
-  * e.g. `AskUserTool` (asking questions via selectable options)
+  * e.g. `AskUserQuestion` (asking questions via selectable options)
+
+    <table>
+      <tr>
+        <td align="center">
+          <img src="docs/images/askuserquestion-desktop.png" alt="AskUserQuestion Desktop" width="500">
+          <br>
+          <em>Desktop</em>
+        </td>
+        <td align="center">
+          <img src="docs/images/askuserquestion-mobile.png" alt="AskUserQuestion Mobile" width="150">
+          <br>
+          <em>Mobile</em>
+        </td>
+      </tr>
+    </table>
 
 * **Ship a project-specific development environment (devcontainer support)**
 
@@ -83,13 +98,13 @@ The server starts at `http://localhost:3000` by default.
 
 ## CLI Options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--port <port>` | Port | `3000` |
-| `--listen <host>` | Bind host | `0.0.0.0` |
-| `--config-dir <path>` | Configuration directory | `~/.ccsandbox` |
-| `--repo-dir <path>` | Repository directory | `~/.ccsandbox/repo` |
-| `--devcontainer-cli <path>` | devcontainer CLI path | (auto-detect) |
+| Option                      | Description             | Default             |
+| --------------------------- | ----------------------- | ------------------- |
+| `--port <port>`             | Port                    | `3000`              |
+| `--listen <host>`           | Bind host               | `0.0.0.0`           |
+| `--config-dir <path>`       | Configuration directory | `~/.ccsandbox`      |
+| `--repo-dir <path>`         | Repository directory    | `~/.ccsandbox/repo` |
+| `--devcontainer-cli <path>` | devcontainer CLI path   | (auto-detect)       |
 
 ### Examples
 
