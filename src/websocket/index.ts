@@ -58,6 +58,8 @@ function isValidTerminalClientMessage(message: unknown): message is TerminalClie
       return typeof msg['permissionMode'] === 'string';
     case 'claude-interrupt':
       return true;
+    case 'claude-clear':
+      return true;
     case 'pong':
       return typeof msg['timestamp'] === 'number';
     default:

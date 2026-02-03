@@ -94,6 +94,15 @@ interface PlanFilePathChangedSubscription {
   callback: PlanFilePathChangedCallback;
 }
 
+interface ClaudeClearedCallback {
+  (): void;
+}
+
+interface ClaudeClearedSubscription {
+  tabId: string;
+  callback: ClaudeClearedCallback;
+}
+
 /**
  * Buffer for terminal output per tab
  * Used to accumulate output when tab is in background
@@ -144,6 +153,10 @@ export interface UseTerminalWebSocketReturn {
    * Interrupt the current Claude processing
    */
   interruptClaude: () => void;
+  /**
+   * Clear Claude context by restarting the process
+   */
+  clearClaude: () => void;
   onClaudeEvent: (tabId: string, callback: ClaudeEventCallback) => () => void;
   onClaudeHistory: (tabId: string, callback: ClaudeHistoryCallback) => () => void;
   onClaudePermissionResolved: (tabId: string, callback: ClaudePermissionResolvedCallback) => () => void;
@@ -151,6 +164,7 @@ export interface UseTerminalWebSocketReturn {
   onClaudeTodosUpdated: (tabId: string, callback: ClaudeTodosUpdatedCallback) => () => void;
   onPermissionModeChanged: (tabId: string, callback: PermissionModeChangedCallback) => () => void;
   onPlanFilePathChanged: (tabId: string, callback: PlanFilePathChangedCallback) => () => void;
+  onClaudeCleared: (tabId: string, callback: ClaudeClearedCallback) => () => void;
 }
 
 // Reconnect backoff configuration
@@ -184,6 +198,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
   const claudeTodosUpdatedSubscriptionsRef = useRef<ClaudeTodosUpdatedSubscription[]>([]);
   const claudePermissionModeChangedSubscriptionsRef = useRef<PermissionModeChangedSubscription[]>([]);
   const claudePlanFilePathChangedSubscriptionsRef = useRef<PlanFilePathChangedSubscription[]>([]);
+  const claudeClearedSubscriptionsRef = useRef<ClaudeClearedSubscription[]>([]);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectDelayRef = useRef<number>(RECONNECT_BASE_DELAY);
   // Buffer for terminal output per tab (accumulates when tab is in background)
@@ -361,6 +376,14 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
           }
           break;
 
+        case 'claude-cleared':
+          for (const sub of claudeClearedSubscriptionsRef.current) {
+            if (sub.tabId === message.tabId) {
+              sub.callback();
+            }
+          }
+          break;
+
         case 'ping':
           // Respond to heartbeat ping with pong
           sendMessage({ type: 'pong', timestamp: message.timestamp });
@@ -409,6 +432,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     claudeUserMessageSubscriptionsRef.current = [];
     claudeTodosUpdatedSubscriptionsRef.current = [];
     claudePermissionModeChangedSubscriptionsRef.current = [];
+    claudeClearedSubscriptionsRef.current = [];
     terminalOutputBuffersRef.current.clear();
   }, []);
 
@@ -654,6 +678,10 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     sendMessage({ type: 'claude-interrupt' });
   }, [sendMessage]);
 
+  const clearClaude = useCallback(() => {
+    sendMessage({ type: 'claude-clear' });
+  }, [sendMessage]);
+
   const onClaudeEvent = useCallback(
     (tabId: string, callback: ClaudeEventCallback): (() => void) => {
       const subscription = { tabId, callback };
@@ -752,6 +780,20 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     []
   );
 
+  const onClaudeCleared = useCallback(
+    (tabId: string, callback: ClaudeClearedCallback): (() => void) => {
+      const subscription = { tabId, callback };
+      claudeClearedSubscriptionsRef.current.push(subscription);
+
+      return () => {
+        claudeClearedSubscriptionsRef.current = claudeClearedSubscriptionsRef.current.filter(
+          (s) => s !== subscription
+        );
+      };
+    },
+    []
+  );
+
   return {
     isConnected,
     connectionState,
@@ -774,6 +816,7 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     respondToPermission,
     changePermissionMode,
     interruptClaude,
+    clearClaude,
     onClaudeEvent,
     onClaudeHistory,
     onClaudePermissionResolved,
@@ -781,5 +824,6 @@ export function useTerminalWebSocket(sessionId: string | null): UseTerminalWebSo
     onClaudeTodosUpdated,
     onPermissionModeChanged,
     onPlanFilePathChanged,
+    onClaudeCleared,
   };
 }
