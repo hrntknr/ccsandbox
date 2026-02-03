@@ -264,6 +264,12 @@ router.delete(
     try {
       const session = await store.get(id);
 
+      // Clean up terminal, Claude processes, port forwardings, and tabs for this session
+      getTerminalManager().killBySession(id);
+      getClaudeManager().killBySession(id);
+      getPortForwardingManager().stopAll(id);
+      getConnectionManager().clearSessionTabs(id);
+
       // Remove container if it exists
       if (session.containerId) {
         try {
