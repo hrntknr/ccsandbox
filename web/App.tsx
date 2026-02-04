@@ -3,6 +3,7 @@ import type { Session, ClientConfig, GitStatus } from '@shared/index.js';
 import { SessionList } from './components/SessionList';
 import { TerminalPane } from './components/TerminalPane';
 import { NewSessionModal } from './components/NewSessionModal';
+import { SessionCreationWidget, type SessionCreationRequest } from './components/SessionCreationWidget';
 import { SettingsModal } from './components/SettingsModal';
 import { PortForwardingModal } from './components/PortForwardingModal';
 import { useDeleteSession, useStartSession, useStopSession, useClientConfig, useGitStatus } from './hooks/useApi';
@@ -18,6 +19,7 @@ const MAX_SIDEBAR_WIDTH = 500;
 export function App() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [isNewSessionModalOpen, setIsNewSessionModalOpen] = useState(false);
+  const [sessionCreations, setSessionCreations] = useState<SessionCreationRequest[]>([]);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isPortsModalOpen, setIsPortsModalOpen] = useState(false);
   const [portsSessionId, setPortsSessionId] = useState<string | null>(null);
@@ -95,6 +97,26 @@ export function App() {
 
   const handleCloseNewSessionModal = useCallback(() => {
     setIsNewSessionModalOpen(false);
+  }, []);
+
+  const handleStartCreation = useCallback((request: SessionCreationRequest) => {
+    setSessionCreations((prev) => [...prev, request]);
+  }, []);
+
+  const handleCreationComplete = useCallback((id: string, _session: Session) => {
+    // Session will be added to the list via WebSocket sync
+    // Remove from creations after a short delay to show success state
+    setTimeout(() => {
+      setSessionCreations((prev) => prev.filter((c) => c.id !== id));
+    }, 2000);
+  }, []);
+
+  const handleCreationError = useCallback((_id: string, _error: string) => {
+    // Keep the widget visible so user can see the error
+  }, []);
+
+  const handleCreationCancel = useCallback((id: string) => {
+    setSessionCreations((prev) => prev.filter((c) => c.id !== id));
   }, []);
 
   const handleOpenSettings = useCallback(() => {
@@ -225,18 +247,35 @@ export function App() {
         className="w-1 h-full bg-vscode-border hover:bg-vscode-accent cursor-col-resize shrink-0 max-md:hidden transition-colors"
         onMouseDown={handleResizeStart}
       />
-      <div className={`flex-1 h-full min-w-0 max-md:min-h-0 ${mobileView !== 'terminal' ? 'max-md:hidden' : ''}`}>
+      <div
+        id="terminal-pane-container"
+        className={`flex-1 h-full min-w-0 max-md:min-h-0 relative ${mobileView !== 'terminal' ? 'max-md:hidden' : ''}`}
+      >
         <TerminalPane
           session={selectedSession}
           defaultPermissionMode={clientConfig?.defaultPermissionMode}
           speechRecognitionLanguage={clientConfig?.speechRecognitionLanguage}
+          hasTopRightOverlay={sessionCreations.length > 0}
         />
       </div>
 
       <NewSessionModal
         isOpen={isNewSessionModalOpen}
         onClose={handleCloseNewSessionModal}
+        onStartCreation={handleStartCreation}
       />
+
+      {/* Session creation widgets */}
+      {sessionCreations.map((request, index) => (
+        <SessionCreationWidget
+          key={request.id}
+          request={request}
+          index={index}
+          onComplete={handleCreationComplete}
+          onError={handleCreationError}
+          onCancel={handleCreationCancel}
+        />
+      ))}
 
       <SettingsModal
         isOpen={isSettingsModalOpen}
