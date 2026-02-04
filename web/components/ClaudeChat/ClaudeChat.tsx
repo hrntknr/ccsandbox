@@ -351,6 +351,12 @@ export function ClaudeChat({
   useEffect(() => {
     if (!isActive) return;
 
+    // Skip when input is focused (keyboard opening on mobile)
+    const activeElement = document.activeElement;
+    if (activeElement?.tagName === 'TEXTAREA' || activeElement?.tagName === 'INPUT') {
+      return;
+    }
+
     if (isAtBottomRef.current) {
       scrollToBottom('instant');
     }
@@ -380,6 +386,13 @@ export function ClaudeChat({
     if (!messageList) return;
 
     const observer = new ResizeObserver(() => {
+      // Skip auto-scroll when input is focused (e.g., keyboard opening on mobile)
+      // This prevents unwanted scrolling when virtual keyboard appears
+      const activeElement = document.activeElement;
+      if (activeElement?.tagName === 'TEXTAREA' || activeElement?.tagName === 'INPUT') {
+        return;
+      }
+
       if (isAtBottomRef.current) {
         // Mark as scrolling to prevent scroll events from clearing isAtBottom
         // This is critical when large elements (e.g., headings) cause layout shifts
