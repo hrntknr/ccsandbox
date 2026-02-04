@@ -10,13 +10,15 @@ interface TerminalPaneProps {
   session: Session | null;
   defaultPermissionMode?: PermissionMode;
   speechRecognitionLanguage?: string;
+  /** Whether there's an overlay widget at top-right (e.g., minimized session creation) */
+  hasTopRightOverlay?: boolean;
 }
 
 interface LocalTab extends TerminalTab {
   isEditing?: boolean;
 }
 
-export function TerminalPane({ session, defaultPermissionMode, speechRecognitionLanguage }: TerminalPaneProps) {
+export function TerminalPane({ session, defaultPermissionMode, speechRecognitionLanguage, hasTopRightOverlay = false }: TerminalPaneProps) {
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
@@ -332,10 +334,10 @@ export function TerminalPane({ session, defaultPermissionMode, speechRecognition
           )
         )}
 
-        {/* Floating diff badge - always at top-right */}
+        {/* Floating diff badge - always at top-right, offset if overlay exists */}
         {isRunning && diffStats && (diffStats.insertions > 0 || diffStats.deletions > 0) && (
           <button
-            className="absolute top-4 right-4 bg-vscode-bg-secondary border border-vscode-border px-3 py-1.5 rounded-md text-sm cursor-pointer hover:bg-[#3c3c3c] z-10 transition-all"
+            className={`absolute ${hasTopRightOverlay ? 'top-16' : 'top-4'} right-4 bg-vscode-bg-secondary border border-vscode-border px-3 py-1.5 rounded-md text-sm cursor-pointer hover:bg-[#3c3c3c] z-10 transition-all`}
             onClick={() => setShowDiffView(true)}
             title="View diff"
           >
@@ -356,8 +358,12 @@ export function TerminalPane({ session, defaultPermissionMode, speechRecognition
           // Show badge if there are ports or suggestions
           if (ports.length === 0 && suggestionsCount === 0) return null;
 
+          // Calculate top position based on overlay and diff badge
+          const baseTop = hasTopRightOverlay ? 16 : 4; // top-16 or top-4 in tailwind units
+          const topClass = hasDiffBadge ? `top-${baseTop + 10}` : `top-${baseTop}`;
+
           return (
-            <div className={`absolute ${hasDiffBadge ? 'top-14' : 'top-4'} right-4 z-10`}>
+            <div className={`absolute ${hasDiffBadge ? (hasTopRightOverlay ? 'top-[6.5rem]' : 'top-14') : (hasTopRightOverlay ? 'top-16' : 'top-4')} right-4 z-10`}>
               <button
                 className="bg-vscode-bg-secondary border border-vscode-border px-3 py-1.5 rounded-md text-sm cursor-pointer hover:bg-[#3c3c3c] transition-all flex items-center gap-1.5"
                 onClick={() => setShowPortList(!showPortList)}
