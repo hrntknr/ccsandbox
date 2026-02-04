@@ -66,7 +66,7 @@ async function fileToImageAttachment(file: File): Promise<ImageAttachment> {
   });
 }
 
-export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPermissionMode, defaultPermissionMode = 'default', speechRecognitionLanguage }: InputFormProps) {
+export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPermissionMode, defaultPermissionMode = 'bypassPermissions', speechRecognitionLanguage }: InputFormProps) {
   const [input, setInput] = useState('');
   const [permissionMode, setPermissionMode] = useState<PermissionMode>(defaultPermissionMode);
   const [images, setImages] = useState<ImageAttachment[]>([]);

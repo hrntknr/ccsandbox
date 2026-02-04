@@ -52,7 +52,7 @@ export function SettingsModal({
   const [authPassword, setAuthPassword] = useState('');
   const [authPasswordConfirm, setAuthPasswordConfirm] = useState('');
   const [maxThinkingTokens, setMaxThinkingTokens] = useState('10000');
-  const [defaultPermissionMode, setDefaultPermissionMode] = useState<PermissionMode>('default');
+  const [defaultPermissionMode, setDefaultPermissionMode] = useState<PermissionMode>('bypassPermissions');
   const [speechRecognitionLanguage, setSpeechRecognitionLanguage] = useState(SPEECH_DISABLED);
   const [disableAuth, setDisableAuth] = useState(false);
 
@@ -71,7 +71,7 @@ export function SettingsModal({
       setAuthPassword('');
       setAuthPasswordConfirm('');
       setMaxThinkingTokens(String(initialConfig.maxThinkingTokens ?? 10000));
-      setDefaultPermissionMode(initialConfig.defaultPermissionMode ?? 'default');
+      setDefaultPermissionMode(initialConfig.defaultPermissionMode ?? 'bypassPermissions');
       setSpeechRecognitionLanguage(initialConfig.speechRecognitionLanguage ?? SPEECH_DISABLED);
       setDisableAuth(initialConfig.disableAuth ?? false);
     }

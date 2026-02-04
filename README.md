@@ -53,6 +53,7 @@ This tool is mainly about choosing the right execution environment and tools, bu
 
 * **Ship a project-specific development environment (devcontainer support)**
 
+  * Devcontainer is one of [Claude Code's recommended best practices](https://docs.anthropic.com/en/docs/claude-code/tutorials#use-devcontainers)
   * Include a devcontainer configuration in the repo to handle environment-specific setup
   * Improves reproducibility for team development and onboarding
 
@@ -64,6 +65,21 @@ This tool is mainly about choosing the right execution environment and tools, bu
 
   * Doesn't require a Claude Code plan
   * Works in environments where traffic must go through a company API proxy
+
+## Advantages (vs. claudecodeui)
+
+Compared to [siteboon/claudecodeui](https://github.com/siteboon/claudecodeui):
+
+- **Sandboxed execution** – Each session runs inside a devcontainer, so YOLO mode can be used safely without affecting your host machine.
+- **Full tool support** – Handles `AskUserQuestion` and `EnterPlanMode` tools that claudecodeui does not support.
+- **Project lifecycle management** – Manages git operations (clone, branch, checkout) per session, making it easy to work on multiple PRs in parallel.
+
+## Advantages (vs. claude-code-sandbox / claudebox)
+
+Compared to [textcortex/claude-code-sandbox](https://github.com/textcortex/claude-code-sandbox) and [RchGrav/claudebox](https://github.com/RchGrav/claudebox):
+
+- **Multi-session support** – Manage multiple repositories and workspaces simultaneously, enabling parallel development across different projects or branches.
+- **Web UI included** – Provides a browser-based interface out of the box; no additional setup required.
 
 ## Requirements
 
