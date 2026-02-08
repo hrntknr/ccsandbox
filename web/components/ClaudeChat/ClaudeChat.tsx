@@ -561,6 +561,7 @@ export function ClaudeChat({
           {/* Todo List - above input form */}
           <TodoList todos={todos} />
           <InputForm
+            tabId={tabId}
             onSubmit={handleSubmit}
             onInterrupt={interruptClaude}
             disabled={isLoading || pendingPermissions.length > 0 || !isConnected}
