@@ -12,7 +12,11 @@ const MAX_IMAGES = 10;
 /** Allowed MIME types */
 const ALLOWED_TYPES: ImageAttachment['mediaType'][] = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
 
+/** sessionStorage key prefix for per-tab draft persistence */
+const DRAFT_KEY_PREFIX = 'claude-draft:';
+
 interface InputFormProps {
+  tabId: string;
   onSubmit: (content: string, permissionMode: PermissionMode, images?: ImageAttachment[]) => void;
   onInterrupt: () => void;
   disabled: boolean;
@@ -66,8 +70,14 @@ async function fileToImageAttachment(file: File): Promise<ImageAttachment> {
   });
 }
 
-export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPermissionMode, defaultPermissionMode = 'bypassPermissions', speechRecognitionLanguage }: InputFormProps) {
-  const [input, setInput] = useState('');
+export function InputForm({ tabId, onSubmit, onInterrupt, disabled, isActive, backendPermissionMode, defaultPermissionMode = 'bypassPermissions', speechRecognitionLanguage }: InputFormProps) {
+  const [input, setInput] = useState(() => {
+    try {
+      return sessionStorage.getItem(`${DRAFT_KEY_PREFIX}${tabId}`) ?? '';
+    } catch {
+      return '';
+    }
+  });
   const [permissionMode, setPermissionMode] = useState<PermissionMode>(defaultPermissionMode);
   const [images, setImages] = useState<ImageAttachment[]>([]);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
@@ -106,6 +116,19 @@ export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPe
     }
   }, [defaultPermissionMode, backendPermissionMode]);
 
+  // Persist draft input to sessionStorage per tab
+  useEffect(() => {
+    try {
+      if (input) {
+        sessionStorage.setItem(`${DRAFT_KEY_PREFIX}${tabId}`, input);
+      } else {
+        sessionStorage.removeItem(`${DRAFT_KEY_PREFIX}${tabId}`);
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [input, tabId]);
+
   // Auto-resize textarea
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -127,6 +150,7 @@ export function InputForm({ onSubmit, onInterrupt, disabled, isActive, backendPe
         }
         onSubmit(trimmed, permissionMode, images.length > 0 ? images : undefined);
         setInput('');
+        try { sessionStorage.removeItem(`${DRAFT_KEY_PREFIX}${tabId}`); } catch { /* ignore */ }
         // Clear images after submit
         setImages([]);
         // Revoke object URLs to free memory

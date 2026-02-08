@@ -85,15 +85,19 @@ export function ExitPlanModeDialog({
   }, [sessionId, planFilePath]);
 
   const handleConfirm = useCallback(() => {
-    // Use selected option, or fall back to first option if custom input is focused
-    const option = selectedOption
-      ? options.find((o) => o.id === selectedOption)
-      : options[0];
+    if (selectedOption === null) {
+      // Custom input mode: send as deny with feedback (stay in plan mode)
+      if (customMessage.trim()) {
+        onResponse(permission.requestId, 'deny', { feedback: customMessage.trim() }, 'plan');
+      }
+      return;
+    }
+    const option = options.find((o) => o.id === selectedOption);
     if (option) {
       // Pass the selected mode with the response so backend sets it before allowing
       onResponse(permission.requestId, 'allow', undefined, option.mode);
     }
-  }, [selectedOption, permission.requestId, onResponse]);
+  }, [selectedOption, customMessage, permission.requestId, onResponse]);
 
   const handleDeny = useCallback(() => {
     // Deny and stay in plan mode
