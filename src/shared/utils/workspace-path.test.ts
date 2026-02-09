@@ -24,19 +24,19 @@ describe('extractRepoName', () => {
 });
 
 describe('generateWorkspaceDirName', () => {
-  it('generates dir name from repo and branch', () => {
+  it('generates dir name from repo and branch with random suffix', () => {
     const result = generateWorkspaceDirName('owner/myrepo', 'main');
-    expect(result).toBe('myrepo.main');
+    expect(result).toMatch(/^myrepo\.main\.[a-z0-9]{6}$/);
   });
 
   it('escapes slashes in branch name', () => {
     const result = generateWorkspaceDirName('owner/myrepo', 'feature/foo');
-    expect(result).toBe('myrepo.feature_foo');
+    expect(result).toMatch(/^myrepo\.feature_foo\.[a-z0-9]{6}$/);
   });
 
   it('escapes special characters in branch name', () => {
     const result = generateWorkspaceDirName('owner/myrepo', 'bugfix/foo:bar');
-    expect(result).toBe('myrepo.bugfix_foo_bar');
+    expect(result).toMatch(/^myrepo\.bugfix_foo_bar\.[a-z0-9]{6}$/);
   });
 
   it('collapses consecutive underscores', () => {
@@ -44,27 +44,37 @@ describe('generateWorkspaceDirName', () => {
       'owner/myrepo',
       'feature//multiple///slashes'
     );
-    expect(result).toBe('myrepo.feature_multiple_slashes');
+    expect(result).toMatch(/^myrepo\.feature_multiple_slashes\.[a-z0-9]{6}$/);
+  });
+
+  it('generates different suffixes on each call', () => {
+    const results = new Set(
+      Array.from({ length: 10 }, () =>
+        generateWorkspaceDirName('owner/myrepo', 'main')
+      )
+    );
+    expect(results.size).toBeGreaterThan(1);
   });
 });
 
 describe('generateWorkspacePath', () => {
-  it('generates full workspace path', () => {
+  it('generates full workspace path with random suffix', () => {
     const result = generateWorkspacePath(
       '/home/user/.ccsandbox',
       'owner/myrepo',
       'feature/foo'
     );
-    expect(result).toBe('/home/user/.ccsandbox/myrepo.feature_foo');
+    expect(result).toMatch(
+      /^\/home\/user\/\.ccsandbox\/myrepo\.feature_foo\.[a-z0-9]{6}$/
+    );
   });
 
-  it('handles Windows-style paths on Windows', () => {
-    // This test validates that join() works correctly
+  it('generates full workspace path for simple branch', () => {
     const result = generateWorkspacePath(
       '/var/repos',
       'owner/myrepo',
       'main'
     );
-    expect(result).toBe('/var/repos/myrepo.main');
+    expect(result).toMatch(/^\/var\/repos\/myrepo\.main\.[a-z0-9]{6}$/);
   });
 });

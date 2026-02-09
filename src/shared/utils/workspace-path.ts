@@ -17,9 +17,24 @@ export function extractRepoName(repo: string): string {
 }
 
 /**
+ * Generates a random alphanumeric suffix.
+ */
+function generateRandomSuffix(length = 6): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+/**
  * Generates a workspace directory name from repository and branch.
  *
- * Format: {repoName}.{workBranchEscaped}
+ * Format: {repoName}.{workBranchEscaped}.{randomSuffix}
+ *
+ * A random suffix is always appended to allow multiple sessions
+ * on the same branch to coexist.
  *
  * @param repo - Repository in "owner/name" format
  * @param workBranch - Work branch name
@@ -31,7 +46,8 @@ export function generateWorkspaceDirName(
 ): string {
   const repoName = extractRepoName(repo);
   const escapedBranch = escapeBranchName(workBranch);
-  return `${repoName}.${escapedBranch}`;
+  const suffix = generateRandomSuffix();
+  return `${repoName}.${escapedBranch}.${suffix}`;
 }
 
 /**
